@@ -106,7 +106,6 @@ export const siteContent: SiteContent = {
   ],
   contact: {
     address: "15 rue Ferdinand Duval, 75004 PARIS",
-    phone: "+33 1 XX XX XX XX",
     email: "contact@srh-info.org",
     website: "https://www.srh-info.org"
   }

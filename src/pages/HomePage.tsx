@@ -35,25 +35,6 @@ const HomePage: React.FC = () => {
             </div>
           </div>
         </div>
-        
-        {/* Right side images positioned on the blue background */}
-        <div className="absolute bottom-8 right-8 hidden lg:flex gap-4">
-          <img 
-            src={homepageRight1} 
-            alt="Radiologie 1"
-            className="w-24 h-24 rounded-lg shadow-lg object-cover"
-          />
-          <img 
-            src={homepageRight2} 
-            alt="Radiologie 2"
-            className="w-24 h-24 rounded-lg shadow-lg object-cover"
-          />
-          <img 
-            src={homepageRight3} 
-            alt="Radiologie 3"
-            className="w-24 h-24 rounded-lg shadow-lg object-cover"
-          />
-        </div>
       </section>
 
       {/* Actualités Section - matching original card layout */}

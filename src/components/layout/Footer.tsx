@@ -17,9 +17,6 @@ const Footer: React.FC = () => {
             </p>
             <div className="text-sm text-gray-400">
               <p>{siteContent.contact.address}</p>
-              {siteContent.contact.phone && (
-                <p className="mt-1">{siteContent.contact.phone}</p>
-              )}
               {siteContent.contact.email && (
                 <p className="mt-1">{siteContent.contact.email}</p>
               )}
