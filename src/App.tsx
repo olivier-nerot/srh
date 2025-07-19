@@ -6,6 +6,7 @@ import NosInformations from './pages/NosInformations';
 import TextesOfficiels from './pages/TextesOfficiels';
 import NosLiens from './pages/NosLiens';
 import ContactezNous from './pages/ContactezNous';
+import Login from './pages/Login';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/textes-officiels" element={<TextesOfficiels />} />
           <Route path="/nos-liens" element={<NosLiens />} />
           <Route path="/contactez-nous" element={<ContactezNous />} />
+          <Route path="/login" element={<Login />} />
           {/* External links */}
           <Route path="/jadhere-au-srh" element={<div>Redirection vers le formulaire d'adhésion...</div>} />
         </Route>

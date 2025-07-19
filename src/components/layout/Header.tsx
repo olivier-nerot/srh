@@ -64,14 +64,12 @@ const Header: React.FC = () => {
             >
               J'adhère au SRH
             </Link>
-            <a
-              href="https://app.srh-info.org/"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to="/login"
               className="bg-srh-blue hover:bg-srh-blue-dark text-white px-6 py-2 rounded-md text-sm font-medium transition-colors"
             >
               Espace adhérent
-            </a>
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -123,14 +121,12 @@ const Header: React.FC = () => {
                 >
                   J'adhère au SRH
                 </Link>
-                <a
-                  href="https://app.srh-info.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  to="/login"
                   className="block w-full bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md text-sm font-medium text-center transition-colors"
                 >
                   Espace adhérent
-                </a>
+                </Link>
               </div>
             </div>
           </div>

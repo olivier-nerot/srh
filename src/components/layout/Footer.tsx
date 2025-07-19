@@ -5,7 +5,7 @@ import { siteContent } from '../../data/content';
 const Footer: React.FC = () => {
   return (
     <footer className="bg-gray-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Logo and Description */}
           <div>
@@ -38,20 +38,6 @@ const Footer: React.FC = () => {
                   >
                     {item.title}
                   </Link>
-                  {item.children && (
-                    <ul className="ml-4 mt-2 space-y-1">
-                      {item.children.map((child) => (
-                        <li key={child.title}>
-                          <Link
-                            to={child.href}
-                            className="text-gray-400 hover:text-gray-300 transition-colors text-sm"
-                          >
-                            {child.title}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </li>
               ))}
             </ul>
@@ -77,7 +63,7 @@ const Footer: React.FC = () => {
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8">
+        <div className="border-t border-gray-800 mt-6 pt-6">
           <div className="flex flex-col sm:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
               © {new Date().getFullYear()} Syndicat des Radiologues Hospitaliers. Tous droits réservés.

@@ -11,22 +11,26 @@ const NosLiens: React.FC = () => {
         {
           name: "Ministère de la Santé et de la Prévention",
           url: "https://sante.gouv.fr/",
-          description: "Site officiel du ministère de la Santé"
+          description: "Site officiel du ministère de la Santé",
+          logo: "https://upload.wikimedia.org/wikipedia/fr/thumb/4/49/Minist%C3%A8re_des_Solidarit%C3%A9s_et_de_la_Sant%C3%A9.svg/200px-Minist%C3%A8re_des_Solidarit%C3%A9s_et_de_la_Sant%C3%A9.svg.png"
         },
         {
           name: "Agence Nationale de Sécurité du Médicament (ANSM)",
           url: "https://ansm.sante.fr/",
-          description: "Autorité de santé française pour les médicaments et dispositifs médicaux"
+          description: "Autorité de santé française pour les médicaments et dispositifs médicaux",
+          logo: "https://ansm.sante.fr/var/site/storage/images/_aliases/logo_main/media/logo-ansm/203-1-fre-FR/LOGO-ANSM.png"
         },
         {
           name: "Haute Autorité de Santé (HAS)",
           url: "https://www.has-sante.fr/",
-          description: "Autorité publique indépendante à caractère scientifique"
+          description: "Autorité publique indépendante à caractère scientifique",
+          logo: "https://www.has-sante.fr/themes/custom/has/logo.svg"
         },
         {
           name: "Direction Générale de l'Offre de Soins (DGOS)",
           url: "https://sante.gouv.fr/ministere/organisation/directions/",
-          description: "Direction du ministère chargée de l'offre de soins"
+          description: "Direction du ministère chargée de l'offre de soins",
+          logo: "https://upload.wikimedia.org/wikipedia/fr/thumb/4/49/Minist%C3%A8re_des_Solidarit%C3%A9s_et_de_la_Sant%C3%A9.svg/200px-Minist%C3%A8re_des_Solidarit%C3%A9s_et_de_la_Sant%C3%A9.svg.png"
         }
       ]
     },
@@ -38,7 +42,8 @@ const NosLiens: React.FC = () => {
         {
           name: "Conseil National de l'Ordre des Médecins",
           url: "https://www.conseil-national.medecin.fr/",
-          description: "Instance ordinale des médecins en France"
+          description: "Instance ordinale des médecins en France",
+          logo: "https://www.conseil-national.medecin.fr/sites/default/files/logo_cnom.png"
         },
         {
           name: "Société Française de Radiologie (SFR)",
@@ -192,9 +197,21 @@ const NosLiens: React.FC = () => {
                       className={`border rounded-lg p-6 hover:shadow-lg transition-shadow ${getColorClasses(category.color)}`}
                     >
                       <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-lg font-semibold text-gray-900 flex-1">
-                          {link.name}
-                        </h3>
+                        <div className="flex items-start flex-1">
+                          {link.logo && (
+                            <img 
+                              src={link.logo} 
+                              alt={`Logo ${link.name}`}
+                              className="w-8 h-8 mr-3 object-contain flex-shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          )}
+                          <h3 className="text-lg font-semibold text-gray-900 flex-1">
+                            {link.name}
+                          </h3>
+                        </div>
                         <ExternalLink className="h-5 w-5 text-gray-400 ml-2 flex-shrink-0" />
                       </div>
                       

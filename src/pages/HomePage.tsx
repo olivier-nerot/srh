@@ -10,21 +10,17 @@ import homepageRight3 from '../assets/images/homepage-right-3.webp';
 const HomePage: React.FC = () => {
   return (
     <div className="space-y-0">
-      {/* Hero Section - Recreate original design exactly */}
-      <section className="relative py-20 text-white bg-gradient-to-br from-srh-blue to-srh-blue-light">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center min-h-[500px]">
-            {/* Left - Brain Image */}
-            <div className="order-2 lg:order-1 relative">
-              <img 
-                src={homepageLeft} 
-                alt="Radiologie Hospitalière - Cerveau"
-                className="w-full h-auto max-w-lg mx-auto"
-              />
-            </div>
-            
-            {/* Right - Content */}
-            <div className="order-1 lg:order-2 text-center lg:text-left">
+      {/* Hero Section - Full background image */}
+      <section 
+        className="relative py-20 text-white min-h-[80vh] bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `linear-gradient(rgba(0, 51, 102, 0.7), rgba(0, 102, 204, 0.7)), url(${homepageLeft})`
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+          <div className="flex items-center justify-center lg:justify-end h-full min-h-[60vh]">
+            {/* Content positioned on the right */}
+            <div className="text-center lg:text-left max-w-lg">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
                 {siteContent.hero.title}
               </h1>
@@ -108,7 +104,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Job Offers Section - matching original design */}
-      <section className="py-16 bg-gray-900 text-white relative overflow-hidden">
+      <section className="py-16 bg-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left - Image */}
@@ -122,7 +118,7 @@ const HomePage: React.FC = () => {
             
             {/* Right - Content */}
             <div className="order-1 lg:order-2">
-              <div className="bg-white text-gray-900 rounded-lg p-8 shadow-lg">
+              <div className="bg-gray-50 text-gray-900 rounded-lg p-8 shadow-lg">
                 <h2 className="text-2xl font-bold mb-4 text-srh-blue">
                   Les offres de postes 2024
                 </h2>
