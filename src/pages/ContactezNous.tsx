@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Helmet } from 'react-helmet-async';
 import { MapPin, Upload } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -47,11 +46,6 @@ const ContactezNous: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Contactez-nous - SRH</title>
-        <meta name="description" content="Contactez le Syndicat des Radiologues Hospitaliers. Trouvez nos coordonnées et envoyez-nous un message." />
-      </Helmet>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-8">Contactez-nous</h1>
 

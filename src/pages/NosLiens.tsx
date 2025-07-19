@@ -1,5 +1,4 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
 import { ExternalLink, Building, FileText, Users, GraduationCap, Stethoscope } from 'lucide-react';
 
 const NosLiens: React.FC = () => {
@@ -165,11 +164,6 @@ const NosLiens: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Nos liens - SRH</title>
-        <meta name="description" content="Liens utiles pour les radiologues hospitaliers : institutions, organisations professionnelles, formation et ressources scientifiques." />
-      </Helmet>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-8">Nos liens</h1>
         

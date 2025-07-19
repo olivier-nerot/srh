@@ -1,5 +1,4 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
 import { Calendar, FileText } from 'lucide-react';
 
 const NosInformations: React.FC = () => {
@@ -51,11 +50,6 @@ const NosInformations: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Nos informations - SRH</title>
-        <meta name="description" content="Consultez nos publications et communiqués du Syndicat des Radiologues Hospitaliers." />
-      </Helmet>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-8">Nos informations</h1>
         

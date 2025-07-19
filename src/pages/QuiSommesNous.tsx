@@ -1,13 +1,8 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
 
 const QuiSommesNous: React.FC = () => {
   return (
     <>
-      <Helmet>
-        <title>Qui sommes-nous ? - SRH</title>
-        <meta name="description" content="Découvrez le Syndicat des Radiologues Hospitaliers, fondé en 1994, qui défend les intérêts professionnels des radiologues hospitaliers." />
-      </Helmet>
 
       {/* Blue curved header section */}
       <section className="bg-srh-blue text-white py-20 relative overflow-hidden">
