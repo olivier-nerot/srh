@@ -6,25 +6,25 @@ export const siteContent: SiteContent = {
       title: "Qui sommes-nous?",
       href: "/qui-sommes-nous",
       children: [
-        { title: "Présentation", href: "/qui-sommes-nous#presentation" },
-        { title: "Conseil d'administration", href: "/qui-sommes-nous#membres" },
-        { title: "Les statuts", href: "/qui-sommes-nous#statuts" }
+        { title: "Présentation", href: "/presentation" },
+        { title: "Bureau", href: "/bureau" },
+        { title: "Les statuts", href: "/statuts" }
       ]
     },
     {
       title: "Nos informations",
       href: "/nos-informations",
       children: [
-        { title: "Nos publications", href: "/nos-informations#publications" },
-        { title: "Communiqués", href: "/nos-informations#communiques" }
+        { title: "Nos publications", href: "/publications" },
+        { title: "Communiqués", href: "/communiques" }
       ]
     },
     {
       title: "Textes officiels",
       href: "/textes-officiels",
       children: [
-        { title: "Textes du Journal Officiel", href: "/textes-officiels#jo" },
-        { title: "Rapports institutionnels", href: "/textes-officiels#rapports" }
+        { title: "Textes du Journal Officiel", href: "/jo" },
+        { title: "Rapports institutionnels", href: "/rapports" }
       ]
     },
     {

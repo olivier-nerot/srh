@@ -12,6 +12,8 @@
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
     "@libsql/client": "^0.15.10",
+    "@stripe/react-stripe-js": "^3.7.0",
+    "@stripe/stripe-js": "^7.5.0",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/vite": "^4.1.11",
     "@types/react-router-dom": "^5.3.3",

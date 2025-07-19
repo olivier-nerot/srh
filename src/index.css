@@ -1,7 +1,7 @@
-@import "tailwindcss";
-
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Roboto:wght@100;300;400;500;700;900&family=K2D:wght@100;200;300;400;500;600;700;800&family=IBM+Plex+Sans:wght@100;200;300;400;500;600;700&display=swap');
+
+@import "tailwindcss";
 
 /* Tailwind v4 Theme Configuration */
 @theme {

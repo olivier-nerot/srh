@@ -12,7 +12,7 @@ const HomePage: React.FC = () => {
     <div className="space-y-0">
       {/* Hero Section - Full background image */}
       <section 
-        className="relative py-20 text-white min-h-[80vh] bg-cover bg-center bg-no-repeat"
+        className="relative py-20 text-white max-h-[60vh] bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: `linear-gradient(rgba(0, 51, 102, 0.7), rgba(0, 102, 204, 0.7)), url(${homepageLeft})`
         }}

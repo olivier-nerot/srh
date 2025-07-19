@@ -1,145 +1,210 @@
 import React from 'react';
 import { ExternalLink, Building, FileText, Users, GraduationCap, Stethoscope } from 'lucide-react';
 
+// Import partner logos
+import afibLogo from '../assets/images/partner-logos/afib.png';
+import afppeLogo from '../assets/images/partner-logos/afppe.png';
+import apirLogo from '../assets/images/partner-logos/apir.png';
+import appaLogo from '../assets/images/partner-logos/appa.jpg';
+import cngLogo from '../assets/images/partner-logos/cng.png';
+import cnehLogo from '../assets/images/partner-logos/cneh.png';
+import cerfLogo from '../assets/images/partner-logos/cerf.png';
+import aphpLogo from '../assets/images/partner-logos/aphp.png';
+import cnpmemLogo from '../assets/images/partner-logos/cnpmem.png';
+import cnomLogo from '../assets/images/partner-logos/cnom.png';
+import cnpg4Logo from '../assets/images/partner-logos/cnpg4.png';
+import fmcrimLogo from '../assets/images/partner-logos/fmcrim.png';
+import fhfLogo from '../assets/images/partner-logos/fhf.png';
+import fnmrLogo from '../assets/images/partner-logos/fnmr.png';
+import specialitesMedicalesLogo from '../assets/images/partner-logos/specialites-medicales.png';
+import lehLogo from '../assets/images/partner-logos/leh.png';
+import sfrLogo from '../assets/images/partner-logos/sfr.jpeg';
+import snamhpLogo from '../assets/images/partner-logos/snamhp.png';
+import unirLogo from '../assets/images/partner-logos/unir.png';
+import braccoLogo from '../assets/images/partner-logos/bracco.png';
+import fujifilmLogo from '../assets/images/partner-logos/fujifilm.png';
+import geHealthcareLogo from '../assets/images/partner-logos/ge-healthcare.png';
+import guerbetLogo from '../assets/images/partner-logos/guerbet.png';
+import siemensLogo from '../assets/images/partner-logos/siemens.png';
+import terumoLogo from '../assets/images/partner-logos/terumo.png';
+import toshibaLogo from '../assets/images/partner-logos/toshiba.png';
+
 const NosLiens: React.FC = () => {
   const linkCategories = [
     {
-      title: "Institutions et organismes officiels",
-      icon: Building,
+      title: "Organisations professionnelles et syndicats",
+      icon: Users,
       color: "blue",
       links: [
         {
-          name: "Ministère de la Santé et de la Prévention",
-          url: "https://sante.gouv.fr/",
-          description: "Site officiel du ministère de la Santé",
-          logo: "https://upload.wikimedia.org/wikipedia/fr/thumb/4/49/Minist%C3%A8re_des_Solidarit%C3%A9s_et_de_la_Sant%C3%A9.svg/200px-Minist%C3%A8re_des_Solidarit%C3%A9s_et_de_la_Sant%C3%A9.svg.png"
+          name: "Association Française des Ingénieurs Biomédicaux (AFIB)",
+          url: "https://afib.asso.fr/",
+          description: "Association des ingénieurs biomédicaux",
+          logo: afibLogo
         },
         {
-          name: "Agence Nationale de Sécurité du Médicament (ANSM)",
-          url: "https://ansm.sante.fr/",
-          description: "Autorité de santé française pour les médicaments et dispositifs médicaux",
-          logo: "https://ansm.sante.fr/var/site/storage/images/_aliases/logo_main/media/logo-ansm/203-1-fre-FR/LOGO-ANSM.png"
+          name: "Association Française du Personnel Paramédical d'Électroradiologie (AFPPE)",
+          url: "https://www.afppe.com/",
+          description: "Association du personnel paramédical d'électroradiologie",
+          logo: afppeLogo
         },
         {
-          name: "Haute Autorité de Santé (HAS)",
-          url: "https://www.has-sante.fr/",
-          description: "Autorité publique indépendante à caractère scientifique",
-          logo: "https://www.has-sante.fr/themes/custom/has/logo.svg"
+          name: "Association Parisienne des Internes en Radiologie (APIR)",
+          url: "https://www.apir-radio.com/",
+          description: "Association des internes en radiologie de Paris",
+          logo: apirLogo
         },
         {
-          name: "Direction Générale de l'Offre de Soins (DGOS)",
-          url: "https://sante.gouv.fr/ministere/organisation/directions/",
-          description: "Direction du ministère chargée de l'offre de soins",
-          logo: "https://upload.wikimedia.org/wikipedia/fr/thumb/4/49/Minist%C3%A8re_des_Solidarit%C3%A9s_et_de_la_Sant%C3%A9.svg/200px-Minist%C3%A8re_des_Solidarit%C3%A9s_et_de_la_Sant%C3%A9.svg.png"
+          name: "Association pour les Praticiens Hospitaliers et Assimilés (APPA)",
+          url: "https://www.appa-asso.org/appa",
+          description: "Association des praticiens hospitaliers",
+          logo: appaLogo
+        },
+        {
+          name: "Centre National de Gestion (CNG)",
+          url: "https://www.cng.sante.fr/",
+          description: "Gestion des carrières des praticiens hospitaliers",
+          logo: cngLogo
+        },
+        {
+          name: "Centre National d'Expertise Hospitalière (CNEH)",
+          url: "https://www.cneh.fr/",
+          description: "Centre d'expertise hospitalière",
+          logo: cnehLogo
+        },
+        {
+          name: "Collège des Enseignants de Radiologie de France (CERF)",
+          url: "https://cerf.radiologie.fr/",
+          description: "Collège universitaire de radiologie",
+          logo: cerfLogo
+        },
+        {
+          name: "Collégiale des Radiologues de l'AP-HP",
+          url: "https://www.radiologues-aphp.fr/",
+          description: "Collégiale des radiologues de l'Assistance Publique - Hôpitaux de Paris",
+          logo: aphpLogo
+        },
+        {
+          name: "Conseil National Professionnel de Médecine d'Urgence (CNPMEM)",
+          url: "https://www.cnpmem.fr/",
+          description: "Conseil national professionnel de médecine d'urgence",
+          logo: cnpmemLogo
+        },
+        {
+          name: "Conseil National de l'Ordre des Médecins (CNOM)",
+          url: "https://www.conseil-national.medecin.fr/",
+          description: "Instance ordinale des médecins en France",
+          logo: cnomLogo
         }
       ]
     },
     {
-      title: "Organisations professionnelles",
-      icon: Users,
+      title: "Sociétés savantes et formations",
+      icon: GraduationCap,
       color: "green",
       links: [
         {
-          name: "Conseil National de l'Ordre des Médecins",
-          url: "https://www.conseil-national.medecin.fr/",
-          description: "Instance ordinale des médecins en France",
-          logo: "https://www.conseil-national.medecin.fr/sites/default/files/logo_cnom.png"
+          name: "Centre National Professionnel de Gérontologie 4 (CNPG4)",
+          url: "https://www.cnpg4-radiologie.fr/",
+          description: "Centre national professionnel de gérontologie",
+          logo: cnpg4Logo
         },
         {
-          name: "Société Française de Radiologie (SFR)",
-          url: "https://www.sfr-radiologie.fr/",
-          description: "Société savante de radiologie française"
-        },
-        {
-          name: "Collège des Enseignants de Radiologie de France (CERF)",
-          url: "https://www.cerf.radiologie.fr/",
-          description: "Collège universitaire de radiologie"
+          name: "Fédération de Médecine Continue et de Recherche en Imagerie Médicale (FMCRIM)",
+          url: "http://www.fmcrim.fr/#accueil",
+          description: "Fédération de médecine continue en imagerie médicale",
+          logo: fmcrimLogo
         },
         {
           name: "Fédération Hospitalière de France (FHF)",
           url: "https://www.fhf.fr/",
-          description: "Fédération des établissements hospitaliers publics"
+          description: "Fédération des établissements hospitaliers publics",
+          logo: fhfLogo
+        },
+        {
+          name: "Fédération Nationale de Médecine du Travail et de Radioprotection (FNMR)",
+          url: "https://www.fnmr.org/",
+          description: "Fédération nationale de médecine du travail",
+          logo: fnmrLogo
+        },
+        {
+          name: "Intersyndicat National des Spécialités Médicales",
+          url: "http://www.specialitesmedicales.org/",
+          description: "Intersyndicat des spécialités médicales",
+          logo: specialitesMedicalesLogo
+        },
+        {
+          name: "Les Entreprises Hospitalières (LEH)",
+          url: "https://www.leh.fr/",
+          description: "Association des entreprises hospitalières",
+          logo: lehLogo
+        },
+        {
+          name: "Société Française de Radiologie (SFR)",
+          url: "http://www.sfrnet.org/",
+          description: "Société savante de radiologie française",
+          logo: sfrLogo
+        },
+        {
+          name: "Syndicat National des Médecins Hospitaliers Praticiens (SNAMHP)",
+          url: "https://www.snamhp.org/",
+          description: "Syndicat des médecins hospitaliers praticiens",
+          logo: snamhpLogo
+        },
+        {
+          name: "Union Nationale des Internes et Jeunes Radiologues (UNIR)",
+          url: "https://unir-radio.fr/",
+          description: "Union des internes et jeunes radiologues",
+          logo: unirLogo
         }
       ]
     },
     {
-      title: "Formation et emploi",
-      icon: GraduationCap,
-      color: "purple",
-      links: [
-        {
-          name: "Centre National de Gestion (CNG)",
-          url: "https://www.cng.sante.fr/",
-          description: "Gestion des carrières des praticiens hospitaliers"
-        },
-        {
-          name: "Journées Françaises de Radiologie (JFR)",
-          url: "https://www.jfr.radiologie.fr/",
-          description: "Congrès annuel de radiologie"
-        },
-        {
-          name: "Développement Professionnel Continu (DPC)",
-          url: "https://www.agencedpc.fr/",
-          description: "Plateforme de formation continue"
-        },
-        {
-          name: "UNAFORMEC Rhône-Alpes",
-          url: "https://www.unaformec-rhonealpes.org/",
-          description: "Union Nationale des Associations de Formation Médicale Continue"
-        }
-      ]
-    },
-    {
-      title: "Ressources techniques et scientifiques",
-      icon: Stethoscope,
+      title: "Partenaires industriels",
+      icon: Building,
       color: "red",
       links: [
         {
-          name: "Institut de Radioprotection et de Sûreté Nucléaire (IRSN)",
-          url: "https://www.irsn.fr/",
-          description: "Organisme public d'expertise et de recherche en radioprotection"
+          name: "Bracco",
+          url: "https://www.bracco.com/en",
+          description: "Entreprise spécialisée en produits de contraste et imagerie diagnostique",
+          logo: braccoLogo
         },
         {
-          name: "European Society of Radiology (ESR)",
-          url: "https://www.myesr.org/",
-          description: "Société européenne de radiologie"
+          name: "Fujifilm Healthcare",
+          url: "https://www.fujifilm.com/uk/en/healthcare",
+          description: "Solutions d'imagerie médicale et de diagnostic",
+          logo: fujifilmLogo
         },
         {
-          name: "Radiological Society of North America (RSNA)",
-          url: "https://www.rsna.org/",
-          description: "Société nord-américaine de radiologie"
+          name: "GE Healthcare",
+          url: "https://www.gehealthcare.fr/",
+          description: "Technologies médicales et solutions d'imagerie",
+          logo: geHealthcareLogo
         },
         {
-          name: "Société Française de Médecine Nucléaire (SFMN)",
-          url: "https://www.sfmn.org/",
-          description: "Société savante de médecine nucléaire"
-        }
-      ]
-    },
-    {
-      title: "Publications et documentation",
-      icon: FileText,
-      color: "yellow",
-      links: [
-        {
-          name: "Legifrance",
-          url: "https://www.legifrance.gouv.fr/",
-          description: "Service public de la diffusion du droit français"
+          name: "Guerbet",
+          url: "https://www.guerbet.com/fr",
+          description: "Spécialiste mondial des produits de contraste",
+          logo: guerbetLogo
         },
         {
-          name: "Journal Officiel de la République Française",
-          url: "https://www.journal-officiel.gouv.fr/",
-          description: "Publication officielle des lois et décrets"
+          name: "Siemens Healthineers",
+          url: "https://www.siemens-healthineers.com/fr",
+          description: "Technologies médicales avancées",
+          logo: siemensLogo
         },
         {
-          name: "PubMed",
-          url: "https://pubmed.ncbi.nlm.nih.gov/",
-          description: "Base de données de littérature médicale"
+          name: "Terumo Europe",
+          url: "http://terumo-europe.com/",
+          description: "Dispositifs médicaux et solutions interventionnelles",
+          logo: terumoLogo
         },
         {
-          name: "Journal of Medical Internet Research",
-          url: "https://www.jmir.org/",
-          description: "Revue scientifique en ligne sur la e-santé"
+          name: "Toshiba Medical",
+          url: "https://www.toshiba-medical.eu/fr/",
+          description: "Systèmes d'imagerie médicale",
+          logo: toshibaLogo
         }
       ]
     }
@@ -169,9 +234,18 @@ const NosLiens: React.FC = () => {
 
   return (
     <>
+      {/* Blue curved header section */}
+      <section className="bg-srh-blue text-white py-20 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Nos liens</h1>
+          <p className="text-xl opacity-90">Ressources et partenaires institutionnels</p>
+        </div>
+        {/* Curved bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-20 bg-white" 
+             style={{clipPath: 'ellipse(100% 100% at 50% 100%)'}}></div>
+      </section>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-8">Nos liens</h1>
-        
         <div className="mb-8">
           <p className="text-lg text-gray-700">
             Retrouvez ici une sélection de liens utiles pour votre pratique professionnelle : 
@@ -196,38 +270,45 @@ const NosLiens: React.FC = () => {
                       key={linkIndex}
                       className={`border rounded-lg p-6 hover:shadow-lg transition-shadow ${getColorClasses(category.color)}`}
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-start flex-1">
+                      <div className="flex gap-4 h-full">
+                        {/* Logo on the left */}
+                        <div className="flex-shrink-0 w-20">
                           {link.logo && (
                             <img 
                               src={link.logo} 
                               alt={`Logo ${link.name}`}
-                              className="w-8 h-8 mr-3 object-contain flex-shrink-0"
+                              className="w-full h-full object-contain bg-white rounded-lg border border-gray-200 p-2"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
                           )}
-                          <h3 className="text-lg font-semibold text-gray-900 flex-1">
-                            {link.name}
-                          </h3>
                         </div>
-                        <ExternalLink className="h-5 w-5 text-gray-400 ml-2 flex-shrink-0" />
+                        
+                        {/* Content on the right */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-2">
+                            <h3 className="text-lg font-semibold text-gray-900 flex-1">
+                              {link.name}
+                            </h3>
+                            <ExternalLink className="h-5 w-5 text-gray-400 ml-2 flex-shrink-0" />
+                          </div>
+                          
+                          <p className="text-gray-700 mb-4 text-sm">
+                            {link.description}
+                          </p>
+                          
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`inline-flex items-center text-sm font-medium hover:underline ${getIconColorClasses(category.color)}`}
+                          >
+                            Visiter le site
+                            <ExternalLink className="h-4 w-4 ml-1" />
+                          </a>
+                        </div>
                       </div>
-                      
-                      <p className="text-gray-700 mb-4 text-sm">
-                        {link.description}
-                      </p>
-                      
-                      <a
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`inline-flex items-center text-sm font-medium hover:underline ${getIconColorClasses(category.color)}`}
-                      >
-                        Visiter le site
-                        <ExternalLink className="h-4 w-4 ml-1" />
-                      </a>
                     </div>
                   ))}
                 </div>
