@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Building, FileText, Users, GraduationCap, Stethoscope } from 'lucide-react';
+import { ExternalLink, Building, Users, GraduationCap } from 'lucide-react';
 
 // Import partner logos
 import afibLogo from '../assets/images/partner-logos/afib.png';

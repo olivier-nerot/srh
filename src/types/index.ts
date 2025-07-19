@@ -13,6 +13,8 @@ export interface NewsItem {
   content: string;
   publishedAt: string;
   slug: string;
+  image?: string;
+  pdf?: string;
 }
 
 export interface JobPosting {

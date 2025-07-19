@@ -89,91 +89,91 @@ const InteractiveMap: React.FC = () => {
       <svg viewBox="0 0 590 562" className="w-full h-full relative z-10">
         {/* Île-de-France - positioned around Paris area */}
         <circle 
-          cx="295" cy="220" r="18"
+          cx="310" cy="200" r="18"
           className={`cursor-pointer transition-all ${selectedRegion === 'ile-de-france' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'ile-de-france' ? null : 'ile-de-france')}
         />
-        <text x="295" y="226" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">IDF</text>
+        <text x="310" y="206" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">IDF</text>
         
         {/* Hauts-de-France - positioned in north */}
         <circle 
-          cx="270" cy="130" r="15"
+          cx="290" cy="110" r="15"
           className={`cursor-pointer transition-all ${selectedRegion === 'hauts-de-france' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'hauts-de-france' ? null : 'hauts-de-france')}
         />
-        <text x="270" y="135" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">HDF</text>
+        <text x="290" y="115" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">HDF</text>
         
         {/* Bretagne - positioned in west */}
         <circle 
-          cx="140" cy="220" r="15"
+          cx="120" cy="240" r="15"
           className={`cursor-pointer transition-all ${selectedRegion === 'bretagne' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'bretagne' ? null : 'bretagne')}
         />
-        <text x="140" y="225" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">BRT</text>
+        <text x="120" y="245" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">BRT</text>
         
         {/* Normandie - positioned in northwest */}
         <circle 
-          cx="220" cy="160" r="15"
+          cx="240" cy="150" r="15"
           className={`cursor-pointer transition-all ${selectedRegion === 'normandie' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'normandie' ? null : 'normandie')}
         />
-        <text x="220" y="165" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">NOR</text>
+        <text x="240" y="155" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">NOR</text>
         
         {/* Nouvelle-Aquitaine - positioned in southwest */}
         <circle 
-          cx="180" cy="350" r="15"
+          cx="200" cy="360" r="15"
           className={`cursor-pointer transition-all ${selectedRegion === 'nouvelle-aquitaine' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'nouvelle-aquitaine' ? null : 'nouvelle-aquitaine')}
         />
-        <text x="180" y="355" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">NAQ</text>
+        <text x="200" y="365" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">NAO</text>
         
         {/* Occitanie - positioned in south center */}
         <circle 
-          cx="280" cy="400" r="15"
+          cx="300" cy="420" r="15"
           className={`cursor-pointer transition-all ${selectedRegion === 'occitanie' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'occitanie' ? null : 'occitanie')}
         />
-        <text x="280" y="405" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">OCC</text>
+        <text x="300" y="425" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">OCC</text>
         
         {/* Provence-Alpes-Côte d'Azur - positioned in southeast */}
         <circle 
-          cx="420" cy="410" r="15"
+          cx="430" cy="430" r="15"
           className={`cursor-pointer transition-all ${selectedRegion === 'provence-alpes' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'provence-alpes' ? null : 'provence-alpes')}
         />
-        <text x="420" y="415" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">PAC</text>
+        <text x="430" y="435" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">PAC</text>
         
         {/* Auvergne-Rhône-Alpes - positioned in east center */}
         <circle 
-          cx="380" cy="300" r="15"
+          cx="370" cy="320" r="15"
           className={`cursor-pointer transition-all ${selectedRegion === 'auvergne-rhone' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'auvergne-rhone' ? null : 'auvergne-rhone')}
         />
-        <text x="380" y="305" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">ARA</text>
+        <text x="370" y="325" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">ARA</text>
         
         {/* Grand Est - positioned in northeast */}
         <circle 
-          cx="420" cy="180" r="15"
+          cx="410" cy="170" r="15"
           className={`cursor-pointer transition-all ${selectedRegion === 'grand-est' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'grand-est' ? null : 'grand-est')}
         />
-        <text x="420" y="185" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">GE</text>
+        <text x="410" y="175" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">GE</text>
         
         {/* Bourgogne-Franche-Comté - positioned in east center */}
         <circle 
-          cx="350" cy="240" r="15"
+          cx="350" cy="250" r="15"
           className={`cursor-pointer transition-all ${selectedRegion === 'bourgogne' ? 'fill-srh-blue opacity-80' : 'fill-blue-400 hover:fill-blue-500 opacity-60 hover:opacity-80'}`}
           onClick={() => setSelectedRegion(selectedRegion === 'bourgogne' ? null : 'bourgogne')}
         />
-        <text x="350" y="245" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">BFC</text>
+        <text x="350" y="255" textAnchor="middle" className="text-xs font-bold fill-white pointer-events-none">BFC</text>
       </svg>
       
       {/* Selected Region Info Card */}
-      {selectedRegion && regionDelegates[selectedRegion] && (
+      {selectedRegion && regionDelegates[selectedRegion as keyof typeof regionDelegates] && (
         <div className="absolute top-4 right-4 bg-white shadow-lg rounded-lg p-4 max-w-xs border border-gray-200">
-          <h4 className="font-bold text-srh-blue mb-2">{regionDelegates[selectedRegion].name}</h4>
+          <h4 className="font-bold text-srh-blue mb-2">{regionDelegates[selectedRegion as keyof typeof regionDelegates].name}</h4>
           <div className="space-y-1">
-            {regionDelegates[selectedRegion].delegates.map((delegate, idx) => (
+            {regionDelegates[selectedRegion as keyof typeof regionDelegates].delegates.map((delegate: {name: string, city: string}, idx: number) => (
               <p key={idx} className="text-sm text-gray-700">
                 <strong>{delegate.name}</strong><br/>
                 {delegate.city}

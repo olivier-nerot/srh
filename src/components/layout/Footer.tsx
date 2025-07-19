@@ -96,7 +96,7 @@ const Footer: React.FC = () => {
                 Politique de confidentialité
               </Link>
               <Link
-                to="/statutes"
+                to="/statuts"
                 className="text-gray-400 hover:text-gray-300 text-sm transition-colors"
               >
                 Statuts du syndicat

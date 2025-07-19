@@ -169,11 +169,11 @@ const InteractiveMap: React.FC = () => {
       </svg>
       
       {/* Selected Region Info Card */}
-      {selectedRegion && regionDelegates[selectedRegion] && (
+      {selectedRegion && regionDelegates[selectedRegion as keyof typeof regionDelegates] && (
         <div className="absolute top-4 right-4 bg-white shadow-lg rounded-lg p-4 max-w-xs border border-gray-200">
-          <h4 className="font-bold text-srh-blue mb-2">{regionDelegates[selectedRegion].name}</h4>
+          <h4 className="font-bold text-srh-blue mb-2">{regionDelegates[selectedRegion as keyof typeof regionDelegates].name}</h4>
           <div className="space-y-1">
-            {regionDelegates[selectedRegion].delegates.map((delegate, idx) => (
+            {regionDelegates[selectedRegion as keyof typeof regionDelegates].delegates.map((delegate: {name: string, city: string}, idx: number) => (
               <p key={idx} className="text-sm text-gray-700">
                 <strong>{delegate.name}</strong><br/>
                 {delegate.city}

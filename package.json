@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/convert-pdfs.js && tsc -b && vite build",
+    "convert-pdfs": "node scripts/convert-pdfs.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -22,6 +23,7 @@
     "axios": "^1.10.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.525.0",
+    "pdf2html": "^4.4.0",
     "postcss": "^8.5.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

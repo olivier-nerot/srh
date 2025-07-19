@@ -4,9 +4,7 @@ import Button from '../components/ui/Button';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
-  CardElement,
-  useStripe,
-  useElements
+  CardElement
 } from '@stripe/react-stripe-js';
 
 // Initialize Stripe
@@ -105,9 +103,6 @@ const JadhereAuSrh: React.FC = () => {
     }
   };
 
-  const canProceedToNext = (currentTab: string) => {
-    return isTabValid(currentTab);
-  };
 
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
@@ -175,7 +170,6 @@ const JadhereAuSrh: React.FC = () => {
   };
 
   const handlePayment = async () => {
-    const stripe = (window as any).Stripe; // Access Stripe from window if needed
     
     setIsPaymentLoading(true);
 
@@ -274,7 +268,7 @@ const JadhereAuSrh: React.FC = () => {
                     {tabs.map((tab) => {
                       const Icon = tab.icon;
                       const isActive = activeTab === tab.id;
-                      const isValid = isTabValid(tab.id);
+                      isTabValid(tab.id);
                       
                       return (
                         <button

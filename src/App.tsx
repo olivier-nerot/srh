@@ -15,6 +15,8 @@ import NosLiens from './pages/NosLiens';
 import ContactezNous from './pages/ContactezNous';
 import Login from './pages/Login';
 import JadhereAuSrh from './pages/JadhereAuSrh';
+import Privacy from './pages/Privacy';
+import Article from './pages/Article';
 
 function App() {
   return (
@@ -36,6 +38,8 @@ function App() {
           <Route path="/contactez-nous" element={<ContactezNous />} />
           <Route path="/login" element={<Login />} />
           <Route path="/jadhere-au-srh" element={<JadhereAuSrh />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/article" element={<Article />} />
         </Route>
       </Routes>
     </Router>

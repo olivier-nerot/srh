@@ -8,4 +8,15 @@ export default defineConfig({
     tailwindcss(),
     react(),
   ],
+  optimizeDeps: {
+    include: ['pdfjs-dist']
+  },
+  worker: {
+    format: 'es'
+  },
+  server: {
+    hmr: {
+      port: 5173
+    }
+  }
 })
