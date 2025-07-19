@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Roboto:wght@100;300;400;500;700;900&family=K2D:wght@100;200;300;400;500;600;700;800&family=IBM+Plex+Sans:wght@100;200;300;400;500;600;700&display=swap');
+
+/* Tailwind v4 Theme Configuration */
+@theme {
+  --color-srh-blue: #1e4d72;
+  --color-srh-blue-light: #2563eb;
+  --color-srh-blue-dark: #144868;
+  --color-srh-pink: #e91e63;
+  --color-srh-pink-hover: #d81b60;
+  --color-srh-coral: #ff5722;
+}
+
+/* Custom base styles */
+@layer base {
+  html {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  }
+  
+  body {
+    color: #111827;
+    background-color: #ffffff;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 700;
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  .font-roboto {
+    font-family: 'Roboto', sans-serif;
+  }
+  
+  .font-k2d {
+    font-family: 'K2D', sans-serif;
+  }
+  
+  .font-ibm-plex {
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .text-truncate {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  .bg-srh-blue {
+    background-color: #1e4d72 !important;
+  }
+  
+  .text-srh-blue {
+    color: #1e4d72 !important;
+  }
+  
+  .border-srh-blue {
+    border-color: #1e4d72 !important;
+  }
+
+  .bg-srh-blue-dark {
+    background-color: #144868 !important;
+  }
+
+  .hover\:bg-srh-blue-dark:hover {
+    background-color: #144868 !important;
+  }
+
+  .bg-srh-pink {
+    background-color: #e91e63 !important;
+  }
+  
+  .text-srh-pink {
+    color: #e91e63 !important;
+  }
+  
+  .hover\:bg-srh-pink-hover:hover {
+    background-color: #d81b60 !important;
+  }
+}
+
+/* Curved design elements */
+@layer components {
+  .curved-section::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: #1e4d72;
+    clip-path: ellipse(100% 100% at 50% 100%);
+    z-index: -1;
+  }
+  
+  .hero-brain-bg {
+    background: linear-gradient(135deg, #1e4d72 0%, #2563eb 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .hero-brain-bg::after {
+    content: '';
+    position: absolute;
+    bottom: -50px;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: white;
+    clip-path: ellipse(100% 100% at 50% 0%);
+  }
+  
+  .news-card {
+    @apply bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden;
+  }
+  
+  .news-card:hover {
+    transform: translateY(-2px);
+  }
+}
