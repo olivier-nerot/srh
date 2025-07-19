@@ -1,8 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, FileText, Users, Calendar } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { siteContent } from '../data/content';
-import Button from '../components/ui/Button';
 import homepageLeft from '../assets/images/homepage-left.webp';
 import homepageRight1 from '../assets/images/homepage-right-1.webp';
 import homepageRight2 from '../assets/images/homepage-right-2.webp';
@@ -71,7 +70,7 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {siteContent.news.slice(0, 4).map((article, index) => (
+            {siteContent.news.slice(0, 4).map((article) => (
               <article key={article.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden transform hover:-translate-y-1">
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-3">
