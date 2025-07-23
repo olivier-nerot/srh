@@ -25,6 +25,7 @@ const FAQ: React.FC = () => {
   const [editing, setEditing] = useState<EditingFAQ | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [quillRef, setQuillRef] = useState<any>(null);
+  const [hasEditorContent, setHasEditorContent] = useState(false);
 
   const isAdmin = user?.isadmin === true;
 
@@ -49,6 +50,12 @@ const FAQ: React.FC = () => {
   const handleSave = async () => {
     if (!editing || !isAdmin) return;
 
+    // Get the current content from the Quill editor
+    let answerContent = editing.answer;
+    if (quillRef) {
+      answerContent = quillRef.getSemanticHTML();
+    }
+
     try {
       const url = '/api/faq';
       const method = editing.id ? 'PUT' : 'POST';
@@ -60,6 +67,7 @@ const FAQ: React.FC = () => {
         },
         body: JSON.stringify({
           ...editing,
+          answer: answerContent,
           isAdmin: true,
         }),
       });
@@ -69,6 +77,7 @@ const FAQ: React.FC = () => {
         await fetchFAQs(); // Refresh the list
         setEditing(null);
         setShowAddForm(false);
+        setQuillRef(null);
       } else {
         alert('Erreur lors de la sauvegarde: ' + data.error);
       }
@@ -107,6 +116,7 @@ const FAQ: React.FC = () => {
 
   const startEdit = (faq: FAQItem) => {
     setQuillRef(null);
+    setHasEditorContent(false);
     setEditing({
       id: faq.id,
       question: faq.question,
@@ -117,6 +127,7 @@ const FAQ: React.FC = () => {
 
   const startAdd = () => {
     setQuillRef(null);
+    setHasEditorContent(false);
     setEditing({
       question: '',
       answer: '',
@@ -209,16 +220,23 @@ const FAQ: React.FC = () => {
                   key={`quill-${editing.id || 'new'}-${showAddForm}`}
                   defaultValue={{ ops: [{ insert: '' }] }}
                   onTextChange={(delta, oldDelta, source) => {
-                    if (source === 'user' && quillRef) {
-                      const html = quillRef.getSemanticHTML();
-                      setEditing(prev => prev ? { ...prev, answer: html } : null);
+                    if (quillRef && source === 'user') {
+                      // Just check if there's content for the save button
+                      const text = quillRef.getText().trim();
+                      setHasEditorContent(text.length > 0);
                     }
                   }}
                   onReady={(quill) => {
                     setQuillRef(quill);
-                    // Set initial content if editing
-                    if (editing.answer) {
-                      quill.root.innerHTML = editing.answer;
+                    // Set initial content if editing existing FAQ
+                    if (editing?.answer && editing.id) {
+                      setTimeout(() => {
+                        quill.root.innerHTML = editing.answer;
+                        const text = quill.getText().trim();
+                        setHasEditorContent(text.length > 0);
+                      }, 100);
+                    } else {
+                      setHasEditorContent(false);
                     }
                   }}
                   config={quillConfig}
@@ -228,7 +246,7 @@ const FAQ: React.FC = () => {
               <div className="flex gap-2 pt-4">
                 <button
                   onClick={handleSave}
-                  disabled={!editing.question.trim() || !editing.answer.replace(/<[^>]*>/g, '').trim()}
+                  disabled={!editing.question.trim() || !hasEditorContent}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
                 >
                   <Save className="h-4 w-4" />
