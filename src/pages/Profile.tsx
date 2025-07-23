@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   User, Mail, Building2, MapPin, Calendar, Settings, 
-  ArrowLeft, Shield, Briefcase, Bell, BellOff 
+  ArrowLeft, Shield, Briefcase, Bell, BellOff, Edit 
 } from 'lucide-react';
 import { getUserById } from '../services/userService';
 import { useAuthStore } from '../stores/authStore';
@@ -130,6 +130,13 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handleEdit = () => {
+    navigate(`/profile/edit?id=${userId}`);
+  };
+
+  // Check if the current user is viewing their own profile
+  const isOwnProfile = currentUser && userProfile && currentUser.id === userProfile.id.toString();
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -192,7 +199,17 @@ const Profile: React.FC = () => {
               </div>
             </div>
             
-            <div className="w-16"></div> {/* Spacer for centering */}
+            <div className="flex items-center">
+              {isOwnProfile && (
+                <button
+                  onClick={handleEdit}
+                  className="bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2"
+                >
+                  <Edit className="h-4 w-4" />
+                  <span>Modifier</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

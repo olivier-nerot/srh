@@ -72,6 +72,24 @@ export async function getUserById(id: string | number) {
   }
 }
 
+export async function updateProfile(id: string | number, profileData: any) {
+  try {
+    const response = await fetch(`${API_BASE}/api/update-profile?id=${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(profileData),
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    return { success: false, error: 'Erreur lors de la mise à jour du profil' };
+  }
+}
+
 export async function updateExistingUsersSubscriptions() {
   try {
     const response = await fetch(`${API_BASE}/api/users`, {

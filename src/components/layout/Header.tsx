@@ -32,8 +32,8 @@ const Header: React.FC = () => {
     navigate('/');
   };
 
-  const userMenuItems = [
-    { label: 'Mon profil', href: '/profile', icon: User },
+  const getUserMenuItems = () => [
+    { label: 'Mon profil', href: user ? `/profile?id=${user.id}` : '/profile', icon: User },
     { label: 'Documents', href: '/documents', icon: FileText },
     { label: 'FAQ', href: '/faq', icon: HelpCircle },
   ];
@@ -155,7 +155,7 @@ const Header: React.FC = () => {
                 {isUserMenuOpen && (
                   <div className="absolute right-0 top-full mt-1 w-56 bg-white/80 backdrop-blur-md rounded-md shadow-lg border z-50">
                     <div className="py-1">
-                      {userMenuItems.map((item) => {
+                      {getUserMenuItems().map((item) => {
                         const Icon = item.icon;
                         return (
                           <Link
@@ -295,7 +295,7 @@ const Header: React.FC = () => {
                     <div className="px-3 py-2 text-sm font-medium text-gray-700 border-b">
                       {user.firstname} {user.lastname}
                     </div>
-                    {userMenuItems.map((item) => {
+                    {getUserMenuItems().map((item) => {
                       const Icon = item.icon;
                       return (
                         <Link
