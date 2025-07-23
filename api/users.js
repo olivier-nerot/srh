@@ -1,5 +1,4 @@
-const { db } = require('./lib/turso');
-const { users } = require('../src/db/schema');
+const { getDb } = require('./lib/turso');
 const { eq, isNull } = require('drizzle-orm');
 
 module.exports = async function handler(req, res) {
@@ -33,10 +32,14 @@ module.exports = async function handler(req, res) {
   }
 }
 
-async function createUser(req: VercelRequest, res: VercelResponse) {
-  const userData: CreateUserData = req.body;
+async function createUser(req, res) {
+  const userData = req.body;
 
   try {
+    // Get database and schema
+    const db = await getDb();
+    const { users } = await import('../src/db/schema/index.js');
+
     // Check if user already exists
     const existingUser = await db.select().from(users).where(eq(users.email, userData.email));
     if (existingUser.length > 0) {
@@ -76,7 +79,7 @@ async function createUser(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-async function getUserByEmail(req: VercelRequest, res: VercelResponse) {
+async function getUserByEmail(req, res) {
   const { email } = req.query;
   
   if (!email || typeof email !== 'string') {
@@ -84,6 +87,10 @@ async function getUserByEmail(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Get database and schema
+    const db = await getDb();
+    const { users } = await import('../src/db/schema/index.js');
+
     const result = await db.select().from(users).where(eq(users.email, email));
     return res.status(200).json({ user: result[0] || null });
   } catch (error) {
@@ -92,8 +99,12 @@ async function getUserByEmail(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-async function getAllUsers(req: VercelRequest, res: VercelResponse) {
+async function getAllUsers(req, res) {
   try {
+    // Get database and schema
+    const db = await getDb();
+    const { users } = await import('../src/db/schema/index.js');
+
     const result = await db.select().from(users).orderBy(users.lastname, users.firstname);
     return res.status(200).json({ success: true, users: result });
   } catch (error) {
@@ -106,8 +117,12 @@ async function getAllUsers(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-async function updateExistingUsersSubscriptions(req: VercelRequest, res: VercelResponse) {
+async function updateExistingUsersSubscriptions(req, res) {
   try {
+    // Get database and schema
+    const db = await getDb();
+    const { users } = await import('../src/db/schema/index.js');
+
     const usersWithoutSubscription = await db.select().from(users).where(isNull(users.subscribedUntil));
     
     const updates = [];

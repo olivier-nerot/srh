@@ -1,5 +1,4 @@
-const { db } = require('./lib/turso');
-const { users } = require('../src/db/schema');
+const { getDb } = require('./lib/turso');
 const { eq } = require('drizzle-orm');
 
 module.exports = async function handler(req, res) {
@@ -25,6 +24,10 @@ module.exports = async function handler(req, res) {
         error: 'Email is required' 
       });
     }
+
+    // Get database and schema
+    const db = await getDb();
+    const { users } = await import('../src/db/schema/index.js');
 
     // Check if user exists in database
     const result = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim()));
