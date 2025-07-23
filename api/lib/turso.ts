@@ -1,15 +1,15 @@
-import { createClient } from "@libsql/client/node";
-import { drizzle } from "drizzle-orm/libsql";
-import * as schema from "../../src/db/schema";
+const { createClient } = require("@libsql/client/node");
+const { drizzle } = require("drizzle-orm/libsql");
+const schema = require("../../src/db/schema");
 
-export const turso = createClient({
-  url: process.env.TURSO_DATABASE_URL!,
-  authToken: process.env.TURSO_AUTH_TOKEN!,
+const turso = createClient({
+  url: process.env.TURSO_DATABASE_URL,
+  authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-export const db = drizzle(turso, { schema });
+const db = drizzle(turso, { schema });
 
-export async function testConnection() {
+async function testConnection() {
   try {
     const result = await turso.execute("SELECT 1 as test");
     console.log("Turso connection successful:", result);
@@ -19,3 +19,5 @@ export async function testConnection() {
     return { success: false, error };
   }
 }
+
+module.exports = { turso, db, testConnection };

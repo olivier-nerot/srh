@@ -1,21 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db } from './lib/turso';
-import { users } from '../src/db/schema';
-import { eq, isNull } from 'drizzle-orm';
+const { VercelRequest, VercelResponse } = require('@vercel/node');
+const { db } = require('./lib/turso');
+const { users } = require('../src/db/schema');
+const { eq, isNull } = require('drizzle-orm');
 
-export interface CreateUserData {
-  email: string;
-  firstname: string;
-  lastname: string;
-  hospital: string;
-  address?: string;
-  subscription: string;
-  infopro?: string;
-  newsletter?: boolean;
-  isadmin?: boolean;
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = async function handler(req: VercelRequest, res: VercelResponse) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
