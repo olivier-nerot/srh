@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/authStore';
 import QuillEditor from 'quill-next-react';
 import { Delta } from 'quill-next';
 import 'quill-next/dist/quill.snow.css';
-import { Edit, Plus, Trash2, Save, X } from 'lucide-react';
+import { Edit, Plus, Trash2, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface FAQItem {
   id: number;
@@ -66,6 +66,7 @@ const FAQ: React.FC = () => {
   const [quillRef, setQuillRef] = useState<any>(null);
   const [hasEditorContent, setHasEditorContent] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState('');
+  const [expandedFAQs, setExpandedFAQs] = useState<Set<number>>(new Set());
 
   const isAdmin = user?.isadmin === true;
 
@@ -184,6 +185,16 @@ const FAQ: React.FC = () => {
     setShowAddForm(false);
     setEditingQuestion('');
     setQuillRef(null);
+  };
+
+  const toggleFAQ = (faqId: number) => {
+    const newExpanded = new Set(expandedFAQs);
+    if (newExpanded.has(faqId)) {
+      newExpanded.delete(faqId);
+    } else {
+      newExpanded.add(faqId);
+    }
+    setExpandedFAQs(newExpanded);
   };
 
   const quillConfig = {
@@ -378,39 +389,74 @@ const FAQ: React.FC = () => {
                 )}
               </div>
             ) : (
-              faqs.map((faq) => (
-              <div key={faq.id} className="bg-white rounded-lg shadow-sm">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex-1">
-                      {faq.question}
-                    </h3>
-                    {isAdmin && !editing && (
-                      <div className="flex gap-2 ml-4">
-                        <button
-                          onClick={() => startEdit(faq)}
-                          className="text-blue-600 hover:text-blue-800 p-1 transition-colors"
-                          title="Éditer"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(faq.id)}
-                          className="text-red-600 hover:text-red-800 p-1 transition-colors"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+              faqs.map((faq) => {
+                const isExpanded = expandedFAQs.has(faq.id);
+                return (
+                  <div key={faq.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                    {/* Question Header - Clickable */}
+                    <div 
+                      className="bg-srh-blue text-white rounded-t-lg cursor-pointer transition-colors hover:bg-srh-blue-dark"
+                      onClick={() => toggleFAQ(faq.id)}
+                    >
+                      <div className="p-6">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="flex-shrink-0">
+                              {isExpanded ? (
+                                <ChevronDown className="h-5 w-5 transition-transform" />
+                              ) : (
+                                <ChevronRight className="h-5 w-5 transition-transform" />
+                              )}
+                            </div>
+                            <h3 className="text-lg font-semibold flex-1">
+                              {faq.question}
+                            </h3>
+                          </div>
+                          
+                          {/* Admin Controls */}
+                          {isAdmin && !editing && (
+                            <div className="flex gap-2 ml-4">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent accordion toggle
+                                  startEdit(faq);
+                                }}
+                                className="text-white hover:text-gray-200 p-1 transition-colors"
+                                title="Éditer"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent accordion toggle
+                                  handleDelete(faq.id);
+                                }}
+                                className="text-white hover:text-red-200 p-1 transition-colors"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
+                    
+                    {/* Answer Content - Collapsible */}
+                    <div 
+                      className={`transition-all duration-300 ease-in-out ${
+                        isExpanded ? 'max-h-none opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+                      }`}
+                    >
+                      <div className="p-6 bg-gray-50 border-t border-gray-200">
+                        <div className="prose prose-sm max-w-none text-gray-700">
+                          <FAQAnswerDisplay answer={faq.answer} />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="prose prose-sm max-w-none text-gray-700">
-                    <FAQAnswerDisplay answer={faq.answer} />
-                  </div>
-                </div>
-              </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
