@@ -16,22 +16,30 @@ const Login: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // Check if user exists in database
-      const user = await getUserByEmail(email);
+      // Call login API endpoint
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.toLowerCase().trim() }),
+      });
+
+      const result = await response.json();
       
-      if (user) {
+      if (result.success && result.user) {
         // Convert database user to auth user format
         const authUser = {
-          id: user.id.toString(),
-          email: user.email,
-          firstname: user.firstname || '',
-          lastname: user.lastname || '',
-          isadmin: Boolean(user.isadmin), // Convert 1/0 to true/false
-          newsletter: Boolean(user.newsletter), // Convert 1/0 to true/false
-          hospital: user.hospital || '',
-          address: user.address || '',
-          subscription: user.subscription || '',
-          infopro: user.infopro || '',
+          id: result.user.id.toString(),
+          email: result.user.email,
+          firstname: result.user.firstname || '',
+          lastname: result.user.lastname || '',
+          isadmin: Boolean(result.user.isadmin),
+          newsletter: true, // Default value since not returned from login
+          hospital: result.user.hospital || '',
+          address: '', // Not returned from login for security
+          subscription: result.user.subscription || '',
+          infopro: '', // Not returned from login for security
         };
         
         // Set user in auth store
@@ -40,13 +48,12 @@ const Login: React.FC = () => {
         // Navigate to homepage
         navigate('/');
       } else {
-        // Show the "email sent" UI even if user doesn't exist (for security)
-        setIsSubmitted(true);
+        // Show error message
+        alert(result.error || 'Erreur lors de la connexion');
       }
     } catch (error) {
       console.error('Login error:', error);
-      // Show the "email sent" UI on error too
-      setIsSubmitted(true);
+      alert('Erreur lors de la connexion. Veuillez réessayer.');
     } finally {
       setIsLoading(false);
     }
@@ -76,7 +83,7 @@ const Login: React.FC = () => {
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Connexion sécurisée</h2>
               <p className="text-gray-600">
-                Entrez votre adresse email pour recevoir un code de connexion temporaire
+                Entrez votre adresse email pour vous connecter
               </p>
             </div>
 
@@ -110,11 +117,11 @@ const Login: React.FC = () => {
                 {isLoading ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Envoi en cours...
+                    Connexion...
                   </div>
                 ) : (
                   <div className="flex items-center">
-                    Recevoir le code de connexion
+                    Se connecter
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </div>
                 )}
@@ -128,8 +135,8 @@ const Login: React.FC = () => {
                     <Shield className="h-3 w-3" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Connexion sécurisée par OTP</p>
-                    <p>Un code temporaire sera envoyé à votre email</p>
+                    <p className="font-medium text-gray-900">Connexion automatique</p>
+                    <p>Connexion directe si votre email est enregistré</p>
                   </div>
                 </div>
                 <div className="flex items-start">
@@ -137,8 +144,8 @@ const Login: React.FC = () => {
                     <Mail className="h-3 w-3" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Pas de mot de passe</p>
-                    <p>Système d'authentification simplifié et sécurisé</p>
+                    <p className="font-medium text-gray-900">Accès réservé aux adhérents</p>
+                    <p>Seuls les emails enregistrés peuvent se connecter</p>
                   </div>
                 </div>
               </div>
