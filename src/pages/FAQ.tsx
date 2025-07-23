@@ -350,6 +350,7 @@ const FAQ: React.FC = () => {
             ))
           )}
         </div>
+        </div>
       </div>
     </>
   );
