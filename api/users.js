@@ -1,5 +1,5 @@
 const { getDb } = require('./lib/turso');
-const { eq, isNull } = require('drizzle-orm');
+const { eq, isNull, asc } = require('drizzle-orm');
 const { sqliteTable, text, integer } = require('drizzle-orm/sqlite-core');
 
 // Define users table directly
@@ -117,13 +117,18 @@ async function getUserByEmail(req, res) {
 
 async function getAllUsers(req, res) {
   try {
+    console.log('getAllUsers: Starting...');
     // Get database
     const db = await getDb();
+    console.log('getAllUsers: Database connected');
 
-    const result = await db.select().from(users).orderBy(users.lastname, users.firstname);
+    const result = await db.select().from(users).orderBy(asc(users.lastname), asc(users.firstname));
+    console.log('getAllUsers: Query executed, found', result.length, 'users');
+    
     return res.status(200).json({ success: true, users: result });
   } catch (error) {
     console.error('Error fetching all users:', error);
+    console.error('Error stack:', error.stack);
     return res.status(500).json({ 
       success: false, 
       error: 'Erreur lors de la récupération des utilisateurs', 
