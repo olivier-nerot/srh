@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import Layout from './components/layout/Layout';
-import { testConnection } from './lib/turso';
+// Removed direct turso import - now using API
 import HomePage from './pages/HomePage';
 import QuiSommesNous from './pages/QuiSommesNous';
 import Presentation from './pages/Presentation';
@@ -24,7 +24,11 @@ import AdminRoute from './components/auth/AdminRoute';
 
 function App() {
   useEffect(() => {
-    testConnection();
+    // Test connection via API
+    fetch('/api/test-connection')
+      .then(res => res.json())
+      .then(result => console.log('Connection test:', result))
+      .catch(err => console.error('Connection test failed:', err));
   }, []);
 
   return (

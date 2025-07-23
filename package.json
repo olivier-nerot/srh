@@ -23,6 +23,7 @@
     "@tailwindcss/vite": "^4.1.11",
     "@types/react-router-dom": "^5.3.3",
     "@vercel/analytics": "^1.5.0",
+    "@vercel/node": "^5.3.6",
     "autoprefixer": "^10.4.21",
     "axios": "^1.10.0",
     "clsx": "^2.1.1",
