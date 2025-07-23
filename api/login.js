@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
 
     // Get database and schema
     const db = await getDb();
-    const { users } = await import('../src/db/schema/index.js');
+    const { users } = await import('../src/db/schema/users.js');
 
     // Check if user exists in database
     const result = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim()));

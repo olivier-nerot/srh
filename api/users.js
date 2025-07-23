@@ -38,7 +38,7 @@ async function createUser(req, res) {
   try {
     // Get database and schema
     const db = await getDb();
-    const { users } = await import('../src/db/schema/index.js');
+    const { users } = await import('../src/db/schema/users.js');
 
     // Check if user already exists
     const existingUser = await db.select().from(users).where(eq(users.email, userData.email));
@@ -89,7 +89,7 @@ async function getUserByEmail(req, res) {
   try {
     // Get database and schema
     const db = await getDb();
-    const { users } = await import('../src/db/schema/index.js');
+    const { users } = await import('../src/db/schema/users.js');
 
     const result = await db.select().from(users).where(eq(users.email, email));
     return res.status(200).json({ user: result[0] || null });
@@ -103,7 +103,7 @@ async function getAllUsers(req, res) {
   try {
     // Get database and schema
     const db = await getDb();
-    const { users } = await import('../src/db/schema/index.js');
+    const { users } = await import('../src/db/schema/users.js');
 
     const result = await db.select().from(users).orderBy(users.lastname, users.firstname);
     return res.status(200).json({ success: true, users: result });
@@ -121,7 +121,7 @@ async function updateExistingUsersSubscriptions(req, res) {
   try {
     // Get database and schema
     const db = await getDb();
-    const { users } = await import('../src/db/schema/index.js');
+    const { users } = await import('../src/db/schema/users.js');
 
     const usersWithoutSubscription = await db.select().from(users).where(isNull(users.subscribedUntil));
     
