@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import ReactQuill from 'react-quill';
-import 'quill/dist/quill.snow.css';
+import { QuillEditor } from 'quill-next-react';
+import 'quill-next/dist/quill.snow.css';
 import { Edit, Plus, Trash2, Save, X } from 'lucide-react';
 
 interface FAQItem {
@@ -199,7 +199,7 @@ const FAQ: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Réponse
                 </label>
-                <ReactQuill
+                <QuillEditor
                   value={editing.answer}
                   onChange={(value) => setEditing({ ...editing, answer: value })}
                   modules={quillModules}
