@@ -79,7 +79,7 @@ async function createUser(req, res) {
     }).returning();
 
     return res.status(201).json({ success: true, user: result[0] });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating user:', error);
     
     if (error.message?.includes('UNIQUE constraint failed')) {
