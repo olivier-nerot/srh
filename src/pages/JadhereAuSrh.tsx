@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
-import { Users, Euro, FileText, CheckCircle, User, Briefcase, CreditCard } from 'lucide-react';
+import { Users, Euro, FileText, CheckCircle, User, Briefcase, CreditCard, LogIn } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
   CardElement
 } from '@stripe/react-stripe-js';
+import { createUser } from '../services/userService';
 
 // Initialize Stripe
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51...');
 
 const JadhereAuSrh: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedTier, setSelectedTier] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'payment'>('personal');
+  const [isRegistrationComplete, setIsRegistrationComplete] = useState(false);
+  const [registeredUser, setRegisteredUser] = useState<any>(null);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -170,21 +175,166 @@ const JadhereAuSrh: React.FC = () => {
   };
 
   const handlePayment = async () => {
-    
     setIsPaymentLoading(true);
 
     try {
-      // Here you would typically create a payment intent on your backend
-      // For now, we'll just simulate the process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert('Adhésion finalisée avec succès !');
+      // First validate required fields
+      if (!formData.firstName || !formData.lastName || !formData.email || !formData.hospital) {
+        alert('Veuillez remplir tous les champs obligatoires.');
+        setIsPaymentLoading(false);
+        return;
+      }
+
+      // Get selected tier details
+      const selectedTierData = membershipTiers.find(tier => tier.id === selectedTier);
+      if (!selectedTierData) {
+        alert('Veuillez sélectionner un type d\'adhésion.');
+        setIsPaymentLoading(false);
+        return;
+      }
+
+      // Prepare professional info as JSON
+      const professionalInfo = {
+        huTitulaire: formData.huTitulaire,
+        phLiberal: formData.phLiberal,
+        hospitaloUniversitaireTitulaire: formData.hospitaloUniversitaireTitulaire,
+        adhesionCollegiale: formData.adhesionCollegiale,
+        huLiberal: formData.huLiberal,
+        hospitaloUniversitaireCCA: formData.hospitaloUniversitaireCCA,
+        adhesionAlliance: formData.adhesionAlliance,
+        assistantSpecialiste: formData.assistantSpecialiste,
+        assistantTempsPartage: formData.assistantTempsPartage,
+      };
+
+      // Create user in database
+      const userResult = await createUser({
+        email: formData.email,
+        firstname: formData.firstName,
+        lastname: formData.lastName,
+        hospital: formData.hospital,
+        address: formData.address,
+        subscription: selectedTierData.id,
+        infopro: JSON.stringify(professionalInfo),
+        newsletter: true, // Default to true
+        isadmin: false,
+      });
+
+      if (!userResult.success) {
+        alert(userResult.error || 'Erreur lors de la création du compte utilisateur');
+        setIsPaymentLoading(false);
+        return;
+      }
+
+      // Simulate payment processing if needed
+      if (selectedTierData.price > 0) {
+        // Here you would typically create a payment intent on your backend
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // Set success state and user data
+      setRegisteredUser({
+        ...userResult.user,
+        selectedTier: selectedTierData,
+      });
+      setIsRegistrationComplete(true);
+
     } catch (error) {
-      console.error('Payment error:', error);
-      alert('Erreur lors du paiement. Veuillez réessayer.');
+      console.error('Registration error:', error);
+      alert('Erreur lors de l\'inscription. Veuillez réessayer.');
     } finally {
       setIsPaymentLoading(false);
     }
   };
+
+  // Welcome card component for successful registration
+  const WelcomeCard: React.FC = () => (
+    <div className="max-w-4xl mx-auto">
+      <div className="bg-white border border-green-200 rounded-lg shadow-lg p-8">
+        <div className="text-center mb-8">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Bienvenue dans le SRH !
+          </h2>
+          <p className="text-lg text-gray-600">
+            Votre adhésion a été finalisée avec succès.
+          </p>
+        </div>
+
+        <div className="bg-gray-50 rounded-lg p-6 mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Récapitulatif de votre inscription</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="font-medium text-gray-700 mb-3">Informations personnelles</h4>
+              <div className="space-y-2 text-sm">
+                <p><span className="font-medium">Nom :</span> {registeredUser?.firstname} {registeredUser?.lastname}</p>
+                <p><span className="font-medium">Email :</span> {registeredUser?.email}</p>
+                <p><span className="font-medium">Établissement :</span> {registeredUser?.hospital}</p>
+                {registeredUser?.address && (
+                  <p><span className="font-medium">Adresse :</span> {registeredUser?.address}</p>
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-medium text-gray-700 mb-3">Type d'adhésion</h4>
+              <div className="space-y-2 text-sm">
+                <p className="font-medium text-blue-600">{registeredUser?.selectedTier?.title}</p>
+                <p className="text-gray-600">{registeredUser?.selectedTier?.description}</p>
+                <p className="text-lg font-bold text-gray-900">
+                  {registeredUser?.selectedTier?.price === 0 ? 'Gratuit' : `${registeredUser?.selectedTier?.price} €`}
+                </p>
+                {registeredUser?.selectedTier?.price > 0 && (
+                  <p className="text-sm text-green-600">
+                    Coût réel après déduction fiscale : {registeredUser?.selectedTier?.actualCost} €
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+          <h4 className="font-medium text-blue-900 mb-2">Prochaines étapes</h4>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• Vous recevrez un email de confirmation à l'adresse indiquée</li>
+            <li>• Connectez-vous à votre espace membre pour accéder aux services</li>
+            <li>• Vous recevrez bientôt notre newsletter avec les dernières actualités</li>
+          </ul>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button
+            onClick={() => navigate('/login')}
+            size="lg"
+            className="bg-blue-600 hover:bg-blue-700 flex items-center justify-center"
+          >
+            <LogIn className="mr-2 h-5 w-5" />
+            Se connecter à mon espace
+          </Button>
+          
+          <Button
+            onClick={() => navigate('/')}
+            variant="outline"
+            size="lg"
+          >
+            Retour à l'accueil
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Show welcome card if registration is complete
+  if (isRegistrationComplete) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <WelcomeCard />
+      </div>
+    );
+  }
 
   return (
     <>

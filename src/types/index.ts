@@ -43,6 +43,27 @@ export interface ContactInfo {
   website?: string;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  firstname: string;
+  lastname: string;
+  infopro?: string;
+  isadmin: boolean;
+  newsletter: boolean;
+  hospital?: string;
+  address?: string;
+  subscription?: string;
+  avatar?: string;
+  membershipNumber?: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
 export interface SiteContent {
   navigation: NavItem[];
   hero: {

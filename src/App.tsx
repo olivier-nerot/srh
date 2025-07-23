@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
 import Layout from './components/layout/Layout';
+import { testConnection } from './lib/turso';
 import HomePage from './pages/HomePage';
 import QuiSommesNous from './pages/QuiSommesNous';
 import Presentation from './pages/Presentation';
@@ -17,8 +19,14 @@ import Login from './pages/Login';
 import JadhereAuSrh from './pages/JadhereAuSrh';
 import Privacy from './pages/Privacy';
 import Article from './pages/Article';
+import AdminMembers from './pages/admin/AdminMembers';
+import AdminRoute from './components/auth/AdminRoute';
 
 function App() {
+  useEffect(() => {
+    testConnection();
+  }, []);
+
   return (
     <Router>
       <Routes>
@@ -40,6 +48,15 @@ function App() {
           <Route path="/jadhere-au-srh" element={<JadhereAuSrh />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/article" element={<Article />} />
+          {/* Protected Admin Routes */}
+          <Route path="/admin/*" element={
+            <AdminRoute>
+              <Routes>
+                <Route path="members" element={<AdminMembers />} />
+                {/* Add more admin routes here */}
+              </Routes>
+            </AdminRoute>
+          } />
         </Route>
       </Routes>
     </Router>

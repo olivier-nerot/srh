@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { Mail, ArrowRight, Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { getUserByEmail } from '../services/userService';
+import { useAuthStore } from '../stores/authStore';
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
+  const { setUser } = useAuthStore();
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -10,11 +15,41 @@ const Login: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Check if user exists in database
+      const user = await getUserByEmail(email);
+      
+      if (user) {
+        // Convert database user to auth user format
+        const authUser = {
+          id: user.id.toString(),
+          email: user.email,
+          firstname: user.firstname || '',
+          lastname: user.lastname || '',
+          isadmin: Boolean(user.isadmin), // Convert 1/0 to true/false
+          newsletter: Boolean(user.newsletter), // Convert 1/0 to true/false
+          hospital: user.hospital || '',
+          address: user.address || '',
+          subscription: user.subscription || '',
+          infopro: user.infopro || '',
+        };
+        
+        // Set user in auth store
+        setUser(authUser);
+        
+        // Navigate to homepage
+        navigate('/');
+      } else {
+        // Show the "email sent" UI even if user doesn't exist (for security)
+        setIsSubmitted(true);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      // Show the "email sent" UI on error too
       setIsSubmitted(true);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
