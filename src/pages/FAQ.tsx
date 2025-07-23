@@ -27,6 +27,7 @@ const FAQ: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [quillRef, setQuillRef] = useState<any>(null);
   const [hasEditorContent, setHasEditorContent] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState('');
 
   const isAdmin = user?.isadmin === true;
 
@@ -69,6 +70,7 @@ const FAQ: React.FC = () => {
         },
         body: JSON.stringify({
           ...editing,
+          question: editingQuestion,
           answer: answerContent,
           isAdmin: true,
         }),
@@ -119,6 +121,7 @@ const FAQ: React.FC = () => {
   const startEdit = (faq: FAQItem) => {
     setQuillRef(null);
     setHasEditorContent(false);
+    setEditingQuestion(faq.question);
     setEditing({
       id: faq.id,
       question: faq.question,
@@ -130,6 +133,7 @@ const FAQ: React.FC = () => {
   const startAdd = () => {
     setQuillRef(null);
     setHasEditorContent(false);
+    setEditingQuestion('');
     setEditing({
       question: '',
       answer: '',
@@ -140,6 +144,8 @@ const FAQ: React.FC = () => {
   const cancelEdit = () => {
     setEditing(null);
     setShowAddForm(false);
+    setEditingQuestion('');
+    setQuillRef(null);
   };
 
   const quillConfig = {
@@ -168,23 +174,19 @@ const FAQ: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
+    <>
+      {/* Blue curved header section */}
+      <section className="bg-srh-blue text-white py-20 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Foire Aux Questions
-              </h1>
-              <p className="text-gray-600">
-                Trouvez rapidement des réponses aux questions les plus fréquemment posées
-              </p>
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">Foire Aux Questions</h1>
+              <p className="text-xl opacity-90">Trouvez rapidement des réponses aux questions les plus fréquemment posées</p>
             </div>
             {isAdmin && !editing && (
               <button
                 onClick={startAdd}
-                className="bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+                className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
               >
                 <Plus className="h-4 w-4" />
                 Ajouter une FAQ
@@ -192,6 +194,13 @@ const FAQ: React.FC = () => {
             )}
           </div>
         </div>
+        {/* Curved bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gray-50" 
+             style={{clipPath: 'ellipse(100% 100% at 50% 100%)'}}></div>
+      </section>
+
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4 py-8">
 
         {/* Add/Edit Form */}
         {editing && (
@@ -207,8 +216,8 @@ const FAQ: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={editing.question}
-                  onChange={(e) => setEditing({ ...editing, question: e.target.value })}
+                  value={editingQuestion}
+                  onChange={(e) => setEditingQuestion(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
                   placeholder="Entrez votre question..."
                 />
@@ -219,7 +228,7 @@ const FAQ: React.FC = () => {
                   Réponse
                 </label>
                 <QuillEditor
-                  key={`quill-${editing.id || 'new'}-${showAddForm}`}
+                  key={`quill-${editing.id || 'new'}`}
                   defaultValue={new Delta().insert('')}
                   onReady={(quill) => {
                     setQuillRef(quill);
@@ -233,18 +242,23 @@ const FAQ: React.FC = () => {
                     });
                     
                     // Set initial content if editing existing FAQ
+                    console.log('QuillEditor onReady - editing:', editing);
                     if (editing?.answer && editing.id) {
+                      console.log('Setting content from answer:', editing.answer);
                       try {
                         const savedDelta = JSON.parse(editing.answer);
+                        console.log('Parsed delta:', savedDelta);
                         quill.setContents(savedDelta);
                         const text = quill.getText().trim();
                         setHasEditorContent(text.length > 0);
                       } catch (error) {
+                        console.log('Parse failed, using as plain text:', error);
                         // If parsing fails, treat as plain text
                         quill.setText(editing.answer);
                         setHasEditorContent(editing.answer.trim().length > 0);
                       }
                     } else {
+                      console.log('No content to set - new FAQ or empty');
                       setHasEditorContent(false);
                     }
                   }}
@@ -255,7 +269,7 @@ const FAQ: React.FC = () => {
               <div className="flex gap-2 pt-4">
                 <button
                   onClick={handleSave}
-                  disabled={!editing.question.trim() || !hasEditorContent}
+                  disabled={!editingQuestion.trim() || !hasEditorContent}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
                 >
                   <Save className="h-4 w-4" />
@@ -337,7 +351,7 @@ const FAQ: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
