@@ -24,6 +24,7 @@ const FAQ: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<EditingFAQ | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [quillRef, setQuillRef] = useState<any>(null);
 
   const isAdmin = user?.isadmin === true;
 
@@ -105,6 +106,7 @@ const FAQ: React.FC = () => {
   };
 
   const startEdit = (faq: FAQItem) => {
+    setQuillRef(null);
     setEditing({
       id: faq.id,
       question: faq.question,
@@ -114,6 +116,7 @@ const FAQ: React.FC = () => {
   };
 
   const startAdd = () => {
+    setQuillRef(null);
     setEditing({
       question: '',
       answer: '',
@@ -126,15 +129,18 @@ const FAQ: React.FC = () => {
     setShowAddForm(false);
   };
 
-  const quillModules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'align': [] }],
-      ['link'],
-      ['clean']
-    ],
+  const quillConfig = {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'align': [] }],
+        ['link'],
+        ['clean']
+      ],
+    },
   };
 
   if (loading) {
@@ -200,18 +206,35 @@ const FAQ: React.FC = () => {
                   Réponse
                 </label>
                 <QuillEditor
-                  value={editing.answer}
-                  onChange={(value) => setEditing({ ...editing, answer: value })}
-                  modules={quillModules}
-                  theme="snow"
-                  className="bg-white"
+                  defaultValue={editing.answer ? (() => {
+                    // Create a simple delta with the HTML content
+                    try {
+                      return { ops: [{ insert: editing.answer }] };
+                    } catch {
+                      return { ops: [{ insert: '' }] };
+                    }
+                  })() : { ops: [{ insert: '' }] }}
+                  onTextChange={() => {
+                    if (quillRef) {
+                      const html = quillRef.getSemanticHTML();
+                      setEditing({ ...editing, answer: html });
+                    }
+                  }}
+                  onReady={(quill) => {
+                    setQuillRef(quill);
+                    // Set initial content if editing
+                    if (editing.answer) {
+                      quill.root.innerHTML = editing.answer;
+                    }
+                  }}
+                  config={quillConfig}
                 />
               </div>
               
               <div className="flex gap-2 pt-4">
                 <button
                   onClick={handleSave}
-                  disabled={!editing.question.trim() || !editing.answer.trim()}
+                  disabled={!editing.question.trim() || !editing.answer.replace(/<[^>]*>/g, '').trim()}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
                 >
                   <Save className="h-4 w-4" />
