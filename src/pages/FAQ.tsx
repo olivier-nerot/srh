@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import QuillEditor from 'quill-next-react';
-import { Delta, Quill } from 'quill-next';
+import { Delta } from 'quill-next';
 import 'quill-next/dist/quill.snow.css';
 import { Edit, Plus, Trash2, Save, X } from 'lucide-react';
 
@@ -18,6 +18,44 @@ interface EditingFAQ {
   question: string;
   answer: string;
 }
+
+// Helper component to display FAQ answers
+const FAQAnswerDisplay: React.FC<{ answer: string }> = ({ answer }) => {
+  try {
+    // Try to parse as Delta JSON
+    const delta = JSON.parse(answer);
+    if (delta.ops && Array.isArray(delta.ops)) {
+      // Convert Delta ops to simple HTML
+      const html = delta.ops.map((op: any) => {
+        if (typeof op.insert === 'string') {
+          let text = op.insert;
+          
+          // Apply basic formatting
+          if (op.attributes) {
+            if (op.attributes.bold) text = `<strong>${text}</strong>`;
+            if (op.attributes.italic) text = `<em>${text}</em>`;
+            if (op.attributes.underline) text = `<u>${text}</u>`;
+            if (op.attributes.link) text = `<a href="${op.attributes.link}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+            if (op.attributes.header) text = `<h${op.attributes.header}>${text}</h${op.attributes.header}>`;
+          }
+          
+          // Convert newlines to br tags
+          text = text.replace(/\n/g, '<br>');
+          
+          return text;
+        }
+        return '';
+      }).join('');
+      
+      return <div dangerouslySetInnerHTML={{ __html: html }} />;
+    }
+  } catch {
+    // Parsing failed, treat as HTML or plain text
+  }
+  
+  // Fallback: render as HTML
+  return <div dangerouslySetInnerHTML={{ __html: answer }} />;
+};
 
 const FAQ: React.FC = () => {
   const { user } = useAuthStore();
@@ -368,25 +406,7 @@ const FAQ: React.FC = () => {
                   </div>
                   
                   <div className="prose prose-sm max-w-none text-gray-700">
-                    {(() => {
-                      try {
-                        // Parse Delta JSON and convert to HTML for display
-                        const delta = JSON.parse(faq.answer);
-                        
-                        // Create a temporary container to convert Delta to HTML
-                        const tempDiv = document.createElement('div');
-                        const tempQuill = new Quill(tempDiv, { theme: 'bubble' }); // Use bubble theme for clean output
-                        if (delta.ops) {
-                          tempQuill.setContents(delta.ops);
-                        }
-                        const html = tempQuill.getSemanticHTML();
-                        
-                        return <div dangerouslySetInnerHTML={{ __html: html }} />;
-                      } catch {
-                        // If parsing fails, treat as plain HTML or text
-                        return <div dangerouslySetInnerHTML={{ __html: faq.answer }} />;
-                      }
-                    })()}
+                    <FAQAnswerDisplay answer={faq.answer} />
                   </div>
                 </div>
               </div>
