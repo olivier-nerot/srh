@@ -206,18 +206,12 @@ const FAQ: React.FC = () => {
                   Réponse
                 </label>
                 <QuillEditor
-                  defaultValue={editing.answer ? (() => {
-                    // Create a simple delta with the HTML content
-                    try {
-                      return { ops: [{ insert: editing.answer }] };
-                    } catch {
-                      return { ops: [{ insert: '' }] };
-                    }
-                  })() : { ops: [{ insert: '' }] }}
-                  onTextChange={() => {
-                    if (quillRef) {
+                  key={`quill-${editing.id || 'new'}-${showAddForm}`}
+                  defaultValue={{ ops: [{ insert: '' }] }}
+                  onTextChange={(delta, oldDelta, source) => {
+                    if (source === 'user' && quillRef) {
                       const html = quillRef.getSemanticHTML();
-                      setEditing({ ...editing, answer: html });
+                      setEditing(prev => prev ? { ...prev, answer: html } : null);
                     }
                   }}
                   onReady={(quill) => {
