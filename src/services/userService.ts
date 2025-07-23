@@ -55,6 +55,23 @@ export async function getAllUsers() {
   }
 }
 
+export async function getUserById(id: string | number) {
+  try {
+    const response = await fetch(`${API_BASE}/api/user-by-id?id=${encodeURIComponent(id)}`);
+    const result = await response.json();
+    
+    if (result.success) {
+      return result.user;
+    } else {
+      console.error('Error fetching user by ID:', result.error);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error fetching user by ID:', error);
+    return null;
+  }
+}
+
 export async function updateExistingUsersSubscriptions() {
   try {
     const response = await fetch(`${API_BASE}/api/users`, {

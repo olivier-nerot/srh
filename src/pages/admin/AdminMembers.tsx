@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase } from 'lucide-react';
 import { getAllUsers } from '../../services/userService';
 
@@ -19,6 +20,7 @@ interface User {
 }
 
 const AdminMembers: React.FC = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -75,6 +77,10 @@ const AdminMembers: React.FC = () => {
       'first-time': 'bg-yellow-100 text-yellow-800'
     };
     return colors[subscription] || 'bg-gray-100 text-gray-800';
+  };
+
+  const handleUserClick = (userId: number) => {
+    navigate(`/profile?id=${userId}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -193,7 +199,11 @@ const AdminMembers: React.FC = () => {
         {/* Members Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredUsers.map((user) => (
-            <div key={user.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+            <div 
+              key={user.id} 
+              className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => handleUserClick(user.id)}
+            >
               <div className="p-6">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -203,7 +213,11 @@ const AdminMembers: React.FC = () => {
                     </h3>
                     <div className="flex items-center mt-1">
                       <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                      <a href={`mailto:${user.email}`} className="text-sm text-gray-600 hover:text-red-600">
+                      <a 
+                        href={`mailto:${user.email}`} 
+                        className="text-sm text-gray-600 hover:text-red-600"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {user.email}
                       </a>
                     </div>

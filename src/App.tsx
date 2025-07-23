@@ -19,8 +19,10 @@ import Login from './pages/Login';
 import JadhereAuSrh from './pages/JadhereAuSrh';
 import Privacy from './pages/Privacy';
 import Article from './pages/Article';
+import Profile from './pages/Profile';
 import AdminMembers from './pages/admin/AdminMembers';
 import AdminRoute from './components/auth/AdminRoute';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
   useEffect(() => {
@@ -52,6 +54,12 @@ function App() {
           <Route path="/jadhere-au-srh" element={<JadhereAuSrh />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/article" element={<Article />} />
+          {/* Protected User Profile Route */}
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
           {/* Protected Admin Routes */}
           <Route path="/admin/*" element={
             <AdminRoute>
