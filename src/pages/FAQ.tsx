@@ -245,18 +245,43 @@ const FAQ: React.FC = () => {
                     console.log('QuillEditor onReady - editing:', editing);
                     if (editing?.answer && editing.id) {
                       console.log('Setting content from answer:', editing.answer);
-                      try {
-                        const savedDelta = JSON.parse(editing.answer);
-                        console.log('Parsed delta:', savedDelta);
-                        quill.setContents(savedDelta);
-                        const text = quill.getText().trim();
-                        setHasEditorContent(text.length > 0);
-                      } catch (error) {
-                        console.log('Parse failed, using as plain text:', error);
-                        // If parsing fails, treat as plain text
-                        quill.setText(editing.answer);
-                        setHasEditorContent(editing.answer.trim().length > 0);
-                      }
+                      // Use setTimeout to ensure the editor is fully initialized
+                      setTimeout(() => {
+                        try {
+                          const savedDelta = JSON.parse(editing.answer);
+                          console.log('Parsed delta:', savedDelta);
+                          
+                          // Use the ops array directly and ensure it ends with newline
+                          let ops = savedDelta.ops || [];
+                          
+                          // Ensure the last operation ends with a newline
+                          if (ops.length > 0) {
+                            const lastOp = ops[ops.length - 1];
+                            if (!lastOp.insert || !lastOp.insert.endsWith('\n')) {
+                              // If last op doesn't end with newline, add one
+                              if (lastOp.insert) {
+                                lastOp.insert += '\n';
+                              } else {
+                                ops.push({ insert: '\n' });
+                              }
+                            }
+                          } else {
+                            // Empty ops, add a newline
+                            ops = [{ insert: '\n' }];
+                          }
+                          
+                          console.log('Setting ops:', ops);
+                          quill.setContents(ops, 'api');
+                          console.log('Content set, current text:', quill.getText());
+                          const text = quill.getText().trim();
+                          setHasEditorContent(text.length > 0);
+                        } catch (error) {
+                          console.log('Parse failed, using as plain text:', error);
+                          // If parsing fails, treat as plain text
+                          quill.setText(editing.answer);
+                          setHasEditorContent(editing.answer.trim().length > 0);
+                        }
+                      }, 100);
                     } else {
                       console.log('No content to set - new FAQ or empty');
                       setHasEditorContent(false);
@@ -287,23 +312,24 @@ const FAQ: React.FC = () => {
           </div>
         )}
 
-        {/* FAQ List */}
-        <div className="space-y-6">
-          {faqs.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-              <p className="text-gray-600">Aucune FAQ disponible pour le moment.</p>
-              {isAdmin && (
-                <button
-                  onClick={startAdd}
-                  className="mt-4 bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md inline-flex items-center gap-2 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Ajouter la première FAQ
-                </button>
-              )}
-            </div>
-          ) : (
-            faqs.map((faq) => (
+        {/* FAQ List - Hide when editing */}
+        {!editing && (
+          <div className="space-y-6">
+            {faqs.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                <p className="text-gray-600">Aucune FAQ disponible pour le moment.</p>
+                {isAdmin && (
+                  <button
+                    onClick={startAdd}
+                    className="mt-4 bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md inline-flex items-center gap-2 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Ajouter la première FAQ
+                  </button>
+                )}
+              </div>
+            ) : (
+              faqs.map((faq) => (
               <div key={faq.id} className="bg-white rounded-lg shadow-sm">
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
@@ -347,9 +373,10 @@ const FAQ: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        )}
         </div>
       </div>
     </>
