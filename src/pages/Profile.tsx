@@ -134,8 +134,9 @@ const Profile: React.FC = () => {
     navigate(`/profile/edit?id=${userId}`);
   };
 
-  // Check if the current user is viewing their own profile
+  // Check if the current user is viewing their own profile or is an admin
   const isOwnProfile = currentUser && userProfile && currentUser.id === userProfile.id.toString();
+  const canEdit = isOwnProfile || (currentUser?.isadmin === true);
 
   if (loading) {
     return (
@@ -200,7 +201,7 @@ const Profile: React.FC = () => {
             </div>
             
             <div className="flex items-center">
-              {isOwnProfile && (
+              {canEdit && (
                 <button
                   onClick={handleEdit}
                   className="bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2"

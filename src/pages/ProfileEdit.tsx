@@ -230,8 +230,9 @@ const ProfileEdit: React.FC = () => {
     navigate(`/profile?id=${userId}`);
   };
 
-  // Check if the current user can edit this profile
-  const canEdit = currentUser && userProfile && currentUser.id === userProfile.id.toString();
+  // Check if the current user can edit this profile (own profile or admin)
+  const canEdit = currentUser && userProfile && 
+    (currentUser.id === userProfile.id.toString() || currentUser.isadmin === true);
 
   if (loading) {
     return (
@@ -255,7 +256,7 @@ const ProfileEdit: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Accès refusé</h1>
           
           <p className="text-gray-600 mb-6">
-            {error || 'Vous ne pouvez modifier que votre propre profil.'}
+            {error || 'Vous ne pouvez modifier que votre propre profil ou vous devez être administrateur.'}
           </p>
 
           <button
