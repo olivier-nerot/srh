@@ -1,9 +1,8 @@
-const { VercelRequest, VercelResponse } = require('@vercel/node');
 const { db } = require('./lib/turso');
 const { users } = require('../src/db/schema');
 const { eq } = require('drizzle-orm');
 
-module.exports = async function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
