@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import QuillEditor from 'quill-next-react';
-import { Delta } from 'quill-next';
+import { Delta, Quill } from 'quill-next';
 import 'quill-next/dist/quill.snow.css';
 import { Edit, Plus, Trash2, Save, X } from 'lucide-react';
 
@@ -240,14 +240,12 @@ const FAQ: React.FC = () => {
                     });
                     
                     // Set initial content if editing existing FAQ
-                    console.log('QuillEditor onReady - editing:', editing);
                     if (editing?.answer && editing.id) {
-                      console.log('Setting content from answer:', editing.answer);
                       // Use setTimeout to ensure the editor is fully initialized
                       setTimeout(() => {
                         try {
+                          // First try to parse as Delta JSON (for backward compatibility)
                           const savedDelta = JSON.parse(editing.answer);
-                          console.log('Parsed delta:', savedDelta);
                           
                           // Use the ops array directly and ensure it ends with newline
                           let ops = savedDelta.ops || [];
@@ -268,29 +266,35 @@ const FAQ: React.FC = () => {
                             ops = [{ insert: '\n' }];
                           }
                           
-                          console.log('Setting ops:', ops);
                           quill.setContents(ops, 'api');
                           
                           // Force a re-render/refresh of the editor
                           quill.update();
                           
-                          // Also try setting focus to make sure it's visible
+                          // Set focus to make sure it's visible
                           setTimeout(() => {
                             quill.focus();
                           }, 50);
                           
-                          console.log('Content set, current text:', quill.getText());
                           const text = quill.getText().trim();
                           setHasEditorContent(text.length > 0);
                         } catch (error) {
-                          console.log('Parse failed, using as plain text:', error);
-                          // If parsing fails, treat as plain text
-                          quill.setText(editing.answer);
-                          setHasEditorContent(editing.answer.trim().length > 0);
+                          // If parsing fails, treat as HTML and set it in the editor
+                          quill.root.innerHTML = editing.answer;
+                          
+                          // Force a re-render/refresh of the editor
+                          quill.update();
+                          
+                          // Set focus to make sure it's visible
+                          setTimeout(() => {
+                            quill.focus();
+                          }, 50);
+                          
+                          const text = quill.getText().trim();
+                          setHasEditorContent(text.length > 0);
                         }
                       }, 100);
                     } else {
-                      console.log('No content to set - new FAQ or empty');
                       setHasEditorContent(false);
                     }
                   }}
@@ -366,15 +370,21 @@ const FAQ: React.FC = () => {
                   <div className="prose prose-sm max-w-none text-gray-700">
                     {(() => {
                       try {
-                        // Try to parse as Delta JSON first
+                        // Parse Delta JSON and convert to HTML for display
                         const delta = JSON.parse(faq.answer);
-                        // Convert Delta to plain text for display (you could enhance this)
-                        return delta.ops?.map((op: any, index: number) => (
-                          <span key={index}>{op.insert}</span>
-                        )) || faq.answer;
+                        
+                        // Create a temporary container to convert Delta to HTML
+                        const tempDiv = document.createElement('div');
+                        const tempQuill = new Quill(tempDiv, { theme: 'bubble' }); // Use bubble theme for clean output
+                        if (delta.ops) {
+                          tempQuill.setContents(delta.ops);
+                        }
+                        const html = tempQuill.getSemanticHTML();
+                        
+                        return <div dangerouslySetInnerHTML={{ __html: html }} />;
                       } catch {
-                        // If parsing fails, treat as HTML or plain text
-                        return <span dangerouslySetInnerHTML={{ __html: faq.answer }} />;
+                        // If parsing fails, treat as plain HTML or text
+                        return <div dangerouslySetInnerHTML={{ __html: faq.answer }} />;
                       }
                     })()}
                   </div>
