@@ -228,8 +228,6 @@ const FAQ: React.FC = () => {
                   Réponse
                 </label>
                 <QuillEditor
-                  key={`quill-${editing.id || 'new'}`}
-                  defaultValue={new Delta().insert('')}
                   onReady={(quill) => {
                     setQuillRef(quill);
                     
@@ -272,6 +270,15 @@ const FAQ: React.FC = () => {
                           
                           console.log('Setting ops:', ops);
                           quill.setContents(ops, 'api');
+                          
+                          // Force a re-render/refresh of the editor
+                          quill.update();
+                          
+                          // Also try setting focus to make sure it's visible
+                          setTimeout(() => {
+                            quill.focus();
+                          }, 50);
+                          
                           console.log('Content set, current text:', quill.getText());
                           const text = quill.getText().trim();
                           setHasEditorContent(text.length > 0);
