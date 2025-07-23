@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import QuillEditor from 'quill-next-react';
+import { Delta } from 'quill-next';
 import 'quill-next/dist/quill.snow.css';
 import { Edit, Plus, Trash2, Save, X } from 'lucide-react';
 
@@ -50,10 +51,11 @@ const FAQ: React.FC = () => {
   const handleSave = async () => {
     if (!editing || !isAdmin) return;
 
-    // Get the current content from the Quill editor
+    // Get the current content from the Quill editor as Delta JSON
     let answerContent = editing.answer;
     if (quillRef) {
-      answerContent = quillRef.getSemanticHTML();
+      const delta = quillRef.getContents();
+      answerContent = JSON.stringify(delta);
     }
 
     try {
@@ -218,23 +220,30 @@ const FAQ: React.FC = () => {
                 </label>
                 <QuillEditor
                   key={`quill-${editing.id || 'new'}-${showAddForm}`}
-                  defaultValue={{ ops: [{ insert: '' }] }}
-                  onTextChange={(delta, oldDelta, source) => {
-                    if (quillRef && source === 'user') {
-                      // Just check if there's content for the save button
-                      const text = quillRef.getText().trim();
-                      setHasEditorContent(text.length > 0);
-                    }
-                  }}
+                  defaultValue={new Delta().insert('')}
                   onReady={(quill) => {
                     setQuillRef(quill);
-                    // Set initial content if editing existing FAQ
-                    if (editing?.answer && editing.id) {
-                      setTimeout(() => {
-                        quill.root.innerHTML = editing.answer;
+                    
+                    // Set up text-change event listener
+                    quill.on('text-change', (delta, oldDelta, source) => {
+                      if (source === 'user') {
                         const text = quill.getText().trim();
                         setHasEditorContent(text.length > 0);
-                      }, 100);
+                      }
+                    });
+                    
+                    // Set initial content if editing existing FAQ
+                    if (editing?.answer && editing.id) {
+                      try {
+                        const savedDelta = JSON.parse(editing.answer);
+                        quill.setContents(savedDelta);
+                        const text = quill.getText().trim();
+                        setHasEditorContent(text.length > 0);
+                      } catch (error) {
+                        // If parsing fails, treat as plain text
+                        quill.setText(editing.answer);
+                        setHasEditorContent(editing.answer.trim().length > 0);
+                      }
                     } else {
                       setHasEditorContent(false);
                     }
@@ -307,10 +316,21 @@ const FAQ: React.FC = () => {
                     )}
                   </div>
                   
-                  <div 
-                    className="prose prose-sm max-w-none text-gray-700"
-                    dangerouslySetInnerHTML={{ __html: faq.answer }}
-                  />
+                  <div className="prose prose-sm max-w-none text-gray-700">
+                    {(() => {
+                      try {
+                        // Try to parse as Delta JSON first
+                        const delta = JSON.parse(faq.answer);
+                        // Convert Delta to plain text for display (you could enhance this)
+                        return delta.ops?.map((op: any, index: number) => (
+                          <span key={index}>{op.insert}</span>
+                        )) || faq.answer;
+                      } catch {
+                        // If parsing fails, treat as HTML or plain text
+                        return <span dangerouslySetInnerHTML={{ __html: faq.answer }} />;
+                      }
+                    })()}
+                  </div>
                 </div>
               </div>
             ))
