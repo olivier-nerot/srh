@@ -1,10 +1,16 @@
-mieux centrer les noms de régions sur la carte de france dans http://localhost:5173/bureau
-ameliorer les fiches membres de http://localhost:5173/bureau
-utiliser la fonte K2D
-vrai menu login/avatar dans le header
+utiliser la fonte K2D ?
 inscription newsletter dans contact + bottom bar
-ameliorer le rendu communiques et publications
 login OTP
 
-stocker tout le contenu dans database Turso
-solution d'édition du contenu
+quand logué, j'adhere -> 404
+supprimer newsletter dans bottom bar
+pages Textes Officiels : ajout/edition...
+made by anteika
+
+edition des liens ?
+supprimer icone cards liens
+position zones sur carte de france dans /bureau
+
+bug : lien contactez=nous dans /nos-liens -> 404 ???
+idem si ouverture directe sur page https://srh-info-org.vercel.app/contactez-nous
+

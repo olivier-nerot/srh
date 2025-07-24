@@ -40,7 +40,6 @@ const Header: React.FC = () => {
 
   const adminMenuItems = [
     { label: 'Membres', href: '/admin/members', icon: Users },
-    { label: 'Actualité', href: '/admin/news', icon: Newspaper },
     { label: 'Publications', href: '/admin/publications', icon: File },
     { label: 'Communiqués', href: '/admin/communiques', icon: Send },
     { label: 'Newsletters', href: '/admin/newsletters', icon: Mail },
