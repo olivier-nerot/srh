@@ -1,0 +1,1 @@
+ALTER TABLE `faq` ADD `tags` text DEFAULT '[]';

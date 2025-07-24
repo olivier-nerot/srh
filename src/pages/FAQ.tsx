@@ -9,6 +9,7 @@ interface FAQItem {
   id: number;
   question: string;
   answer: string;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -17,85 +18,26 @@ interface EditingFAQ {
   id?: number;
   question: string;
   answer: string;
+  tags: string[];
 }
 
-// Helper function to convert HTML to Delta format
-const convertHTMLToDelta = (html: string): string => {
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
+
+// Helper component to display tag chips
+const TagChips: React.FC<{ tags: string[] }> = ({ tags }) => {
+  if (!tags || tags.length === 0) return null;
   
-  const ops: any[] = [];
-  
-  // Simple HTML to Delta conversion
-  const processNode = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent || '';
-      if (text.trim()) {
-        ops.push({ insert: text });
-      }
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      const element = node as Element;
-      const tagName = element.tagName.toLowerCase();
-      
-      if (tagName === 'br') {
-        ops.push({ insert: '\n' });
-      } else if (tagName === 'a') {
-        const href = element.getAttribute('href');
-        const text = element.textContent || '';
-        if (href && text) {
-          ops.push({ 
-            insert: text, 
-            attributes: { link: href } 
-          });
-        }
-      } else if (tagName === 'strong' || tagName === 'b') {
-        const text = element.textContent || '';
-        if (text) {
-          ops.push({ 
-            insert: text, 
-            attributes: { bold: true } 
-          });
-        }
-      } else if (tagName === 'em' || tagName === 'i') {
-        const text = element.textContent || '';
-        if (text) {
-          ops.push({ 
-            insert: text, 
-            attributes: { italic: true } 
-          });
-        }
-      } else if (tagName === 'u') {
-        const text = element.textContent || '';
-        if (text) {
-          ops.push({ 
-            insert: text, 
-            attributes: { underline: true } 
-          });
-        }
-      } else if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
-        const text = element.textContent || '';
-        if (text) {
-          const level = parseInt(tagName.charAt(1));
-          ops.push({ 
-            insert: text + '\n', 
-            attributes: { header: level } 
-          });
-        }
-      } else {
-        // For other elements, process children
-        Array.from(element.childNodes).forEach(processNode);
-      }
-    }
-  };
-  
-  Array.from(tempDiv.childNodes).forEach(processNode);
-  
-  // Ensure there's a final newline
-  if (ops.length === 0 || !ops[ops.length - 1].insert.endsWith('\n')) {
-    ops.push({ insert: '\n' });
-  }
-  
-  return JSON.stringify({ ops });
+  return (
+    <div className="flex flex-wrap gap-2 mb-3">
+      {tags.map((tag, index) => (
+        <span
+          key={index}
+          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-srh-blue text-white"
+        >
+          {tag}
+        </span>
+      ))}
+    </div>
+  );
 };
 
 // Helper component to display FAQ answers
@@ -145,9 +87,8 @@ const FAQ: React.FC = () => {
   const [quillRef, setQuillRef] = useState<any>(null);
   const [hasEditorContent, setHasEditorContent] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState('');
+  const [editingTags, setEditingTags] = useState<string[]>([]);
   const [expandedFAQs, setExpandedFAQs] = useState<Set<number>>(new Set());
-  const [showHTMLParser, setShowHTMLParser] = useState(false);
-  const [htmlToParse, setHtmlToParse] = useState('');
 
   const isAdmin = user?.isadmin === true;
 
@@ -192,6 +133,7 @@ const FAQ: React.FC = () => {
           ...editing,
           question: editingQuestion,
           answer: answerContent,
+          tags: editingTags,
           isAdmin: true,
         }),
       });
@@ -242,10 +184,12 @@ const FAQ: React.FC = () => {
     setQuillRef(null);
     setHasEditorContent(false);
     setEditingQuestion(faq.question);
+    setEditingTags(faq.tags || []);
     setEditing({
       id: faq.id,
       question: faq.question,
       answer: faq.answer,
+      tags: faq.tags || [],
     });
     setShowAddForm(false);
   };
@@ -254,9 +198,11 @@ const FAQ: React.FC = () => {
     setQuillRef(null);
     setHasEditorContent(false);
     setEditingQuestion('');
+    setEditingTags([]);
     setEditing({
       question: '',
       answer: '',
+      tags: [],
     });
     setShowAddForm(true);
   };
@@ -265,6 +211,7 @@ const FAQ: React.FC = () => {
     setEditing(null);
     setShowAddForm(false);
     setEditingQuestion('');
+    setEditingTags([]);
     setQuillRef(null);
   };
 
@@ -278,55 +225,34 @@ const FAQ: React.FC = () => {
     setExpandedFAQs(newExpanded);
   };
 
-  const parseHTMLToFAQ = async (htmlString: string) => {
+  const parseAllTags = async () => {
     if (!isAdmin) return;
 
     try {
-      // Create a temporary DOM element to parse the HTML
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(htmlString, 'text/html');
-      
-      // Extract question from the first text element (white text on blue background)
-      const questionElement = doc.querySelector('.bubble-element.Text[style*="color: rgb(255, 255, 255)"]');
-      const questionText = questionElement?.textContent?.trim() || '';
-      
-      // Extract answer from the second text element (black text)
-      const answerElement = doc.querySelector('.bubble-element.Text[style*="color: var(--color_text_default)"]');
-      const answerHTML = answerElement?.innerHTML?.trim() || '';
-      
-      if (!questionText || !answerHTML) {
-        alert('Impossible d\'extraire la question ou la réponse du HTML fourni');
-        return;
-      }
-
-      // Convert HTML to a simple Delta format manually
-      const deltaJSON = convertHTMLToDelta(answerHTML);
-
-      // Save to database
       const response = await fetch('/api/faq', {
-        method: 'POST',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          question: questionText,
-          answer: deltaJSON,
+          action: 'parseTags',
           isAdmin: true,
         }),
       });
 
       const data = await response.json();
       if (data.success) {
-        alert('FAQ ajoutée avec succès !');
+        alert(`Tags parsés avec succès pour ${data.updatedCount} FAQ!`);
         await fetchFAQs(); // Refresh the list
       } else {
-        alert('Erreur lors de l\'ajout: ' + data.error);
+        alert('Erreur lors du parsing des tags: ' + data.error);
       }
     } catch (error) {
-      console.error('Error parsing HTML:', error);
-      alert('Erreur lors du parsing du HTML');
+      console.error('Error parsing tags:', error);
+      alert('Erreur lors du parsing des tags');
     }
   };
+
 
   const quillConfig = {
     theme: 'snow',
@@ -370,13 +296,13 @@ const FAQ: React.FC = () => {
                   className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
                 >
                   <Plus className="h-4 w-4" />
-                  Ajouter une FAQ
+                  Nouvelle question
                 </button>
                 <button
-                  onClick={() => setShowHTMLParser(!showHTMLParser)}
+                  onClick={parseAllTags}
                   className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium border border-srh-blue"
                 >
-                  📋 Parser HTML
+                  🏷️ Parser Tags
                 </button>
               </div>
             )}
@@ -409,6 +335,24 @@ const FAQ: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
                   placeholder="Entrez votre question..."
                 />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tags
+                </label>
+                <input
+                  type="text"
+                  value={editingTags.join(', ')}
+                  onChange={(e) => setEditingTags(e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
+                  placeholder="Entrez les tags séparés par des virgules..."
+                />
+                {editingTags.length > 0 && (
+                  <div className="mt-2">
+                    <TagChips tags={editingTags} />
+                  </div>
+                )}
               </div>
               
               <div>
@@ -511,48 +455,6 @@ const FAQ: React.FC = () => {
           </div>
         )}
 
-        {/* HTML Parser Form */}
-        {showHTMLParser && isAdmin && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <h3 className="text-lg font-semibold mb-4">Parser HTML pour créer une FAQ</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Code HTML à parser
-                </label>
-                <textarea
-                  value={htmlToParse}
-                  onChange={(e) => setHtmlToParse(e.target.value)}
-                  className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
-                  placeholder="Collez ici le code HTML contenant la question et la réponse..."
-                />
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={() => parseHTMLToFAQ(htmlToParse)}
-                  disabled={!htmlToParse.trim()}
-                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
-                >
-                  <Save className="h-4 w-4" />
-                  Parser et Créer FAQ
-                </button>
-                <button
-                  onClick={() => {
-                    setShowHTMLParser(false);
-                    setHtmlToParse('');
-                  }}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                  Annuler
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* FAQ List - Hide when editing */}
         {!editing && (
           <div className="space-y-6">
@@ -589,15 +491,19 @@ const FAQ: React.FC = () => {
                                 <ChevronRight className="h-5 w-5 transition-transform" />
                               )}
                             </div>
-                            <h3 className="text-lg font-semibold flex-1">
-                              {faq.question}
-                            </h3>
+                            <div className="flex-1">
+                              <TagChips tags={faq.tags || []} />
+                              <h3 className="text-lg font-semibold">
+                                {faq.question}
+                              </h3>
+                            </div>
                           </div>
                           
                           {/* Admin Controls */}
                           {isAdmin && !editing && (
                             <div className="flex gap-2 ml-4">
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation(); // Prevent accordion toggle
                                   startEdit(faq);
@@ -608,6 +514,7 @@ const FAQ: React.FC = () => {
                                 <Edit className="h-4 w-4" />
                               </button>
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation(); // Prevent accordion toggle
                                   handleDelete(faq.id);
