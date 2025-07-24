@@ -236,28 +236,16 @@ const Article: React.FC = () => {
               </div>
             </div>
             
-            {/* Admin Edit Button */}
-            {isAdmin && (
-              <div className="ml-4">
-                <Link
-                  to={getEditUrl(articleData.type)}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Modifier
-                </Link>
-              </div>
-            )}
           </div>
         </header>
 
         {/* Image Section */}
         {articleData.picture && (
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-10">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 mb-10">
             <img 
               src={articleData.picture} 
               alt={articleData.title}
-              className="w-full h-64 object-cover"
+              className="w-full max-h-96 object-contain border border-gray-100 rounded-lg"
             />
           </div>
         )}
