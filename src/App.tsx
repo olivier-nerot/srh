@@ -10,6 +10,7 @@ import Statuts from './pages/Statuts';
 import NosInformations from './pages/NosInformations';
 import Publications from './pages/Publications';
 import Communiques from './pages/Communiques';
+import Content from './pages/Content';
 import TextesOfficiels from './pages/TextesOfficiels';
 import JO from './pages/JO';
 import Rapports from './pages/Rapports';
@@ -47,6 +48,7 @@ function App() {
           <Route path="/nos-informations" element={<NosInformations />} />
           <Route path="/publications" element={<Publications />} />
           <Route path="/communiques" element={<Communiques />} />
+          <Route path="/content" element={<Content />} />
           <Route path="/textes-officiels" element={<TextesOfficiels />} />
           <Route path="/jo" element={<JO />} />
           <Route path="/rapports" element={<Rapports />} />
@@ -73,6 +75,8 @@ function App() {
             <AdminRoute>
               <Routes>
                 <Route path="members" element={<AdminMembers />} />
+                <Route path="publications" element={<Publications />} />
+                <Route path="communiques" element={<Communiques />} />
                 {/* Add more admin routes here */}
               </Routes>
             </AdminRoute>

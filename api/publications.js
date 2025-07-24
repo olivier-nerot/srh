@@ -13,6 +13,7 @@ const publications = sqliteTable('publications', {
   homepage: integer('homepage', { mode: 'boolean' }).notNull(),
   picture: text('picture'),
   attachmentIds: text('attachment_ids', { mode: 'json' }),
+  type: text('type').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
@@ -48,8 +49,17 @@ module.exports = async function handler(req, res) {
 
 async function getAllPublications(req, res) {
   try {
+    const { type } = req.query;
     const db = await getDb();
-    const result = await db.select().from(publications).orderBy(desc(publications.pubdate));
+    
+    let query = db.select().from(publications);
+    
+    // Filter by type if provided
+    if (type) {
+      query = query.where(eq(publications.type, type));
+    }
+    
+    const result = await query.orderBy(desc(publications.pubdate));
     return res.status(200).json({ success: true, publications: result });
   } catch (error) {
     console.error('Error fetching publications:', error);
@@ -62,7 +72,7 @@ async function getAllPublications(req, res) {
 }
 
 async function createPublication(req, res) {
-  const { title, content, tags, pubdate, subscribersonly, homepage, picture, attachmentIds, isAdmin } = req.body;
+  const { title, content, tags, pubdate, subscribersonly, homepage, picture, attachmentIds, type, isAdmin } = req.body;
 
   // Check if user is admin
   if (!isAdmin) {
@@ -90,6 +100,7 @@ async function createPublication(req, res) {
       homepage: homepage !== undefined ? homepage : true,
       picture: picture || null,
       attachmentIds: attachmentIds || [],
+      type: type || 'publication',
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
@@ -105,7 +116,7 @@ async function createPublication(req, res) {
 }
 
 async function updatePublication(req, res) {
-  const { id, title, content, tags, pubdate, subscribersonly, homepage, picture, attachmentIds, isAdmin } = req.body;
+  const { id, title, content, tags, pubdate, subscribersonly, homepage, picture, attachmentIds, type, isAdmin } = req.body;
 
   // Check if user is admin
   if (!isAdmin) {
@@ -134,6 +145,7 @@ async function updatePublication(req, res) {
         homepage: homepage !== undefined ? homepage : true,
         picture: picture || null,
         attachmentIds: attachmentIds || [],
+        type: type || 'publication',
         updatedAt: new Date(),
       })
       .where(eq(publications.id, id))

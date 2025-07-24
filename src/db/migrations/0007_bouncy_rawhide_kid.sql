@@ -1,0 +1,1 @@
+ALTER TABLE `publications` ADD `type` text DEFAULT 'publication' NOT NULL;

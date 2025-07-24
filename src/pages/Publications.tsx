@@ -148,7 +148,7 @@ const Publications: React.FC = () => {
 
   const fetchPublications = async () => {
     try {
-      const response = await fetch('/api/publications');
+      const response = await fetch('/api/publications?type=publication');
       const data = await response.json();
       if (data.success) {
         setPublications(data.publications);
@@ -189,6 +189,7 @@ const Publications: React.FC = () => {
           homepage: editingHomepage,
           picture: editingPicture,
           attachmentIds: editingAttachmentIds,
+          type: 'publication',
           isAdmin: true,
         }),
       });
