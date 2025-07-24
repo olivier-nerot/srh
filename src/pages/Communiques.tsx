@@ -1,29 +1,13 @@
 import React from 'react';
-import { Calendar, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
+import { siteContent } from '../data/content';
+import InfoCard from '../components/ui/InfoCard';
 
 const Communiques: React.FC = () => {
-  const communiques = [
-    {
-      title: "LFSS 2025: pas d'économies sur la qualité !",
-      excerpt: "Nos réflexions et propositions...",
-      date: "2025-05-01"
-    },
-    {
-      title: "Appel à une grève illimitée de la permanence des soins",
-      excerpt: "Appel à une grève illimitée de la permanence des soins des praticiens des hôpitaux, dès le 1er Mai 2025.",
-      date: "2025-04-01"
-    },
-    {
-      title: "Des économies OK mais pas de bouts de chandelles !",
-      excerpt: "L'adoption définitive du PLFSS 2025...",
-      date: "2025-03-01"
-    },
-    {
-      title: "Permanence des Soins : Merci l'hôpital !",
-      excerpt: "Le SRH a examiné avec attention le rapport de la DGOS...",
-      date: "2025-01-01"
-    }
-  ];
+  // Filter news items to show only Communiques
+  const communiques = siteContent.news.filter(item => 
+    item.category === 'Communiqué'
+  );
 
   return (
     <>
@@ -44,25 +28,12 @@ const Communiques: React.FC = () => {
           <h2 className="text-3xl font-bold text-gray-900">Communiqués</h2>
         </div>
         
-        <div className="space-y-6">
-          {communiques.map((communique, index) => (
-            <article key={index} className="bg-red-50 border border-red-200 rounded-lg p-6 hover:bg-red-100 transition-colors">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-900 flex-1">
-                  {communique.title}
-                </h3>
-                <div className="flex items-center text-sm text-gray-600 ml-4">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  {new Date(communique.date).toLocaleDateString('fr-FR')}
-                </div>
-              </div>
-              <p className="text-gray-700 mb-4">
-                {communique.excerpt}
-              </p>
-              <button className="text-red-600 hover:text-red-700 font-medium text-sm">
-                Lire le communiqué →
-              </button>
-            </article>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {communiques.map((communique) => (
+            <InfoCard 
+              key={communique.id} 
+              article={communique}
+            />
           ))}
         </div>
 

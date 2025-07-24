@@ -1,29 +1,13 @@
 import React from 'react';
-import { Calendar, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
+import { siteContent } from '../data/content';
+import InfoCard from '../components/ui/InfoCard';
 
 const Publications: React.FC = () => {
-  const publications = [
-    {
-      title: "Newsletter Janvier 2025",
-      excerpt: "Une très bonne année et surtout.. la santé ! Par le nouveau bureau du SRH.",
-      date: "2025-01-01"
-    },
-    {
-      title: "Newsletter Novembre 2024", 
-      excerpt: "Retour sur les élections professionnelles 2024.",
-      date: "2024-11-01"
-    },
-    {
-      title: "Newsletter JFR Septembre 2024",
-      excerpt: "SRH will be present at JFR. We'll be happy to see you, especially for our AG on Friday and at our stand.",
-      date: "2024-09-01"
-    },
-    {
-      title: "Newsletter Juillet 2024",
-      excerpt: "Réforme des autorisations en radiologie... nécessité pour les diplômés avant 2023 de faire reconnaître leur compétence en Radiologie Interventionnelle Avancée",
-      date: "2024-07-01"
-    }
-  ];
+  // Filter news items to show only Publications and Newsletters
+  const publications = siteContent.news.filter(item => 
+    item.category === 'Publication' || item.category === 'Newsletter'
+  );
 
   return (
     <>
@@ -44,25 +28,12 @@ const Publications: React.FC = () => {
           <h2 className="text-3xl font-bold text-gray-900">Nos publications</h2>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {publications.map((publication, index) => (
-            <article key={index} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-900 flex-1">
-                  {publication.title}
-                </h3>
-                <div className="flex items-center text-sm text-gray-500 ml-4">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  {new Date(publication.date).toLocaleDateString('fr-FR')}
-                </div>
-              </div>
-              <p className="text-gray-700 mb-4">
-                {publication.excerpt}
-              </p>
-              <button className="text-blue-600 hover:text-blue-700 font-medium text-sm">
-                Lire la suite →
-              </button>
-            </article>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {publications.map((publication) => (
+            <InfoCard 
+              key={publication.id} 
+              article={publication}
+            />
           ))}
         </div>
 
