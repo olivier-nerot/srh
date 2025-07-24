@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '../stores/authStore';
 import { siteContent } from '../data/content';
 import InfoCard from '../components/ui/InfoCard';
 import homepageLeft from '../assets/images/homepage-left.webp';
@@ -45,12 +46,15 @@ const deltaToPlainText = (content: string): string => {
 };
 
 const HomePage: React.FC = () => {
+  const { user } = useAuthStore();
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const isLoggedIn = user !== null;
+
   useEffect(() => {
     fetchHomepagePublications();
-  }, []);
+  }, [isLoggedIn]);
 
   const fetchHomepagePublications = async () => {
     try {
@@ -58,7 +62,13 @@ const HomePage: React.FC = () => {
       const data = await response.json();
       if (data.success) {
         // Filter publications that should appear on homepage
-        const homepagePublications = data.publications.filter((pub: Publication) => pub.homepage);
+        let homepagePublications = data.publications.filter((pub: Publication) => pub.homepage);
+        
+        // If user is not logged in, exclude subscriber-only publications
+        if (!isLoggedIn) {
+          homepagePublications = homepagePublications.filter((pub: Publication) => !pub.subscribersonly);
+        }
+        
         setPublications(homepagePublications);
       }
     } catch (error) {
