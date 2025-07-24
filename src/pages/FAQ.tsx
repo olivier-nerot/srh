@@ -225,33 +225,6 @@ const FAQ: React.FC = () => {
     setExpandedFAQs(newExpanded);
   };
 
-  const parseAllTags = async () => {
-    if (!isAdmin) return;
-
-    try {
-      const response = await fetch('/api/faq', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'parseTags',
-          isAdmin: true,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        alert(`Tags parsés avec succès pour ${data.updatedCount} FAQ!`);
-        await fetchFAQs(); // Refresh the list
-      } else {
-        alert('Erreur lors du parsing des tags: ' + data.error);
-      }
-    } catch (error) {
-      console.error('Error parsing tags:', error);
-      alert('Erreur lors du parsing des tags');
-    }
-  };
 
 
   const quillConfig = {
@@ -290,21 +263,13 @@ const FAQ: React.FC = () => {
               <p className="text-xl opacity-90">Trouvez rapidement des réponses aux questions les plus fréquemment posées</p>
             </div>
             {isAdmin && !editing && (
-              <div className="flex gap-3">
-                <button
-                  onClick={startAdd}
-                  className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nouvelle question
-                </button>
-                <button
-                  onClick={parseAllTags}
-                  className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium border border-srh-blue"
-                >
-                  🏷️ Parser Tags
-                </button>
-              </div>
+              <button
+                onClick={startAdd}
+                className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Nouvelle question
+              </button>
             )}
           </div>
         </div>
@@ -455,6 +420,34 @@ const FAQ: React.FC = () => {
           </div>
         )}
 
+        {/* All Tags List */}
+        {!editing && faqs.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Tous les tags</h3>
+            <div className="flex flex-wrap gap-2">
+              {(() => {
+                // Extract all unique tags from all FAQs and sort alphabetically
+                const allTags = Array.from(
+                  new Set(
+                    faqs
+                      .flatMap(faq => faq.tags || [])
+                      .filter(tag => tag && tag.trim().length > 0)
+                  )
+                ).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+                
+                return allTags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700 border border-gray-300"
+                  >
+                    {tag}
+                  </span>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* FAQ List - Hide when editing */}
         {!editing && (
           <div className="space-y-6">
@@ -478,7 +471,7 @@ const FAQ: React.FC = () => {
                   <div key={faq.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
                     {/* Question Header - Clickable */}
                     <div 
-                      className="bg-srh-blue text-white rounded-t-lg cursor-pointer transition-colors hover:bg-srh-blue-dark"
+                      className="bg-gray-100 text-gray-800 rounded-t-lg cursor-pointer transition-colors hover:bg-gray-200"
                       onClick={() => toggleFAQ(faq.id)}
                     >
                       <div className="p-6">
@@ -508,7 +501,7 @@ const FAQ: React.FC = () => {
                                   e.stopPropagation(); // Prevent accordion toggle
                                   startEdit(faq);
                                 }}
-                                className="text-white hover:text-gray-200 p-1 transition-colors"
+                                className="text-gray-600 hover:text-gray-800 p-1 transition-colors"
                                 title="Éditer"
                               >
                                 <Edit className="h-4 w-4" />
@@ -519,7 +512,7 @@ const FAQ: React.FC = () => {
                                   e.stopPropagation(); // Prevent accordion toggle
                                   handleDelete(faq.id);
                                 }}
-                                className="text-white hover:text-red-200 p-1 transition-colors"
+                                className="text-gray-600 hover:text-red-600 p-1 transition-colors"
                                 title="Supprimer"
                               >
                                 <Trash2 className="h-4 w-4" />
