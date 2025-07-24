@@ -51,6 +51,7 @@ export const siteContent: SiteContent = {
       slug: "arrete-juillet-2025-permanence-soins",
       image: "news-article-1.jpg",
       pdf:"1.pdf",
+      category: "Communiqué",
     },
     {
       id: "2", 
@@ -61,6 +62,7 @@ export const siteContent: SiteContent = {
       slug: "lfss-2025-economies-qualite",
       image: "news-article-2.jpg",
       pdf:"2.pdf",
+      category: "Publication",
     },
     {
       id: "3",
@@ -71,6 +73,7 @@ export const siteContent: SiteContent = {
       slug: "greve-permanence-soins-mai-2025",
       image: "news-article-3.jpg",
       pdf:"3.pdf",
+      category: "Communiqué",
     },
     {
       id: "4",
@@ -81,6 +84,7 @@ export const siteContent: SiteContent = {
       slug: "economies-plfss-2025-imagerie",
       image: "news-article-4.jpg",
       pdf: "4.pdf",
+      category: "Communiqué",
     },
     {
       id: "5",
@@ -91,6 +95,7 @@ export const siteContent: SiteContent = {
       slug: "newsletter-flash-janvier-2025",
       image: "news-article-5.jpg",
       pdf: "5.pdf",
+      category: "Newsletter",
     },
     {
       id: "6",
@@ -101,6 +106,7 @@ export const siteContent: SiteContent = {
       slug: "permanence-soins-rapport-dgos",
       image: "news-article-6.jpg",
       pdf: "6.pdf",
+      category: "Communiqué",
     }
   ],
   jobs: [

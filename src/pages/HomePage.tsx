@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import { siteContent } from '../data/content';
+import InfoCard from '../components/ui/InfoCard';
 import homepageLeft from '../assets/images/homepage-left.webp';
 import homepageRight2 from '../assets/images/homepage-right-2.webp';
 
@@ -63,39 +63,11 @@ const HomePage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {siteContent.news.slice(0, 6).map((article) => (
-              <article key={article.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden transform hover:-translate-y-1 flex flex-col">
-                {article.image && newsImages[article.image] && (
-                  <div className="h-48 overflow-hidden">
-                    <img 
-                      src={newsImages[article.image]} 
-                      alt={article.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                <div className="p-6 flex flex-col flex-grow">
-                  <div className="flex justify-between items-start mb-3">
-                    <time className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                      {new Date(article.publishedAt).toLocaleDateString('fr-FR')}
-                    </time>
-                  </div>
-                  <h3 className="text-lg font-semibold mb-3 text-gray-900">
-                    {article.title}
-                  </h3>
-                  <p className="text-gray-600 mb-4 text-sm flex-grow">
-                    {article.excerpt}
-                  </p>
-                  <div className="flex justify-end">
-                    <Link 
-                      to={`/article?id=${article.id}`}
-                      className="text-srh-blue hover:text-srh-blue-dark font-medium text-sm inline-flex items-center"
-                    >
-                      Lire plus
-                      <ArrowRight className="ml-1 h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
-              </article>
+              <InfoCard 
+                key={article.id} 
+                article={article} 
+                image={article.image && newsImages[article.image] ? newsImages[article.image] : undefined}
+              />
             ))}
           </div>
 
