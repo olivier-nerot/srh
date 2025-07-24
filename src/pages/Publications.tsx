@@ -4,6 +4,17 @@ import QuillEditor from 'quill-next-react';
 import 'quill-next/dist/quill.snow.css';
 import { Edit, Plus, Trash2, Save, X, FileText, Calendar, Filter } from 'lucide-react';
 import InfoCard from '../components/ui/InfoCard';
+import ImageUpload from '../components/ui/ImageUpload';
+import DocumentUpload from '../components/ui/DocumentUpload';
+
+interface Document {
+  id: number;
+  title: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+}
 
 interface Publication {
   id: number;
@@ -13,6 +24,8 @@ interface Publication {
   pubdate: string;
   subscribersonly: boolean;
   homepage: boolean;
+  picture?: string;
+  attachmentIds: number[];
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +38,8 @@ interface EditingPublication {
   pubdate: string;
   subscribersonly: boolean;
   homepage: boolean;
+  picture?: string;
+  attachmentIds: number[];
 }
 
 // Helper component to display tag chips
@@ -43,6 +58,29 @@ const TagChips: React.FC<{ tags: string[] }> = ({ tags }) => {
       ))}
     </div>
   );
+};
+
+// Helper function to convert Delta JSON to plain text for excerpts
+const deltaToPlainText = (content: string): string => {
+  try {
+    // Try to parse as Delta JSON
+    const delta = JSON.parse(content);
+    if (delta.ops && Array.isArray(delta.ops)) {
+      // Extract just the text content without formatting
+      return delta.ops.map((op: any) => {
+        if (typeof op.insert === 'string') {
+          return op.insert.replace(/\n/g, ' ').trim();
+        }
+        return '';
+      }).join('').trim();
+    }
+  } catch {
+    // Parsing failed, treat as plain text and strip HTML tags
+    return content.replace(/<[^>]*>/g, '').trim();
+  }
+  
+  // Fallback: strip HTML tags and return plain text
+  return content.replace(/<[^>]*>/g, '').trim();
 };
 
 // Helper component to display publication content
@@ -97,6 +135,8 @@ const Publications: React.FC = () => {
   const [editingPubDate, setEditingPubDate] = useState('');
   const [editingSubscribersOnly, setEditingSubscribersOnly] = useState(false);
   const [editingHomepage, setEditingHomepage] = useState(true);
+  const [editingPicture, setEditingPicture] = useState<string | undefined>(undefined);
+  const [editingAttachmentIds, setEditingAttachmentIds] = useState<number[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showAdminView, setShowAdminView] = useState(false);
 
@@ -147,6 +187,8 @@ const Publications: React.FC = () => {
           pubdate: editingPubDate,
           subscribersonly: editingSubscribersOnly,
           homepage: editingHomepage,
+          picture: editingPicture,
+          attachmentIds: editingAttachmentIds,
           isAdmin: true,
         }),
       });
@@ -202,6 +244,8 @@ const Publications: React.FC = () => {
     setEditingPubDate(new Date(publication.pubdate).toISOString().slice(0, 10));
     setEditingSubscribersOnly(publication.subscribersonly);
     setEditingHomepage(publication.homepage);
+    setEditingPicture(publication.picture);
+    setEditingAttachmentIds(publication.attachmentIds || []);
     setEditing({
       id: publication.id,
       title: publication.title,
@@ -210,6 +254,8 @@ const Publications: React.FC = () => {
       pubdate: publication.pubdate,
       subscribersonly: publication.subscribersonly,
       homepage: publication.homepage,
+      picture: publication.picture,
+      attachmentIds: publication.attachmentIds || [],
     });
     setShowAddForm(false);
     setShowAdminView(true);
@@ -224,6 +270,8 @@ const Publications: React.FC = () => {
     setEditingPubDate(new Date().toISOString().slice(0, 10));
     setEditingSubscribersOnly(false);
     setEditingHomepage(true);
+    setEditingPicture(undefined);
+    setEditingAttachmentIds([]);
     setEditing({
       title: '',
       content: '',
@@ -231,6 +279,8 @@ const Publications: React.FC = () => {
       pubdate: new Date().toISOString(),
       subscribersonly: false,
       homepage: true,
+      picture: undefined,
+      attachmentIds: [],
     });
     setShowAddForm(true);
     setShowAdminView(true);
@@ -245,6 +295,8 @@ const Publications: React.FC = () => {
     setEditingPubDate('');
     setEditingSubscribersOnly(false);
     setEditingHomepage(true);
+    setEditingPicture(undefined);
+    setEditingAttachmentIds([]);
     setQuillRef(null);
     setShowAdminView(false);
   };
@@ -491,6 +543,20 @@ const Publications: React.FC = () => {
                 />
               </div>
               
+              {/* Image Upload */}
+              <ImageUpload
+                onImageSelect={setEditingPicture}
+                currentImage={editingPicture}
+                onImageRemove={() => setEditingPicture(undefined)}
+              />
+              
+              {/* Document Upload */}
+              <DocumentUpload
+                onDocumentsChange={setEditingAttachmentIds}
+                // TODO: Fetch current documents based on attachmentIds
+                currentDocuments={[]}
+              />
+              
               <div className="flex gap-2 pt-4">
                 <button
                   onClick={handleSave}
@@ -674,13 +740,16 @@ const Publications: React.FC = () => {
                   </div>
                 ) : (
                   filteredPublications.map((publication) => {
+                    // Convert Delta content to plain text for excerpt
+                    const plainTextContent = deltaToPlainText(publication.content);
+                    
                     // Convert publication to NewsItem format for InfoCard
                     const newsItem = {
                       id: publication.id.toString(),
                       title: publication.title,
-                      excerpt: publication.content.length > 200 
-                        ? publication.content.substring(0, 200) + '...' 
-                        : publication.content,
+                      excerpt: plainTextContent.length > 200 
+                        ? plainTextContent.substring(0, 200) + '...' 
+                        : plainTextContent,
                       content: publication.content,
                       publishedAt: publication.pubdate,
                       slug: `publication-${publication.id}`,
@@ -691,6 +760,7 @@ const Publications: React.FC = () => {
                       <InfoCard 
                         key={publication.id} 
                         article={newsItem}
+                        image={publication.picture}
                       />
                     );
                   })

@@ -11,6 +11,8 @@ const publications = sqliteTable('publications', {
   pubdate: integer('pubdate', { mode: 'timestamp' }).notNull(),
   subscribersonly: integer('subscribersonly', { mode: 'boolean' }).notNull(),
   homepage: integer('homepage', { mode: 'boolean' }).notNull(),
+  picture: text('picture'),
+  attachmentIds: text('attachment_ids', { mode: 'json' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
@@ -60,7 +62,7 @@ async function getAllPublications(req, res) {
 }
 
 async function createPublication(req, res) {
-  const { title, content, tags, pubdate, subscribersonly, homepage, isAdmin } = req.body;
+  const { title, content, tags, pubdate, subscribersonly, homepage, picture, attachmentIds, isAdmin } = req.body;
 
   // Check if user is admin
   if (!isAdmin) {
@@ -86,6 +88,8 @@ async function createPublication(req, res) {
       pubdate: new Date(pubdate),
       subscribersonly: subscribersonly || false,
       homepage: homepage !== undefined ? homepage : true,
+      picture: picture || null,
+      attachmentIds: attachmentIds || [],
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
@@ -101,7 +105,7 @@ async function createPublication(req, res) {
 }
 
 async function updatePublication(req, res) {
-  const { id, title, content, tags, pubdate, subscribersonly, homepage, isAdmin } = req.body;
+  const { id, title, content, tags, pubdate, subscribersonly, homepage, picture, attachmentIds, isAdmin } = req.body;
 
   // Check if user is admin
   if (!isAdmin) {
@@ -128,6 +132,8 @@ async function updatePublication(req, res) {
         pubdate: new Date(pubdate),
         subscribersonly: subscribersonly || false,
         homepage: homepage !== undefined ? homepage : true,
+        picture: picture || null,
+        attachmentIds: attachmentIds || [],
         updatedAt: new Date(),
       })
       .where(eq(publications.id, id))

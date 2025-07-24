@@ -9,7 +9,7 @@ export const documents = sqliteTable('documents', {
   fileSize: integer('file_size'),
   mimeType: text('mime_type'),
   category: text('category', { 
-    enum: ['statute', 'rapport', 'jo', 'texte-officiel', 'other'] 
+    enum: ['statute', 'rapport', 'jo', 'texte-officiel', 'publication-attachment', 'other'] 
   }).notNull(),
   isPublic: integer('is_public', { mode: 'boolean' }).default(true),
   uploadedBy: integer('uploaded_by').references(() => users.id),

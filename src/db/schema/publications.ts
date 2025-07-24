@@ -8,6 +8,8 @@ export const publications = sqliteTable('publications', {
   pubdate: integer('pubdate', { mode: 'timestamp' }).notNull(),
   subscribersonly: integer('subscribersonly', { mode: 'boolean' }).notNull().default(false),
   homepage: integer('homepage', { mode: 'boolean' }).notNull().default(true),
+  picture: text('picture'), // Base64 encoded image data
+  attachmentIds: text('attachment_ids', { mode: 'json' }).$type<number[]>().default([]),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });
