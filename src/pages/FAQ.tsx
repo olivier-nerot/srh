@@ -19,6 +19,85 @@ interface EditingFAQ {
   answer: string;
 }
 
+// Helper function to convert HTML to Delta format
+const convertHTMLToDelta = (html: string): string => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  const ops: any[] = [];
+  
+  // Simple HTML to Delta conversion
+  const processNode = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent || '';
+      if (text.trim()) {
+        ops.push({ insert: text });
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as Element;
+      const tagName = element.tagName.toLowerCase();
+      
+      if (tagName === 'br') {
+        ops.push({ insert: '\n' });
+      } else if (tagName === 'a') {
+        const href = element.getAttribute('href');
+        const text = element.textContent || '';
+        if (href && text) {
+          ops.push({ 
+            insert: text, 
+            attributes: { link: href } 
+          });
+        }
+      } else if (tagName === 'strong' || tagName === 'b') {
+        const text = element.textContent || '';
+        if (text) {
+          ops.push({ 
+            insert: text, 
+            attributes: { bold: true } 
+          });
+        }
+      } else if (tagName === 'em' || tagName === 'i') {
+        const text = element.textContent || '';
+        if (text) {
+          ops.push({ 
+            insert: text, 
+            attributes: { italic: true } 
+          });
+        }
+      } else if (tagName === 'u') {
+        const text = element.textContent || '';
+        if (text) {
+          ops.push({ 
+            insert: text, 
+            attributes: { underline: true } 
+          });
+        }
+      } else if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+        const text = element.textContent || '';
+        if (text) {
+          const level = parseInt(tagName.charAt(1));
+          ops.push({ 
+            insert: text + '\n', 
+            attributes: { header: level } 
+          });
+        }
+      } else {
+        // For other elements, process children
+        Array.from(element.childNodes).forEach(processNode);
+      }
+    }
+  };
+  
+  Array.from(tempDiv.childNodes).forEach(processNode);
+  
+  // Ensure there's a final newline
+  if (ops.length === 0 || !ops[ops.length - 1].insert.endsWith('\n')) {
+    ops.push({ insert: '\n' });
+  }
+  
+  return JSON.stringify({ ops });
+};
+
 // Helper component to display FAQ answers
 const FAQAnswerDisplay: React.FC<{ answer: string }> = ({ answer }) => {
   try {
@@ -220,26 +299,8 @@ const FAQ: React.FC = () => {
         return;
       }
 
-      // Convert HTML to Delta format
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = answerHTML;
-      
-      // Create a temporary Quill editor to convert HTML to Delta
-      const tempQuillContainer = document.createElement('div');
-      const tempQuill = document.createElement('div');
-      tempQuillContainer.appendChild(tempQuill);
-      document.body.appendChild(tempQuillContainer);
-      
-      // Initialize Quill and set the HTML content
-      const quillInstance = new (window as any).Quill(tempQuill, { theme: 'snow' });
-      quillInstance.root.innerHTML = answerHTML;
-      
-      // Get the Delta content
-      const delta = quillInstance.getContents();
-      const deltaJSON = JSON.stringify(delta);
-      
-      // Clean up
-      document.body.removeChild(tempQuillContainer);
+      // Convert HTML to a simple Delta format manually
+      const deltaJSON = convertHTMLToDelta(answerHTML);
 
       // Save to database
       const response = await fetch('/api/faq', {
