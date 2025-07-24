@@ -43,32 +43,16 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Parse multipart form data
-    const contentType = req.headers['content-type'] || '';
+    // Handle JSON request with binary data
+    const { file, fileName, mimeType, title, description, uploadedBy } = req.body;
     
-    if (!contentType.includes('multipart/form-data')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Content-Type must be multipart/form-data'
-      });
-    }
-
-    // For serverless functions, we need to handle the file differently
-    // This is a simplified approach - in production you might want to use a proper multipart parser
-    const formData = req.body;
-    
-    if (!formData.file || !formData.fileName) {
+    if (!file || !fileName) {
       return res.status(400).json({
         success: false,
         error: 'File and fileName are required'
       });
     }
 
-    const file = formData.file; // This should be a Buffer or Uint8Array
-    const fileName = formData.fileName;
-    const title = formData.title || fileName;
-    const description = formData.description || '';
-    
     // Validate file type
     const allowedTypes = [
       'application/pdf',
@@ -77,7 +61,6 @@ module.exports = async function handler(req, res) {
       'text/plain'
     ];
     
-    const mimeType = formData.mimeType;
     if (!allowedTypes.includes(mimeType)) {
       return res.status(400).json({
         success: false,
@@ -85,16 +68,23 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // Convert array back to Uint8Array
+    const fileBuffer = new Uint8Array(file);
+    
     // Validate file size (max 10MB)
-    if (file.length > 10 * 1024 * 1024) {
+    if (fileBuffer.length > 10 * 1024 * 1024) {
       return res.status(400).json({
         success: false,
         error: 'File size too large. Maximum size is 10MB.'
       });
     }
 
+    // Generate unique filename to avoid conflicts
+    const timestamp = Date.now();
+    const uniqueFileName = `${timestamp}-${fileName}`;
+
     // Upload to Vercel Blob
-    const blob = await put(fileName, file, {
+    const blob = await put(uniqueFileName, fileBuffer, {
       access: 'public',
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
@@ -102,15 +92,15 @@ module.exports = async function handler(req, res) {
     // Save document metadata to database
     const db = await getDb();
     const result = await db.insert(documents).values({
-      title: title,
-      description: description,
+      title: title || fileName.replace(/\.[^/.]+$/, ''),
+      description: description || '',
       fileName: fileName,
       filePath: blob.url,
-      fileSize: file.length,
+      fileSize: fileBuffer.length,
       mimeType: mimeType,
       category: 'publication-attachment',
       isPublic: true,
-      uploadedBy: formData.uploadedBy || null,
+      uploadedBy: uploadedBy || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
