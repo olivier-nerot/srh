@@ -88,6 +88,7 @@ const FAQ: React.FC = () => {
   const [hasEditorContent, setHasEditorContent] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState('');
   const [editingTags, setEditingTags] = useState<string[]>([]);
+  const [editingTagsInput, setEditingTagsInput] = useState('');
   const [expandedFAQs, setExpandedFAQs] = useState<Set<number>>(new Set());
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
@@ -186,6 +187,7 @@ const FAQ: React.FC = () => {
     setHasEditorContent(false);
     setEditingQuestion(faq.question);
     setEditingTags(faq.tags || []);
+    setEditingTagsInput((faq.tags || []).join(', '));
     setEditing({
       id: faq.id,
       question: faq.question,
@@ -200,6 +202,7 @@ const FAQ: React.FC = () => {
     setHasEditorContent(false);
     setEditingQuestion('');
     setEditingTags([]);
+    setEditingTagsInput('');
     setEditing({
       question: '',
       answer: '',
@@ -213,6 +216,7 @@ const FAQ: React.FC = () => {
     setShowAddForm(false);
     setEditingQuestion('');
     setEditingTags([]);
+    setEditingTagsInput('');
     setQuillRef(null);
   };
 
@@ -328,8 +332,18 @@ const FAQ: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={editingTags.join(', ')}
-                  onChange={(e) => setEditingTags(e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0))}
+                  value={editingTagsInput}
+                  onChange={(e) => {
+                    const inputValue = e.target.value;
+                    setEditingTagsInput(inputValue);
+                    
+                    // Update the tags array for display and saving
+                    const newTags = inputValue
+                      .split(',')
+                      .map(tag => tag.trim())
+                      .filter(tag => tag.length > 0);
+                    setEditingTags(newTags);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
                   placeholder="Entrez les tags séparés par des virgules..."
                 />
