@@ -67,6 +67,8 @@ const FAQ: React.FC = () => {
   const [hasEditorContent, setHasEditorContent] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState('');
   const [expandedFAQs, setExpandedFAQs] = useState<Set<number>>(new Set());
+  const [showHTMLParser, setShowHTMLParser] = useState(false);
+  const [htmlToParse, setHtmlToParse] = useState('');
 
   const isAdmin = user?.isadmin === true;
 
@@ -197,6 +199,74 @@ const FAQ: React.FC = () => {
     setExpandedFAQs(newExpanded);
   };
 
+  const parseHTMLToFAQ = async (htmlString: string) => {
+    if (!isAdmin) return;
+
+    try {
+      // Create a temporary DOM element to parse the HTML
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlString, 'text/html');
+      
+      // Extract question from the first text element (white text on blue background)
+      const questionElement = doc.querySelector('.bubble-element.Text[style*="color: rgb(255, 255, 255)"]');
+      const questionText = questionElement?.textContent?.trim() || '';
+      
+      // Extract answer from the second text element (black text)
+      const answerElement = doc.querySelector('.bubble-element.Text[style*="color: var(--color_text_default)"]');
+      const answerHTML = answerElement?.innerHTML?.trim() || '';
+      
+      if (!questionText || !answerHTML) {
+        alert('Impossible d\'extraire la question ou la réponse du HTML fourni');
+        return;
+      }
+
+      // Convert HTML to Delta format
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = answerHTML;
+      
+      // Create a temporary Quill editor to convert HTML to Delta
+      const tempQuillContainer = document.createElement('div');
+      const tempQuill = document.createElement('div');
+      tempQuillContainer.appendChild(tempQuill);
+      document.body.appendChild(tempQuillContainer);
+      
+      // Initialize Quill and set the HTML content
+      const quillInstance = new (window as any).Quill(tempQuill, { theme: 'snow' });
+      quillInstance.root.innerHTML = answerHTML;
+      
+      // Get the Delta content
+      const delta = quillInstance.getContents();
+      const deltaJSON = JSON.stringify(delta);
+      
+      // Clean up
+      document.body.removeChild(tempQuillContainer);
+
+      // Save to database
+      const response = await fetch('/api/faq', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question: questionText,
+          answer: deltaJSON,
+          isAdmin: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('FAQ ajoutée avec succès !');
+        await fetchFAQs(); // Refresh the list
+      } else {
+        alert('Erreur lors de l\'ajout: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error parsing HTML:', error);
+      alert('Erreur lors du parsing du HTML');
+    }
+  };
+
   const quillConfig = {
     theme: 'snow',
     modules: {
@@ -233,13 +303,21 @@ const FAQ: React.FC = () => {
               <p className="text-xl opacity-90">Trouvez rapidement des réponses aux questions les plus fréquemment posées</p>
             </div>
             {isAdmin && !editing && (
-              <button
-                onClick={startAdd}
-                className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
-              >
-                <Plus className="h-4 w-4" />
-                Ajouter une FAQ
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={startAdd}
+                  className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
+                >
+                  <Plus className="h-4 w-4" />
+                  Ajouter une FAQ
+                </button>
+                <button
+                  onClick={() => setShowHTMLParser(!showHTMLParser)}
+                  className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium border border-srh-blue"
+                >
+                  📋 Parser HTML
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -362,6 +440,48 @@ const FAQ: React.FC = () => {
                 </button>
                 <button
                   onClick={cancelEdit}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* HTML Parser Form */}
+        {showHTMLParser && isAdmin && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <h3 className="text-lg font-semibold mb-4">Parser HTML pour créer une FAQ</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Code HTML à parser
+                </label>
+                <textarea
+                  value={htmlToParse}
+                  onChange={(e) => setHtmlToParse(e.target.value)}
+                  className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
+                  placeholder="Collez ici le code HTML contenant la question et la réponse..."
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => parseHTMLToFAQ(htmlToParse)}
+                  disabled={!htmlToParse.trim()}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+                >
+                  <Save className="h-4 w-4" />
+                  Parser et Créer FAQ
+                </button>
+                <button
+                  onClick={() => {
+                    setShowHTMLParser(false);
+                    setHtmlToParse('');
+                  }}
                   className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
                 >
                   <X className="h-4 w-4" />
