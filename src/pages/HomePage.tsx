@@ -54,7 +54,7 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     fetchHomepagePublications();
-  }, [isLoggedIn]);
+  }, [isLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchHomepagePublications = async () => {
     try {
@@ -86,7 +86,7 @@ const HomePage: React.FC = () => {
       id: publication.id.toString(),
       title: publication.title,
       excerpt: plainTextContent.length > 200 
-        ? plainTextContent.substring(0, 200) + '...' 
+        ? `${plainTextContent.substring(0, 200)}...` 
         : plainTextContent,
       content: publication.content,
       publishedAt: publication.pubdate,
@@ -116,7 +116,7 @@ const HomePage: React.FC = () => {
                 {siteContent.hero.description}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <button className="bg-white text-srh-blue hover:bg-blue-50 px-8 py-3 rounded-md font-medium transition-colors">
+                <button type="button" className="bg-white text-srh-blue hover:bg-blue-50 px-8 py-3 rounded-md font-medium transition-colors">
                   Nous découvrir
                 </button>
               </div>
@@ -142,7 +142,7 @@ const HomePage: React.FC = () => {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {publications.slice(0, 6).map((publication) => {
+                {publications.map((publication) => {
                   const article = transformToNewsItem(publication);
                   return (
                     <InfoCard 
