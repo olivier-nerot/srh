@@ -1,28 +1,91 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { siteContent } from '../data/content';
 import InfoCard from '../components/ui/InfoCard';
 import homepageLeft from '../assets/images/homepage-left.webp';
 import homepageRight2 from '../assets/images/homepage-right-2.webp';
+import type { NewsItem } from '../types';
 
-// News article images
-import newsArticle1 from '../assets/images/news-article-1.jpg';
-import newsArticle2 from '../assets/images/news-article-2.jpg';
-import newsArticle3 from '../assets/images/news-article-3.jpg';
-import newsArticle4 from '../assets/images/news-article-4.jpg';
-import newsArticle5 from '../assets/images/news-article-5.jpg';
-import newsArticle6 from '../assets/images/news-article-6.jpg';
+interface Publication {
+  id: number;
+  title: string;
+  content: string;
+  tags: string[];
+  pubdate: string;
+  subscribersonly: boolean;
+  homepage: boolean;
+  picture?: string;
+  attachmentIds: number[];
+  type: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
-const newsImages: { [key: string]: string } = {
-  'news-article-1.jpg': newsArticle1,
-  'news-article-2.jpg': newsArticle2,
-  'news-article-3.jpg': newsArticle3,
-  'news-article-4.jpg': newsArticle4,
-  'news-article-5.jpg': newsArticle5,
-  'news-article-6.jpg': newsArticle6,
+// Helper function to convert Delta JSON to plain text for excerpts
+const deltaToPlainText = (content: string): string => {
+  try {
+    // Try to parse as Delta JSON
+    const delta = JSON.parse(content);
+    if (delta.ops && Array.isArray(delta.ops)) {
+      // Extract just the text content without formatting
+      return delta.ops.map((op: any) => {
+        if (typeof op.insert === 'string') {
+          return op.insert.replace(/\n/g, ' ').trim();
+        }
+        return '';
+      }).join('').trim();
+    }
+  } catch {
+    // Parsing failed, treat as plain text and strip HTML tags
+    return content.replace(/<[^>]*>/g, '').trim();
+  }
+  
+  // Fallback: strip HTML tags and return plain text
+  return content.replace(/<[^>]*>/g, '').trim();
 };
 
 const HomePage: React.FC = () => {
+  const [publications, setPublications] = useState<Publication[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchHomepagePublications();
+  }, []);
+
+  const fetchHomepagePublications = async () => {
+    try {
+      const response = await fetch('/api/publications');
+      const data = await response.json();
+      if (data.success) {
+        // Filter publications that should appear on homepage
+        const homepagePublications = data.publications.filter((pub: Publication) => pub.homepage);
+        setPublications(homepagePublications);
+      }
+    } catch (error) {
+      console.error('Error fetching homepage publications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Transform database publication to NewsItem format for InfoCard
+  const transformToNewsItem = (publication: Publication): NewsItem => {
+    const plainTextContent = deltaToPlainText(publication.content);
+    
+    return {
+      id: publication.id.toString(),
+      title: publication.title,
+      excerpt: plainTextContent.length > 200 
+        ? plainTextContent.substring(0, 200) + '...' 
+        : plainTextContent,
+      content: publication.content,
+      publishedAt: publication.pubdate,
+      slug: `publication-${publication.id}`,
+      category: publication.type === 'newsletter' ? 'Newsletter' as const
+               : publication.type === 'communique' ? 'Communiqué' as const
+               : 'Publication' as const,
+    };
+  };
   return (
     <div className="space-y-0">
       {/* Hero Section - Full background image */}
@@ -61,25 +124,43 @@ const HomePage: React.FC = () => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {siteContent.news.slice(0, 6).map((article) => (
-              <InfoCard 
-                key={article.id} 
-                article={article} 
-                image={article.image && newsImages[article.image] ? newsImages[article.image] : undefined}
-              />
-            ))}
-          </div>
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-srh-blue mx-auto mb-4" />
+              <p className="text-gray-600">Chargement des actualités...</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {publications.slice(0, 6).map((publication) => {
+                  const article = transformToNewsItem(publication);
+                  return (
+                    <InfoCard 
+                      key={publication.id} 
+                      article={article} 
+                      image={publication.picture}
+                    />
+                  );
+                })}
+              </div>
+
+              {publications.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">Aucune actualité disponible pour le moment.</p>
+                </div>
+              )}
+            </>
+          )}
 
           <div className="text-center mt-8 space-x-4">
             <Link 
-              to="/publications"
+              to="/content?type=publication"
               className="inline-block border-2 border-srh-blue text-srh-blue hover:bg-srh-blue hover:text-white px-6 py-3 rounded-md font-medium transition-colors"
             >
               Voir nos publications
             </Link>
             <Link 
-              to="/communiques"
+              to="/content?type=communique"
               className="inline-block border-2 border-srh-blue text-srh-blue hover:bg-srh-blue hover:text-white px-6 py-3 rounded-md font-medium transition-colors"
             >
               Voir nos communiqués

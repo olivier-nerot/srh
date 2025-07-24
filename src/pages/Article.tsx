@@ -1,36 +1,139 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { siteContent } from '../data/content';
+import { useSearchParams, Link } from 'react-router-dom';
+import { useAuthStore } from '../stores/authStore';
+import { Edit, FileText, Download, Calendar } from 'lucide-react';
+
+interface Publication {
+  id: number;
+  title: string;
+  content: string;
+  tags: string[];
+  pubdate: string;
+  subscribersonly: boolean;
+  homepage: boolean;
+  picture?: string;
+  attachmentIds: number[];
+  type: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Document {
+  id: number;
+  title: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+}
 
 interface ArticleData {
   id: string;
   title: string;
   content: string;
   publishDate: string;
-  pdfFile: string;
+  type: string;
+  tags: string[];
+  picture?: string;
+  documents: Document[];
 }
 
+// Helper function to convert Delta JSON to HTML for display
+const deltaToHtml = (content: string): string => {
+  try {
+    // Try to parse as Delta JSON
+    const delta = JSON.parse(content);
+    if (delta.ops && Array.isArray(delta.ops)) {
+      // Convert Delta ops to HTML
+      const html = delta.ops.map((op: any) => {
+        if (typeof op.insert === 'string') {
+          let text = op.insert;
+          
+          // Apply basic formatting
+          if (op.attributes) {
+            if (op.attributes.bold) text = `<strong>${text}</strong>`;
+            if (op.attributes.italic) text = `<em>${text}</em>`;
+            if (op.attributes.underline) text = `<u>${text}</u>`;
+            if (op.attributes.link) text = `<a href="${op.attributes.link}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">${text}</a>`;
+            if (op.attributes.header) text = `<h${op.attributes.header} class="text-xl font-semibold mt-4 mb-2">${text}</h${op.attributes.header}>`;
+          }
+          
+          // Convert newlines to paragraphs
+          text = text.replace(/\n\n/g, '</p><p class="mb-4">').replace(/\n/g, '<br>');
+          
+          return text;
+        }
+        return '';
+      }).join('');
+      
+      return `<p class="mb-4">${html}</p>`;
+    }
+  } catch {
+    // Parsing failed, treat as HTML or plain text
+    return content.replace(/\n/g, '<br>');
+  }
+  
+  // Fallback: render as HTML
+  return content.replace(/\n/g, '<br>');
+};
+
+// Helper component to display tag chips
+const TagChips: React.FC<{ tags: string[] }> = ({ tags }) => {
+  if (!tags || tags.length === 0) return null;
+  
+  return (
+    <div className="flex flex-wrap gap-2">
+      {tags.map((tag, index) => (
+        <span
+          key={index}
+          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+        >
+          {tag}
+        </span>
+      ))}
+    </div>
+  );
+};
+
 const Article: React.FC = () => {
+  const { user } = useAuthStore();
   const [searchParams] = useSearchParams();
   const [articleData, setArticleData] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const articleId = searchParams.get('id');
+  const isAdmin = user?.isadmin === true;
 
-  const loadHtmlContent = async (pdfFileName: string): Promise<string> => {
+  const fetchPublication = async (id: string): Promise<Publication | null> => {
     try {
-      const htmlFileName = pdfFileName.replace('.pdf', '.html');
-      const response = await fetch(`/converted-html/${htmlFileName}`);
-      if (!response.ok) {
-        throw new Error('Failed to load HTML content');
+      const response = await fetch('/api/publications');
+      const data = await response.json();
+      if (data.success) {
+        return data.publications.find((pub: Publication) => pub.id.toString() === id) || null;
       }
-      return await response.text();
+      return null;
     } catch (error) {
-      console.error('Error loading HTML content:', error);
-      // Fallback: return a message that HTML content failed to load
-      return '<p class="text-red-600">Unable to load content. Please download the original PDF file.</p>';
+      console.error('Error fetching publication:', error);
+      return null;
     }
+  };
+
+  const fetchDocuments = async (attachmentIds: number[]): Promise<Document[]> => {
+    if (!attachmentIds || attachmentIds.length === 0) return [];
+    
+    try {
+      const response = await fetch(`/api/documents-by-ids?ids=${attachmentIds.join(',')}`);
+      const data = await response.json();
+      return data.success ? data.documents : [];
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      return [];
+    }
+  };
+
+  const getEditUrl = (type: string): string => {
+    return type === 'communique' ? '/admin/communiques' : '/admin/publications';
   };
 
   useEffect(() => {
@@ -41,26 +144,30 @@ const Article: React.FC = () => {
         return;
       }
 
-      // Find article in siteContent.news
-      const newsArticle = siteContent.news.find(item => item.id === articleId);
-      if (!newsArticle || !newsArticle.pdf) {
-        setError('Article not found');
-        setLoading(false);
-        return;
-      }
-
       try {
-        // Load pre-converted HTML content
-        const htmlContent = await loadHtmlContent(newsArticle.pdf);
+        // Fetch publication from database
+        const publication = await fetchPublication(articleId);
+        if (!publication) {
+          setError('Article not found');
+          setLoading(false);
+          return;
+        }
+
+        // Fetch associated documents
+        const documents = await fetchDocuments(publication.attachmentIds || []);
         
         setArticleData({
-          id: newsArticle.id,
-          title: newsArticle.title,
-          content: htmlContent,
-          publishDate: newsArticle.publishedAt,
-          pdfFile: newsArticle.pdf
+          id: publication.id.toString(),
+          title: publication.title,
+          content: publication.content,
+          publishDate: publication.pubdate,
+          type: publication.type,
+          tags: publication.tags || [],
+          picture: publication.picture,
+          documents
         });
-      } catch {
+      } catch (error) {
+        console.error('Error loading article:', error);
         setError('Failed to load article content');
       } finally {
         setLoading(false);
@@ -98,59 +205,119 @@ const Article: React.FC = () => {
       <div className="max-w-5xl mx-auto px-4 py-12">
         {/* Header */}
         <header className="bg-white rounded-2xl shadow-lg p-10 mb-10">
-          <div className="flex items-start space-x-6">
-            <div className="flex-shrink-0">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-            </div>
-            <div className="flex-1">
-              <h1 className="text-4xl font-bold text-gray-900 mb-3 leading-tight">
-                {articleData.title}
-              </h1>
-              <div className="flex items-center space-x-4 text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="font-medium">Publié le {articleData.publishDate}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span>Document officiel</span>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start space-x-6 flex-1">
+              <div className="flex-shrink-0">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                  <FileText className="w-8 h-8 text-white" />
                 </div>
               </div>
+              <div className="flex-1">
+                <h1 className="text-4xl font-bold text-gray-900 mb-3 leading-tight">
+                  {articleData.title}
+                </h1>
+                <div className="flex items-center space-x-4 text-gray-600 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-5 h-5" />
+                    <span className="font-medium">
+                      Publié le {new Date(articleData.publishDate).toLocaleDateString('fr-FR')}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-5 h-5" />
+                    <span className="capitalize">{articleData.type}</span>
+                  </div>
+                </div>
+                {articleData.tags.length > 0 && (
+                  <div className="mb-4">
+                    <TagChips tags={articleData.tags} />
+                  </div>
+                )}
+              </div>
             </div>
+            
+            {/* Admin Edit Button */}
+            {isAdmin && (
+              <div className="ml-4">
+                <Link
+                  to={getEditUrl(articleData.type)}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Modifier
+                </Link>
+              </div>
+            )}
           </div>
         </header>
 
+        {/* Image Section */}
+        {articleData.picture && (
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-10">
+            <img 
+              src={articleData.picture} 
+              alt={articleData.title}
+              className="w-full h-64 object-cover"
+            />
+          </div>
+        )}
+
         {/* Content */}
-        <article className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <article className="bg-white rounded-2xl shadow-lg overflow-hidden mb-10">
           <div className="p-10">
             <div className="prose prose-lg max-w-none">
               <div 
-                className="text-gray-800 leading-relaxed pdf-content"
-                dangerouslySetInnerHTML={{ __html: articleData.content }}
+                className="text-gray-800 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: deltaToHtml(articleData.content) }}
               />
             </div>
           </div>
         </article>
 
+        {/* Documents Section */}
+        {articleData.documents.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-10">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+              <FileText className="w-6 h-6 mr-3 text-blue-600" />
+              Documents joints
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {articleData.documents.map((document) => (
+                <div key={document.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 mb-2">{document.title || document.fileName}</h4>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p>Fichier: {document.fileName}</p>
+                        <p>Taille: {(document.fileSize / 1024).toFixed(1)} KB</p>
+                        <p>Type: {document.mimeType}</p>
+                      </div>
+                    </div>
+                    <a
+                      href={document.filePath}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium ml-4"
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      Télécharger
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Footer Actions */}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-between bg-white rounded-2xl shadow-lg p-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between bg-white rounded-2xl shadow-lg p-6">
           <div className="flex items-center space-x-3 mb-4 sm:mb-0">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <FileText className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Document source</p>
-              <p className="text-xs text-gray-600">Format PDF original disponible</p>
+              <p className="text-sm font-medium text-gray-900">Article original</p>
+              <p className="text-xs text-gray-600">Publié le {new Date(articleData.publishDate).toLocaleDateString('fr-FR')}</p>
             </div>
           </div>
           
@@ -165,17 +332,12 @@ const Article: React.FC = () => {
               Imprimer
             </button>
             
-            <a 
-              href={`/assets/pdf/${articleData.pdfFile}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to="/"
               className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-              </svg>
-              Télécharger PDF
-            </a>
+              Retour à l'accueil
+            </Link>
           </div>
         </div>
 
