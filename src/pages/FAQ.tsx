@@ -89,6 +89,7 @@ const FAQ: React.FC = () => {
   const [editingQuestion, setEditingQuestion] = useState('');
   const [editingTags, setEditingTags] = useState<string[]>([]);
   const [expandedFAQs, setExpandedFAQs] = useState<Set<number>>(new Set());
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const isAdmin = user?.isadmin === true;
 
@@ -224,6 +225,25 @@ const FAQ: React.FC = () => {
     }
     setExpandedFAQs(newExpanded);
   };
+
+  const toggleTagFilter = (tag: string) => {
+    setSelectedTags(prev => {
+      if (prev.includes(tag)) {
+        return prev.filter(t => t !== tag);
+      } else {
+        return [...prev, tag];
+      }
+    });
+  };
+
+  // Filter FAQs based on selected tags
+  const filteredFAQs = selectedTags.length === 0 
+    ? faqs 
+    : faqs.filter(faq => 
+        selectedTags.some(selectedTag => 
+          faq.tags && faq.tags.includes(selectedTag)
+        )
+      );
 
 
 
@@ -421,39 +441,68 @@ const FAQ: React.FC = () => {
         )}
 
         {/* All Tags List */}
-        {!editing && faqs.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Tous les tags</h3>
-            <div className="flex flex-wrap gap-2">
-              {(() => {
-                // Extract all unique tags from all FAQs and sort alphabetically
-                const allTags = Array.from(
-                  new Set(
-                    faqs
-                      .flatMap(faq => faq.tags || [])
-                      .filter(tag => tag && tag.trim().length > 0)
-                  )
-                ).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-                
-                return allTags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700 border border-gray-300"
+        {!editing && faqs.length > 0 && (() => {
+          // Extract all unique tags from filtered FAQs and sort alphabetically
+          const availableTags = Array.from(
+            new Set(
+              filteredFAQs
+                .flatMap(faq => faq.tags || [])
+                .filter(tag => tag && tag.trim().length > 0)
+            )
+          ).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+          
+          if (availableTags.length === 0) return null;
+          
+          return (
+            <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Tags {selectedTags.length > 0 && `(${selectedTags.length} sélectionné${selectedTags.length > 1 ? 's' : ''})`}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map((tag) => {
+                  const isSelected = selectedTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTagFilter(tag)}
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-srh-blue text-white border-srh-blue hover:bg-srh-blue-dark'
+                          : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedTags.length > 0 && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTags([])}
+                    className="text-sm text-gray-600 hover:text-gray-800 underline"
                   >
-                    {tag}
-                  </span>
-                ));
-              })()}
+                    Effacer tous les filtres
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* FAQ List - Hide when editing */}
         {!editing && (
           <div className="space-y-6">
-            {faqs.length === 0 ? (
+            {filteredFAQs.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-                <p className="text-gray-600">Aucune FAQ disponible pour le moment.</p>
+                <p className="text-gray-600">
+                  {faqs.length === 0 
+                    ? "Aucune FAQ disponible pour le moment." 
+                    : "Aucune FAQ ne correspond aux tags sélectionnés."
+                  }
+                </p>
                 {isAdmin && (
                   <button
                     onClick={startAdd}
@@ -465,7 +514,7 @@ const FAQ: React.FC = () => {
                 )}
               </div>
             ) : (
-              faqs.map((faq) => {
+              filteredFAQs.map((faq) => {
                 const isExpanded = expandedFAQs.has(faq.id);
                 return (
                   <div key={faq.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
