@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, FileText, Download } from 'lucide-react';
 
 interface Document {
@@ -12,18 +12,49 @@ interface Document {
 
 interface DocumentUploadProps {
   onDocumentsChange: (documentIds: number[]) => void;
-  currentDocuments?: Document[];
+  currentDocumentIds?: number[];
 }
 
 const DocumentUpload: React.FC<DocumentUploadProps> = ({ 
   onDocumentsChange, 
-  currentDocuments = [] 
+  currentDocumentIds = [] 
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [documents, setDocuments] = useState<Document[]>(currentDocuments);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch documents when currentDocumentIds changes
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      if (currentDocumentIds.length === 0) {
+        setDocuments([]);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/documents-by-ids?ids=${currentDocumentIds.join(',')}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setDocuments(data.documents);
+        } else {
+          console.error('Error fetching documents:', data.error);
+          setError('Erreur lors du chargement des documents');
+        }
+      } catch (err) {
+        console.error('Error fetching documents:', err);
+        setError('Erreur lors du chargement des documents');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDocuments();
+  }, [currentDocumentIds]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -198,9 +229,16 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       </div>
       
       {/* Document List */}
-      {documents.length > 0 && (
+      {(documents.length > 0 || isLoading) && (
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-700">Documents joints ({documents.length})</h4>
+          <h4 className="text-sm font-medium text-gray-700">
+            Documents joints {!isLoading && `(${documents.length})`}
+            {isLoading && (
+              <span className="ml-2">
+                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-srh-blue"></div>
+              </span>
+            )}
+          </h4>
           <div className="space-y-2">
             {documents.map((document) => (
               <div

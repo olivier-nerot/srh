@@ -553,8 +553,7 @@ const Publications: React.FC = () => {
               {/* Document Upload */}
               <DocumentUpload
                 onDocumentsChange={setEditingAttachmentIds}
-                // TODO: Fetch current documents based on attachmentIds
-                currentDocuments={[]}
+                currentDocumentIds={editingAttachmentIds}
               />
               
               <div className="flex gap-2 pt-4">
