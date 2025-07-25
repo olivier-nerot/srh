@@ -140,7 +140,7 @@ const Communiques: React.FC = () => {
 
   const fetchPublications = async () => {
     try {
-      const response = await fetch('/api/publications?type=communique');
+      const response = await fetch('/api/content?contentType=publications&type=communique');
       const data = await response.json();
       if (data.success) {
         setPublications(data.publications);
@@ -205,7 +205,7 @@ const Communiques: React.FC = () => {
     if (!isAdmin || !confirm('Êtes-vous sûr de vouloir supprimer ce communiqué ?')) return;
 
     try {
-      const response = await fetch('/api/publications', {
+      const response = await fetch('/api/content?contentType=publications', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

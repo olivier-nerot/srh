@@ -17,7 +17,7 @@ const Login: React.FC = () => {
     
     try {
       // Call login API endpoint
-      const response = await fetch('/api/login', {
+      const response = await fetch('/api/auth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

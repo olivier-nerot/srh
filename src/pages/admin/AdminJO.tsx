@@ -42,7 +42,7 @@ const AdminJO: React.FC = () => {
   const fetchJOTextes = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/jotextes');
+      const response = await fetch('/api/content?contentType=jotextes');
       const result = await response.json();
       if (result.success) {
         setJOTextes(result.jotextes);
@@ -65,7 +65,7 @@ const AdminJO: React.FC = () => {
 
   const fetchDocuments = async (documentIds: number[]) => {
     try {
-      const response = await fetch(`/api/documents-by-ids?ids=${documentIds.join(',')}`);
+      const response = await fetch(`/api/documents?ids=${documentIds.join(',')}`);
       const result = await response.json();
       if (result.success) {
         const docMap: { [key: number]: Document } = {};
@@ -104,7 +104,7 @@ const AdminJO: React.FC = () => {
     }
 
     try {
-      const url = '/api/jotextes';
+      const url = '/api/content?contentType=jotextes';
       const method = isCreating ? 'POST' : 'PUT';
       const body = {
         ...formData,
@@ -135,7 +135,7 @@ const AdminJO: React.FC = () => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce texte ?')) return;
 
     try {
-      const response = await fetch('/api/jotextes', {
+      const response = await fetch('/api/content?contentType=jotextes', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, isAdmin: user?.isadmin })

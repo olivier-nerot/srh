@@ -106,7 +106,7 @@ const Article: React.FC = () => {
 
   const fetchPublication = async (id: string): Promise<Publication | null> => {
     try {
-      const response = await fetch('/api/publications');
+      const response = await fetch('/api/content?contentType=publications');
       const data = await response.json();
       if (data.success) {
         return data.publications.find((pub: Publication) => pub.id.toString() === id) || null;
@@ -122,7 +122,7 @@ const Article: React.FC = () => {
     if (!attachmentIds || attachmentIds.length === 0) return [];
     
     try {
-      const response = await fetch(`/api/documents-by-ids?ids=${attachmentIds.join(',')}`);
+      const response = await fetch(`/api/documents?ids=${attachmentIds.join(',')}`);
       const data = await response.json();
       return data.success ? data.documents : [];
     } catch (error) {

@@ -51,7 +51,7 @@ const JO: React.FC = () => {
 
   const fetchJOTexts = async () => {
     try {
-      const response = await fetch('/api/jotextes');
+      const response = await fetch('/api/content?contentType=jotextes');
       const result = await response.json();
       if (result.success) {
         setJournalOfficielTexts(result.jotextes);
@@ -74,7 +74,7 @@ const JO: React.FC = () => {
 
   const fetchDocuments = async (documentIds: number[]) => {
     try {
-      const response = await fetch(`/api/documents-by-ids?ids=${documentIds.join(',')}`);
+      const response = await fetch(`/api/documents?ids=${documentIds.join(',')}`);
       const result = await response.json();
       if (result.success) {
         const docMap: { [key: number]: Document } = {};

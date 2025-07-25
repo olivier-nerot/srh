@@ -32,7 +32,7 @@ import FAQ from './pages/FAQ';
 function App() {
   useEffect(() => {
     // Test connection via API
-    fetch('/api/test-connection')
+    fetch('/api/utils?utilType=test-connection')
       .then(res => res.json())
       .then(result => console.log('Connection test:', result))
       .catch(err => console.error('Connection test failed:', err));

@@ -193,7 +193,7 @@ const ProfileEdit: React.FC = () => {
       };
 
       // Call update API
-      const response = await fetch(`/api/update-profile?id=${userId}`, {
+      const response = await fetch(`/api/profile?id=${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

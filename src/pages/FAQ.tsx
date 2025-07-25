@@ -100,7 +100,7 @@ const FAQ: React.FC = () => {
 
   const fetchFAQs = async () => {
     try {
-      const response = await fetch('/api/faq');
+      const response = await fetch('/api/content?contentType=faq');
       const data = await response.json();
       if (data.success) {
         setFaqs(data.faqs);
@@ -123,7 +123,7 @@ const FAQ: React.FC = () => {
     }
 
     try {
-      const url = '/api/faq';
+      const url = '/api/content?contentType=faq';
       const method = editing.id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -159,7 +159,7 @@ const FAQ: React.FC = () => {
     if (!isAdmin || !confirm('Êtes-vous sûr de vouloir supprimer cette FAQ ?')) return;
 
     try {
-      const response = await fetch('/api/faq', {
+      const response = await fetch('/api/content?contentType=faq', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

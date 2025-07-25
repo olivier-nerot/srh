@@ -57,7 +57,7 @@ export async function getAllUsers() {
 
 export async function getUserById(id: string | number) {
   try {
-    const response = await fetch(`${API_BASE}/api/user-by-id?id=${encodeURIComponent(id)}`);
+    const response = await fetch(`${API_BASE}/api/profile?id=${encodeURIComponent(id)}`);
     const result = await response.json();
     
     if (result.success) {
@@ -74,7 +74,7 @@ export async function getUserById(id: string | number) {
 
 export async function updateProfile(id: string | number, profileData: any) {
   try {
-    const response = await fetch(`${API_BASE}/api/update-profile?id=${encodeURIComponent(id)}`, {
+    const response = await fetch(`${API_BASE}/api/profile?id=${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
