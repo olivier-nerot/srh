@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Calendar, X, ExternalLink } from 'lucide-react';
+import { FileText, Download, Calendar, X, ExternalLink, Search } from 'lucide-react';
 
 interface JOText {
   id: number;
@@ -24,6 +24,7 @@ const JO: React.FC = () => {
   const [error, setError] = useState('');
   const [selectedText, setSelectedText] = useState<JOText | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchJOTexts();
@@ -104,6 +105,11 @@ const JO: React.FC = () => {
     }
   };
 
+  const filteredTexts = journalOfficielTexts.filter(text =>
+    text.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    text.content.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <>
       {/* Blue curved header section */}
@@ -131,6 +137,20 @@ const JO: React.FC = () => {
           </p>
         </div>
 
+        {/* Search */}
+        <div className="bg-white rounded-lg shadow-sm border p-4 mb-8">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher dans les textes par nom ou contenu..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
@@ -140,9 +160,27 @@ const JO: React.FC = () => {
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <p className="text-red-800">{error}</p>
           </div>
+        ) : filteredTexts.length === 0 ? (
+          <div className="text-center py-12">
+            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">
+              {searchTerm ? 
+                `Aucun texte trouvé pour "${searchTerm}"` : 
+                'Aucun texte disponible pour le moment.'
+              }
+            </p>
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className="mt-2 text-blue-600 hover:text-blue-700 text-sm"
+              >
+                Effacer la recherche
+              </button>
+            )}
+          </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {journalOfficielTexts.map((text) => (
+            {filteredTexts.map((text) => (
               <article 
                 key={text.id} 
                 className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer"
@@ -195,64 +233,6 @@ const JO: React.FC = () => {
             ))}
           </div>
         )}
-
-        {/* Search and Filter */}
-        <section className="bg-gray-50 rounded-lg p-8 mt-16">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Rechercher dans les textes</h2>
-          <p className="text-gray-700 mb-6">
-            Utilisez les filtres ci-dessous pour trouver rapidement les textes officiels qui vous intéressent.
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
-                Recherche par mots-clés
-              </label>
-              <input
-                type="text"
-                id="search"
-                placeholder="Ex: radiologie, praticien, certification..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
-                Catégorie
-              </label>
-              <select
-                id="category"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Toutes les catégories</option>
-                <option value="decret">Décrets</option>
-                <option value="instruction">Instructions</option>
-              </select>
-            </div>
-            
-            <div>
-              <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-2">
-                Année
-              </label>
-              <select
-                id="year"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Toutes les années</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
-                <option value="2022">2022</option>
-                <option value="2021">2021</option>
-              </select>
-            </div>
-          </div>
-          
-          <div className="mt-6">
-            <button className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors">
-              Rechercher
-            </button>
-          </div>
-        </section>
       </div>
 
       {/* Modal for displaying full text content */}

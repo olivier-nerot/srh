@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import QuillEditor from 'quill-next-react';
 import 'quill-next/dist/quill.snow.css';
-import { Edit, Plus, Trash2, Save, X, Megaphone, Calendar, Filter } from 'lucide-react';
-import InfoCard from '../components/ui/InfoCard';
+import { Edit, Plus, Trash2, Save, X, Megaphone, Calendar } from 'lucide-react';
 import ImageUpload from '../components/ui/ImageUpload';
 import DocumentUpload from '../components/ui/DocumentUpload';
 
@@ -52,28 +51,6 @@ const TagChips: React.FC<{ tags: string[] }> = ({ tags }) => {
   );
 };
 
-// Helper function to convert Delta JSON to plain text for excerpts
-const deltaToPlainText = (content: string): string => {
-  try {
-    // Try to parse as Delta JSON
-    const delta = JSON.parse(content);
-    if (delta.ops && Array.isArray(delta.ops)) {
-      // Extract just the text content without formatting
-      return delta.ops.map((op: any) => {
-        if (typeof op.insert === 'string') {
-          return op.insert.replace(/\n/g, ' ').trim();
-        }
-        return '';
-      }).join('').trim();
-    }
-  } catch {
-    // Parsing failed, treat as plain text and strip HTML tags
-    return content.replace(/<[^>]*>/g, '').trim();
-  }
-  
-  // Fallback: strip HTML tags and return plain text
-  return content.replace(/<[^>]*>/g, '').trim();
-};
 
 // Helper component to display publication content
 const PublicationContentDisplay: React.FC<{ content: string }> = ({ content }) => {
@@ -130,7 +107,6 @@ const Communiques: React.FC = () => {
   const [editingPicture, setEditingPicture] = useState<string | undefined>(undefined);
   const [editingAttachmentIds, setEditingAttachmentIds] = useState<number[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [showAdminView, setShowAdminView] = useState(false);
 
   const isAdmin = user?.isadmin === true;
 
@@ -251,7 +227,6 @@ const Communiques: React.FC = () => {
       attachmentIds: publication.attachmentIds || [],
     });
     setShowAddForm(false);
-    setShowAdminView(true);
   };
 
   const startAdd = () => {
@@ -276,7 +251,6 @@ const Communiques: React.FC = () => {
       attachmentIds: [],
     });
     setShowAddForm(true);
-    setShowAdminView(true);
   };
 
   const cancelEdit = () => {
@@ -291,7 +265,6 @@ const Communiques: React.FC = () => {
     setEditingPicture(undefined);
     setEditingAttachmentIds([]);
     setQuillRef(null);
-    setShowAdminView(false);
   };
 
   const toggleTagFilter = (tag: string) => {
@@ -304,16 +277,14 @@ const Communiques: React.FC = () => {
     });
   };
 
-  // Filter publications based on selected tags and current view mode
+  // Filter publications based on selected tags (admin view only)
   const filteredPublications = selectedTags.length === 0 
-    ? publications.filter(pub => showAdminView || pub.homepage)
-    : publications
-        .filter(pub => showAdminView || pub.homepage)
-        .filter(pub => 
-          selectedTags.some(selectedTag => 
-            pub.tags && pub.tags.includes(selectedTag)
-          )
-        );
+    ? publications
+    : publications.filter(pub => 
+        selectedTags.some(selectedTag => 
+          pub.tags && pub.tags.includes(selectedTag)
+        )
+      );
 
   const quillConfig = {
     theme: 'snow',
@@ -351,29 +322,14 @@ const Communiques: React.FC = () => {
               <p className="text-xl opacity-90">Communiqués de presse et positions du SRH</p>
             </div>
             <div className="flex gap-2">
-              {isAdmin && (
-                <>
-                  <button
-                    onClick={() => setShowAdminView(!showAdminView)}
-                    className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium ${
-                      showAdminView 
-                        ? 'bg-white text-srh-blue hover:bg-gray-100' 
-                        : 'bg-srh-blue-dark text-white hover:bg-opacity-80 border border-white'
-                    }`}
-                  >
-                    <Filter className="h-4 w-4" />
-                    {showAdminView ? 'Vue public' : 'Vue admin'}
-                  </button>
-                  {!editing && (
-                    <button
-                      onClick={startAdd}
-                      className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Nouveau communiqué
-                    </button>
-                  )}
-                </>
+              {isAdmin && !editing && (
+                <button
+                  onClick={startAdd}
+                  className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nouveau communiqué
+                </button>
               )}
             </div>
           </div>
@@ -622,144 +578,100 @@ const Communiques: React.FC = () => {
           );
         })()}
 
-        {/* Publications List */}
-        {!editing && (
-          <>
-            {isAdmin && showAdminView && (
-              <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-                <div className="flex items-center mb-4">
-                  <Megaphone className="h-8 w-8 text-red-600 mr-3" />
-                  <h2 className="text-2xl font-bold text-gray-900">Gestion des communiqués</h2>
-                </div>
-                
-                {filteredPublications.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-600">
-                      {publications.length === 0 
-                        ? "Aucun communiqué disponible pour le moment." 
-                        : "Aucun communiqué ne correspond aux filtres sélectionnés."
-                      }
-                    </p>
-                    <button
-                      onClick={startAdd}
-                      className="mt-4 bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md inline-flex items-center gap-2 transition-colors"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Ajouter le premier communiqué
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {filteredPublications.map((publication) => (
-                      <div key={publication.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-4 mb-2">
-                              <h3 className="text-lg font-semibold text-gray-900">
-                                {publication.title}
-                              </h3>
-                              <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <Calendar className="h-4 w-4" />
-                                {new Date(publication.pubdate).toLocaleDateString('fr-FR')}
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-4 mb-3">
-                              <TagChips tags={publication.tags || []} />
-                              <div className="flex gap-2">
-                                {publication.subscribersonly && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                    Abonnés seulement
-                                  </span>
-                                )}
-                                {publication.homepage && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    Page d'accueil
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="prose prose-sm max-w-none text-gray-700 line-clamp-3">
-                              <PublicationContentDisplay content={publication.content} />
-                            </div>
-                          </div>
-                          
-                          <div className="flex gap-2 ml-4">
-                            <button
-                              onClick={() => startEdit(publication)}
-                              className="text-gray-600 hover:text-gray-800 p-2 transition-colors"
-                              title="Éditer"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(publication.id)}
-                              className="text-gray-600 hover:text-red-600 p-2 transition-colors"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+        {/* Admin Access Required Message */}
+        {!editing && !isAdmin && (
+          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            <Megaphone className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Accès administrateur requis</h2>
+            <p className="text-gray-600">
+              Cette page est réservée aux administrateurs pour la gestion des communiqués.
+            </p>
+          </div>
+        )}
+
+        {/* Publications List - Admin View Only */}
+        {!editing && isAdmin && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <div className="flex items-center mb-4">
+              <Megaphone className="h-8 w-8 text-red-600 mr-3" />
+              <h2 className="text-2xl font-bold text-gray-900">Gestion des communiqués</h2>
+            </div>
+            
+            {filteredPublications.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">
+                  {publications.length === 0 
+                    ? "Aucun communiqué disponible pour le moment." 
+                    : "Aucun communiqué ne correspond aux filtres sélectionnés."
+                  }
+                </p>
+                <button
+                  onClick={startAdd}
+                  className="mt-4 bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md inline-flex items-center gap-2 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Ajouter le premier communiqué
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredPublications.map((publication) => (
+                  <div key={publication.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-4 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {publication.title}
+                          </h3>
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <Calendar className="h-4 w-4" />
+                            {new Date(publication.pubdate).toLocaleDateString('fr-FR')}
                           </div>
                         </div>
+                        
+                        <div className="flex items-center gap-4 mb-3">
+                          <TagChips tags={publication.tags || []} />
+                          <div className="flex gap-2">
+                            {publication.subscribersonly && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Abonnés seulement
+                              </span>
+                            )}
+                            {publication.homepage && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Page d'accueil
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="prose prose-sm max-w-none text-gray-700 line-clamp-3">
+                          <PublicationContentDisplay content={publication.content} />
+                        </div>
                       </div>
-                    ))}
+                      
+                      <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => startEdit(publication)}
+                          className="text-gray-600 hover:text-gray-800 p-2 transition-colors"
+                          title="Éditer"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(publication.id)}
+                          className="text-gray-600 hover:text-red-600 p-2 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
             )}
-
-            {/* Public View - InfoCard Grid */}
-            {(!isAdmin || !showAdminView) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredPublications.length === 0 ? (
-                  <div className="col-span-full bg-white rounded-lg shadow-sm p-8 text-center">
-                    <p className="text-gray-600">
-                      {publications.length === 0 
-                        ? "Aucun communiqué disponible pour le moment." 
-                        : "Aucun communiqué ne correspond aux tags sélectionnés."
-                      }
-                    </p>
-                    {isAdmin && (
-                      <button
-                        onClick={startAdd}
-                        className="mt-4 bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md inline-flex items-center gap-2 transition-colors"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Ajouter le premier communiqué
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  filteredPublications.map((publication) => {
-                    // Convert Delta content to plain text for excerpt
-                    const plainTextContent = deltaToPlainText(publication.content);
-                    
-                    // Convert publication to NewsItem format for InfoCard
-                    const newsItem = {
-                      id: publication.id.toString(),
-                      title: publication.title,
-                      excerpt: plainTextContent.length > 200 
-                        ? plainTextContent.substring(0, 200) + '...' 
-                        : plainTextContent,
-                      content: publication.content,
-                      publishedAt: publication.pubdate,
-                      slug: `communique-${publication.id}`,
-                      category: 'Communiqué' as const,
-                    };
-                    
-                    return (
-                      <InfoCard 
-                        key={publication.id} 
-                        article={newsItem}
-                        image={publication.picture}
-                      />
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </>
+          </div>
         )}
 
         {/* Newsletter Subscription */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Scale, Plus, Edit, Trash2, Search, Calendar, FileText, Save, X } from 'lucide-react';
+import { Scale, Plus, Edit, Trash2, Calendar, FileText, Save, X } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import DocumentUpload from '../../components/ui/DocumentUpload';
 
@@ -24,7 +24,6 @@ const AdminJO: React.FC = () => {
   const [jotextes, setJOTextes] = useState<JOText[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingText, setEditingText] = useState<JOText | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -156,10 +155,7 @@ const AdminJO: React.FC = () => {
     setFormData(prev => ({ ...prev, document: documentIds[0] || null }));
   };
 
-  const filteredTextes = jotextes.filter(text =>
-    text.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    text.content.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTextes = jotextes;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('fr-FR', {
@@ -206,21 +202,8 @@ const AdminJO: React.FC = () => {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Rechercher par nom ou contenu..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
             <p className="text-red-800">{error}</p>

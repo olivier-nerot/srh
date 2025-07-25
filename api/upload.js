@@ -56,6 +56,21 @@ module.exports = async function handler(req, res) {
 
 async function handleDocumentUpload(req, res) {
   try {
+    // Ensure we're parsing JSON properly
+    let body = req.body;
+    
+    // If body is not parsed, try to parse it manually
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);  
+      } catch (parseError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid JSON in request body'
+        });
+      }
+    }
+    
     // Parse JSON body (the DocumentUpload component sends JSON, not multipart)
     const {
       file,
@@ -65,7 +80,7 @@ async function handleDocumentUpload(req, res) {
       description,
       category,
       isAdmin
-    } = req.body;
+    } = body;
 
     if (!isAdmin) {
       return res.status(403).json({
@@ -120,6 +135,32 @@ async function handleDocumentUpload(req, res) {
 
 async function handleImageUpload(req, res) {
   try {
+    // Check if this is multipart form data or JSON
+    const contentType = req.headers['content-type'] || '';
+    
+    if (contentType.includes('application/json')) {
+      // Handle JSON format (similar to document upload)
+      let body = req.body;
+      
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);  
+        } catch (parseError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid JSON in request body'
+          });
+        }
+      }
+      
+      // For JSON image uploads, implement similar logic as document upload
+      return res.status(400).json({
+        success: false,
+        error: 'JSON image upload not implemented yet'
+      });
+    }
+    
+    // Original multipart handling
     const chunks = [];
     
     // Parse image upload data
@@ -132,7 +173,7 @@ async function handleImageUpload(req, res) {
         if (!boundary) {
           return res.status(400).json({
             success: false,
-            error: 'Invalid multipart form data'
+            error: 'Invalid multipart data'
           });
         }
 
