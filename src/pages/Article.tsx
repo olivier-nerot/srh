@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
-import { Edit, FileText, Download, Calendar } from 'lucide-react';
+// import { useAuthStore } from '../stores/authStore';
+import { FileText, Download, Calendar } from 'lucide-react';
 
 interface Publication {
   id: number;
@@ -96,14 +96,13 @@ const TagChips: React.FC<{ tags: string[] }> = ({ tags }) => {
 };
 
 const Article: React.FC = () => {
-  const { user } = useAuthStore();
+  // const { user } = useAuthStore();
   const [searchParams] = useSearchParams();
   const [articleData, setArticleData] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const articleId = searchParams.get('id');
-  const isAdmin = user?.isadmin === true;
 
   const fetchPublication = async (id: string): Promise<Publication | null> => {
     try {
@@ -132,9 +131,6 @@ const Article: React.FC = () => {
     }
   };
 
-  const getEditUrl = (type: string): string => {
-    return type === 'communique' ? '/admin/communiques' : '/admin/publications';
-  };
 
   useEffect(() => {
     const loadArticle = async () => {

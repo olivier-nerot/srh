@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, ArrowRight, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getUserByEmail } from '../services/userService';
+// import { getUserByEmail } from '../services/userService';
 import { useAuthStore } from '../stores/authStore';
 
 const Login: React.FC = () => {

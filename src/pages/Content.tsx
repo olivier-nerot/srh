@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
+// import { useAuthStore } from '../stores/authStore';
 import { FileText, Megaphone, Mail } from 'lucide-react';
 import InfoCard from '../components/ui/InfoCard';
 
@@ -43,25 +43,25 @@ const deltaToPlainText = (content: string): string => {
 };
 
 // Helper component to display tag chips
-const TagChips: React.FC<{ tags: string[] }> = ({ tags }) => {
-  if (!tags || tags.length === 0) return null;
-  
-  return (
-    <div className="flex flex-wrap gap-2 mb-3">
-      {tags.map((tag, index) => (
-        <span
-          key={index}
-          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-srh-blue text-white"
-        >
-          {tag}
-        </span>
-      ))}
-    </div>
-  );
-};
+// const TagChips: React.FC<{ tags: string[] }> = ({ tags }) => {
+//   if (!tags || tags.length === 0) return null;
+//   
+//   return (
+//     <div className="flex flex-wrap gap-2 mb-3">
+//       {tags.map((tag, index) => (
+//         <span
+//           key={index}
+//           className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-srh-blue text-white"
+//         >
+//           {tag}
+//         </span>
+//       ))}
+//     </div>
+//   );
+// };
 
 const Content: React.FC = () => {
-  const { user } = useAuthStore();
+  // const { user } = useAuthStore();
   const [searchParams] = useSearchParams();
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +70,7 @@ const Content: React.FC = () => {
   // Get type from URL parameter, default to 'publication'
   const type = searchParams.get('type') || 'publication';
 
-  const isAdmin = user?.isadmin === true;
+  // const isAdmin = user?.isadmin === true;
 
   useEffect(() => {
     fetchPublications();
@@ -142,7 +142,7 @@ const Content: React.FC = () => {
   };
 
   const pageConfig = getPageConfig(type);
-  const PageIcon = pageConfig.icon;
+  // const PageIcon = pageConfig.icon;
 
   if (loading) {
     return (

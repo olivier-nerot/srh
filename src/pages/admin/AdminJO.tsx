@@ -152,8 +152,8 @@ const AdminJO: React.FC = () => {
     }
   };
 
-  const handleDocumentUpload = (documentId: number) => {
-    setFormData(prev => ({ ...prev, document: documentId }));
+  const handleDocumentUpload = (documentIds: number[]) => {
+    setFormData(prev => ({ ...prev, document: documentIds[0] || null }));
   };
 
   const filteredTextes = jotextes.filter(text =>
@@ -329,9 +329,8 @@ const AdminJO: React.FC = () => {
                     Document PDF (optionnel)
                   </label>
                   <DocumentUpload
-                    onUpload={handleDocumentUpload}
-                    category="jo"
-                    currentDocumentId={formData.document}
+                    onDocumentsChange={handleDocumentUpload}
+                    currentDocumentIds={formData.document ? [formData.document] : []}
                   />
                 </div>
               </div>

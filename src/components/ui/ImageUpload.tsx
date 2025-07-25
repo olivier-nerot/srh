@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Image } from 'lucide-react';
+import { X, Image } from 'lucide-react';
 
 interface ImageUploadProps {
   onImageSelect: (base64: string) => void;

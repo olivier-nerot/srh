@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, Menu, X, User, LogOut, FileText, HelpCircle, Users, Newspaper, File, Send, Mail, 
+import { ChevronDown, Menu, X, User, LogOut, FileText, HelpCircle, Users, File, Send, Mail, 
          Building2, UserCheck, ScrollText, BookOpen, MessageCircle, Scale, FileBarChart } from 'lucide-react';
 import { siteContent } from '../../data/content';
 import { useAuthStore } from '../../stores/authStore';

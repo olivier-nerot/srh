@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
-  User, Mail, Building2, MapPin, Calendar, Settings, 
+  User, Mail, Building2, MapPin, Calendar, 
   ArrowLeft, Shield, Briefcase, Bell, BellOff, Edit 
 } from 'lucide-react';
 import { getUserById } from '../services/userService';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
-  User, ArrowLeft, Save, Briefcase, X, AlertCircle 
+  User, ArrowLeft, Save, Briefcase, AlertCircle 
 } from 'lucide-react';
 import { getUserById } from '../services/userService';
 import { useAuthStore } from '../stores/authStore';
@@ -125,7 +125,7 @@ const ProfileEdit: React.FC = () => {
         setUserProfile(user);
         
         // Parse professional info
-        let professionalInfo = {};
+        let professionalInfo: any = {};
         if (user.infopro) {
           try {
             professionalInfo = JSON.parse(user.infopro);

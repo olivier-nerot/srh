@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, X, FileText, Download } from 'lucide-react';
+import { Upload, X, Download } from 'lucide-react';
 
 interface Document {
   id: number;

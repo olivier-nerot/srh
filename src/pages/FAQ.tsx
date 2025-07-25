@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import QuillEditor from 'quill-next-react';
-import { Delta } from 'quill-next';
+// import { Delta } from 'quill-next';
 import 'quill-next/dist/quill.snow.css';
 import { Edit, Plus, Trash2, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
 
@@ -363,7 +363,7 @@ const FAQ: React.FC = () => {
                     setQuillRef(quill);
                     
                     // Set up text-change event listener
-                    quill.on('text-change', (delta, oldDelta, source) => {
+                    quill.on('text-change', (_delta, _oldDelta, source) => {
                       if (source === 'user') {
                         const text = quill.getText().trim();
                         setHasEditorContent(text.length > 0);

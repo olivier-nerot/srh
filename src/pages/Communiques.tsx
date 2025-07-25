@@ -7,14 +7,6 @@ import InfoCard from '../components/ui/InfoCard';
 import ImageUpload from '../components/ui/ImageUpload';
 import DocumentUpload from '../components/ui/DocumentUpload';
 
-interface Document {
-  id: number;
-  title: string;
-  fileName: string;
-  filePath: string;
-  fileSize: number;
-  mimeType: string;
-}
 
 interface Publication {
   id: number;
@@ -488,7 +480,7 @@ const Communiques: React.FC = () => {
                     setQuillRef(quill);
                     
                     // Set up text-change event listener
-                    quill.on('text-change', (delta, oldDelta, source) => {
+                    quill.on('text-change', (_delta, _oldDelta, source) => {
                       if (source === 'user') {
                         const text = quill.getText().trim();
                         setHasEditorContent(text.length > 0);

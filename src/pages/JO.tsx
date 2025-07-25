@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Calendar } from 'lucide-react';
+import { FileText, Download, Calendar, X, ExternalLink } from 'lucide-react';
 
 interface JOText {
   id: number;
@@ -22,10 +22,32 @@ const JO: React.FC = () => {
   const [documents, setDocuments] = useState<{ [key: number]: Document }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedText, setSelectedText] = useState<JOText | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchJOTexts();
   }, []);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isModalOpen) {
+        handleCloseModal();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen]);
 
   const fetchJOTexts = async () => {
     try {
@@ -63,6 +85,22 @@ const JO: React.FC = () => {
       }
     } catch (err) {
       console.error('Error fetching documents:', err);
+    }
+  };
+
+  const handleTextClick = (text: JOText) => {
+    setSelectedText(text);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedText(null);
+  };
+
+  const handleDownloadDocument = (text: JOText) => {
+    if (text.document && documents[text.document]) {
+      window.open(documents[text.document].file_path, '_blank');
     }
   };
 
@@ -105,7 +143,11 @@ const JO: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {journalOfficielTexts.map((text) => (
-              <article key={text.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
+              <article 
+                key={text.id} 
+                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => handleTextClick(text)}
+              >
                 <div className="flex items-start justify-between mb-4">
                   <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
                     Texte Officiel
@@ -125,25 +167,34 @@ const JO: React.FC = () => {
                 </p>
                 
                 <div className="flex items-center justify-between">
-                  <button className="text-blue-600 hover:text-blue-700 font-medium text-sm">
-                    Consulter le texte
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTextClick(text);
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center space-x-1"
+                  >
+                    <span>Consulter le texte</span>
+                    <ExternalLink className="h-3 w-3" />
                   </button>
                   {text.document && documents[text.document] && (
-                    <a 
-                      href={documents[text.document].file_path}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-gray-400 hover:text-gray-600"
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadDocument(text);
+                      }}
+                      className="text-gray-400 hover:text-gray-600 flex items-center space-x-1"
+                      title={`Télécharger ${documents[text.document].title}`}
                     >
                       <Download className="h-4 w-4" />
-                    </a>
+                      <span className="text-xs">PDF</span>
+                    </button>
                   )}
                 </div>
               </article>
             ))}
           </div>
         )}
-        </div>
 
         {/* Search and Filter */}
         <section className="bg-gray-50 rounded-lg p-8 mt-16">
@@ -203,6 +254,116 @@ const JO: React.FC = () => {
           </div>
         </section>
       </div>
+
+      {/* Modal for displaying full text content */}
+      {isModalOpen && selectedText && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={handleCloseModal}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-srh-blue text-white px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <FileText className="h-6 w-6" />
+                  <h2 className="text-xl font-bold">Texte du Journal Officiel</h2>
+                </div>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-white hover:bg-srh-blue-dark p-2 rounded-md transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* Text Info */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="inline-block bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1.5 rounded-full">
+                    Texte Officiel
+                  </span>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Publié le {new Date(selectedText.createdAt).toLocaleDateString('fr-FR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </div>
+                </div>
+
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                  {selectedText.name}
+                </h1>
+              </div>
+
+              {/* Document Download Section */}
+              {selectedText.document && documents[selectedText.document] && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-blue-600 p-2 rounded-lg">
+                        <FileText className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-blue-900">
+                          Document PDF disponible
+                        </h3>
+                        <p className="text-sm text-blue-700">
+                          {documents[selectedText.document].title}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDownloadDocument(selectedText)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>Télécharger PDF</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Text Content */}
+              <div className="prose prose-lg max-w-none">
+                <div className="bg-gray-50 rounded-lg p-6 border">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Contenu du texte</h3>
+                  <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {selectedText.content}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 border-t flex justify-end space-x-3">
+              {selectedText.document && documents[selectedText.document] && (
+                <button
+                  onClick={() => handleDownloadDocument(selectedText)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Télécharger PDF</span>
+                </button>
+              )}
+              <button
+                onClick={handleCloseModal}
+                className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

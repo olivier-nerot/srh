@@ -1,13 +1,8 @@
-import { migrate } from "drizzle-orm/libsql/migrator";
-import { db } from "../lib/turso";
+// This file is deprecated - migrations are now handled via drizzle-kit commands
+// Use: npm run db:migrate or npm run db:push
 
 export async function runMigrations() {
-  try {
-    console.log("Running migrations...");
-    await migrate(db, { migrationsFolder: "./src/db/migrations" });
-    console.log("Migrations completed successfully");
-  } catch (error) {
-    console.error("Migration failed:", error);
-    throw error;
-  }
+  console.log("Migrations should be run via drizzle-kit commands:");
+  console.log("npm run db:migrate or npm run db:push");
+  throw new Error("Use drizzle-kit commands for migrations");
 }
