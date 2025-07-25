@@ -11,6 +11,6 @@ edition des liens ?
 supprimer icone cards liens
 position zones sur carte de france dans /bureau
 
-bug : lien contactez=nous dans /nos-liens -> 404 ???
-idem si ouverture directe sur page https://srh-info-org.vercel.app/contactez-nous
+si logué. j'adhere -> mon profil...
+ajout d'un bouton isadmin sur page profil. visible que par admins...
 
