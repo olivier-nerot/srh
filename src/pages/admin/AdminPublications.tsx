@@ -109,7 +109,7 @@ const AdminPublications: React.FC = () => {
 
   const fetchPublications = async () => {
     try {
-      const response = await fetch('/api/publications?type=publication');
+      const response = await fetch('/api/content?contentType=publications&type=publication');
       const data = await response.json();
       if (data.success) {
         setPublications(data.publications);
@@ -132,7 +132,7 @@ const AdminPublications: React.FC = () => {
     }
 
     try {
-      const url = '/api/publications';
+      const url = '/api/content?contentType=publications';
       const method = editing.id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -174,7 +174,7 @@ const AdminPublications: React.FC = () => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette publication ?')) return;
 
     try {
-      const response = await fetch('/api/publications', {
+      const response = await fetch('/api/content?contentType=publications', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

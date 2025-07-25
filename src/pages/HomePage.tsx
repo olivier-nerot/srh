@@ -58,7 +58,7 @@ const HomePage: React.FC = () => {
 
   const fetchHomepagePublications = async () => {
     try {
-      const response = await fetch('/api/publications');
+      const response = await fetch('/api/content?contentType=publications');
       const data = await response.json();
       if (data.success) {
         // Filter publications that should appear on homepage

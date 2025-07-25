@@ -52,7 +52,7 @@ const Publications: React.FC = () => {
 
   const fetchPublications = async () => {
     try {
-      const response = await fetch('/api/publications?type=publication');
+      const response = await fetch('/api/content?contentType=publications&type=publication');
       const data = await response.json();
       if (data.success) {
         setPublications(data.publications);

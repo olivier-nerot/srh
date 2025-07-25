@@ -93,9 +93,11 @@ async function getAllPublications(req, res) {
     
     let query = db.select().from(publications);
     
-    if (type && type !== 'publications') {
+    // Filter by specific publication type if provided
+    if (type) {
       query = query.where(eq(publications.type, type));
     }
+    // If no type filter, return all publications
     
     const result = await query.orderBy(desc(publications.pubdate));
     return res.status(200).json({ success: true, publications: result });

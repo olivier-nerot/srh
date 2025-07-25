@@ -163,7 +163,7 @@ const Communiques: React.FC = () => {
     }
 
     try {
-      const url = '/api/publications';
+      const url = '/api/content?contentType=publications';
       const method = editing.id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
