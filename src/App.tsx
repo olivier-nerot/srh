@@ -24,6 +24,7 @@ import Profile from './pages/Profile';
 import ProfileEdit from './pages/ProfileEdit';
 import AdminMembers from './pages/admin/AdminMembers';
 import AdminPublications from './pages/admin/AdminPublications';
+import AdminJO from './pages/admin/AdminJO';
 import AdminRoute from './components/auth/AdminRoute';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import FAQ from './pages/FAQ';
@@ -78,6 +79,7 @@ function App() {
                 <Route path="members" element={<AdminMembers />} />
                 <Route path="publications" element={<AdminPublications />} />
                 <Route path="communiques" element={<Communiques />} />
+                <Route path="jo" element={<AdminJO />} />
                 {/* Add more admin routes here */}
               </Routes>
             </AdminRoute>

@@ -1,39 +1,70 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Download, Calendar } from 'lucide-react';
 
+interface JOText {
+  id: number;
+  name: string;
+  content: string;
+  document: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Document {
+  id: number;
+  title: string;
+  file_name: string;
+  file_path: string;
+}
+
 const JO: React.FC = () => {
-  const journalOfficielTexts = [
-    {
-      title: "Décret n° 2024-940 modifiant les dispositions statutaires relatives au personnel hospitalier-universitaire",
-      date: "2024-10-01",
-      category: "Décret"
-    },
-    {
-      title: "Décrets sur l'affiliation retraite du personnel hospitalo-universitaire",
-      date: "2024-09-01",
-      category: "Décret"
-    },
-    {
-      title: "Décret sur la certification périodique des professionnels de santé",
-      date: "2024-08-01",
-      category: "Décret"
-    },
-    {
-      title: "Décrets sur les conditions d'équipement en imagerie médicale",
-      date: "2022-06-01",
-      category: "Décret"
-    },
-    {
-      title: "Décrets relatifs au statut des praticiens contractuels",
-      date: "2022-05-01",
-      category: "Décret"
-    },
-    {
-      title: "Instructions sur la rémunération et les activités des praticiens hospitaliers",
-      date: "2022-04-01",
-      category: "Instruction"
+  const [journalOfficielTexts, setJournalOfficielTexts] = useState<JOText[]>([]);
+  const [documents, setDocuments] = useState<{ [key: number]: Document }>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchJOTexts();
+  }, []);
+
+  const fetchJOTexts = async () => {
+    try {
+      const response = await fetch('/api/jotextes');
+      const result = await response.json();
+      if (result.success) {
+        setJournalOfficielTexts(result.jotextes);
+        // Fetch document details for texts that have documents
+        const documentIds = result.jotextes
+          .filter((text: JOText) => text.document)
+          .map((text: JOText) => text.document);
+        if (documentIds.length > 0) {
+          await fetchDocuments(documentIds);
+        }
+      } else {
+        setError('Erreur lors du chargement des textes');
+      }
+    } catch (err) {
+      setError('Erreur lors du chargement des textes');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const fetchDocuments = async (documentIds: number[]) => {
+    try {
+      const response = await fetch(`/api/documents-by-ids?ids=${documentIds.join(',')}`);
+      const result = await response.json();
+      if (result.success) {
+        const docMap: { [key: number]: Document } = {};
+        result.documents.forEach((doc: Document) => {
+          docMap[doc.id] = doc;
+        });
+        setDocuments(docMap);
+      }
+    } catch (err) {
+      console.error('Error fetching documents:', err);
+    }
+  };
 
   return (
     <>
@@ -62,31 +93,56 @@ const JO: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {journalOfficielTexts.map((text, index) => (
-            <article key={index} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                  {text.category}
-                </span>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  {new Date(text.date).toLocaleDateString('fr-FR')}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+            <p className="text-gray-600">Chargement des textes...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-800">{error}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {journalOfficielTexts.map((text) => (
+              <article key={text.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
+                <div className="flex items-start justify-between mb-4">
+                  <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    Texte Officiel
+                  </span>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    {new Date(text.createdAt).toLocaleDateString('fr-FR')}
+                  </div>
                 </div>
-              </div>
-              
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 leading-tight">
-                {text.title}
-              </h3>
-              
-              <div className="flex items-center justify-between">
-                <button className="text-blue-600 hover:text-blue-700 font-medium text-sm">
-                  Consulter le texte
-                </button>
-                <Download className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer" />
-              </div>
-            </article>
-          ))}
+                
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 leading-tight">
+                  {text.name}
+                </h3>
+                
+                <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                  {text.content.substring(0, 150)}...
+                </p>
+                
+                <div className="flex items-center justify-between">
+                  <button className="text-blue-600 hover:text-blue-700 font-medium text-sm">
+                    Consulter le texte
+                  </button>
+                  {text.document && documents[text.document] && (
+                    <a 
+                      href={documents[text.document].file_path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <Download className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
         </div>
 
         {/* Search and Filter */}

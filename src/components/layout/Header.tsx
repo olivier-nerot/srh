@@ -43,6 +43,7 @@ const Header: React.FC = () => {
     { label: 'Publications', href: '/admin/publications', icon: File },
     { label: 'Communiqués', href: '/admin/communiques', icon: Send },
     { label: 'Newsletters', href: '/admin/newsletters', icon: Mail },
+    { label: 'Journal Officiel', href: '/admin/jo', icon: Scale },
   ];
 
   // Icons mapping for navigation items

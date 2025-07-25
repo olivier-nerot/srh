@@ -57,6 +57,13 @@
       "when": 1753367539186,
       "tag": "0007_bouncy_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1753454058273,
+      "tag": "0008_amusing_silver_fox",
+      "breakpoints": true
     }
   ]
 }
