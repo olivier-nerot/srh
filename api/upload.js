@@ -56,89 +56,57 @@ module.exports = async function handler(req, res) {
 
 async function handleDocumentUpload(req, res) {
   try {
-    const formData = new FormData();
-    const chunks = [];
-    
-    // Parse multipart form data
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', async () => {
-      try {
-        const buffer = Buffer.concat(chunks);
-        const boundary = req.headers['content-type'].split('boundary=')[1];
-        
-        if (!boundary) {
-          return res.status(400).json({
-            success: false,
-            error: 'Invalid multipart form data'
-          });
-        }
+    // Parse JSON body (the DocumentUpload component sends JSON, not multipart)
+    const {
+      file,
+      fileName,
+      mimeType,
+      title,
+      description,
+      category,
+      isAdmin
+    } = req.body;
 
-        // Parse the multipart data manually (simplified version)
-        const parts = buffer.toString().split(`--${boundary}`);
-        let file = null;
-        let title = '';
-        let category = 'other';
+    if (!isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Admin privileges required.'
+      });
+    }
 
-        for (const part of parts) {
-          if (part.includes('Content-Disposition: form-data; name="file"')) {
-            // Extract file data
-            const headerEnd = part.indexOf('\r\n\r\n');
-            if (headerEnd !== -1) {
-              const fileData = part.slice(headerEnd + 4);
-              const filename = part.match(/filename="([^"]+)"/)?.[1] || 'document.pdf';
-              file = {
-                name: filename,
-                data: Buffer.from(fileData, 'binary')
-              };
-            }
-          } else if (part.includes('name="title"')) {
-            const valueMatch = part.match(/\r\n\r\n([^\r\n]+)/);
-            if (valueMatch) title = valueMatch[1];
-          } else if (part.includes('name="category"')) {
-            const valueMatch = part.match(/\r\n\r\n([^\r\n]+)/);
-            if (valueMatch) category = valueMatch[1];
-          }
-        }
+    if (!file || !fileName) {
+      return res.status(400).json({
+        success: false,
+        error: 'File data and filename are required'
+      });
+    }
 
-        if (!file) {
-          return res.status(400).json({
-            success: false,
-            error: 'No file provided'
-          });
-        }
+    // Convert array back to buffer
+    const fileBuffer = Buffer.from(file);
 
-        // Upload to Vercel Blob
-        const { url } = await put(file.name, file.data, {
-          access: 'public',
-          contentType: file.type || 'application/pdf'
-        });
+    // Upload to Vercel Blob
+    const { url } = await put(fileName, fileBuffer, {
+      access: 'public',
+      contentType: mimeType || 'application/pdf'
+    });
 
-        // Save to database
-        const db = await getDb();
-        const result = await db.insert(documents).values({
-          title: title || file.name,
-          fileName: file.name,
-          filePath: url,
-          fileSize: file.data.length,
-          mimeType: file.type || 'application/pdf',
-          category: category,
-          isPublic: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }).returning();
+    // Save to database
+    const db = await getDb();
+    const result = await db.insert(documents).values({
+      title: title || fileName,
+      fileName: fileName,
+      filePath: url,
+      fileSize: fileBuffer.length,
+      mimeType: mimeType || 'application/pdf',
+      category: category || 'other',
+      isPublic: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
 
-        return res.status(201).json({
-          success: true,
-          document: result[0]
-        });
-
-      } catch (parseError) {
-        console.error('Error parsing form data:', parseError);
-        return res.status(400).json({
-          success: false,
-          error: 'Error parsing upload data'
-        });
-      }
+    return res.status(201).json({
+      success: true,
+      document: result[0]
     });
 
   } catch (error) {

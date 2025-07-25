@@ -1,4 +1,5 @@
 const { getDb } = require('./lib/turso');
+const { sql } = require('drizzle-orm');
 
 module.exports = async function handler(req, res) {
   // Enable CORS
@@ -36,12 +37,13 @@ async function testConnection(req, res) {
   try {
     const db = await getDb();
     
-    // Simple query to test connection
-    const result = await db.execute('SELECT 1 as test');
+    // Simple query to test connection using Drizzle ORM
+    const result = await db.select({ test: sql`1` }).limit(1);
     
     return res.status(200).json({
       success: true,
       message: 'Database connection successful',
+      result: result,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
