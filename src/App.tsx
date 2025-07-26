@@ -30,6 +30,8 @@ import AdminRapports from './pages/admin/AdminRapports';
 import AdminRoute from './components/auth/AdminRoute';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import FAQ from './pages/FAQ';
+import JOText from './pages/JOText';
+import RapportDetails from './pages/RapportDetails';
 
 function App() {
   useEffect(() => {
@@ -55,7 +57,9 @@ function App() {
           <Route path="/content" element={<Content />} />
           <Route path="/textes-officiels" element={<TextesOfficiels />} />
           <Route path="/jo" element={<JO />} />
+          <Route path="/jo/text" element={<JOText />} />
           <Route path="/rapports" element={<Rapports />} />
+          <Route path="/rapports/details" element={<RapportDetails />} />
           <Route path="/nos-liens" element={<NosLiens />} />
           <Route path="/contactez-nous" element={<ContactezNous />} />
           <Route path="/login" element={<Login />} />

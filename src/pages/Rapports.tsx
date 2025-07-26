@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Calendar, X, ExternalLink, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Download, Calendar, ExternalLink, Search } from 'lucide-react';
 
 interface Rapport {
   id: number;
@@ -18,37 +19,17 @@ interface Document {
 }
 
 const Rapports: React.FC = () => {
+  const navigate = useNavigate();
   const [rapports, setRapports] = useState<Rapport[]>([]);
   const [documents, setDocuments] = useState<{ [key: number]: Document }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedRapport, setSelectedRapport] = useState<Rapport | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchRapports();
   }, []);
 
-  // Handle escape key to close modal
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isModalOpen) {
-        handleCloseModal();
-      }
-    };
-
-    if (isModalOpen) {
-      document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isModalOpen]);
 
   const fetchRapports = async () => {
     try {
@@ -90,18 +71,40 @@ const Rapports: React.FC = () => {
   };
 
   const handleRapportClick = (rapport: Rapport) => {
-    setSelectedRapport(rapport);
-    setIsModalOpen(true);
+    navigate(`/rapports/details?id=${rapport.id}`);
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedRapport(null);
-  };
-
-  const handleDownloadDocument = (rapport: Rapport) => {
+  const handleDownloadDocument = async (rapport: Rapport) => {
     if (rapport.document && documents[rapport.document]) {
-      window.open(documents[rapport.document].file_path, '_blank');
+      const pdfDocument = documents[rapport.document];
+      try {
+        // Fetch the file and create a download link
+        const response = await fetch(pdfDocument.file_path);
+        if (!response.ok) {
+          throw new Error('Failed to fetch document');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        // Create a temporary download link
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = pdfDocument.file_name || pdfDocument.title + '.pdf';
+        link.style.display = 'none';
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error downloading document:', error);
+        // Fallback to window.open if fetch fails
+        window.open(pdfDocument.file_path, '_blank');
+      }
     }
   };
 
@@ -234,116 +237,6 @@ const Rapports: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Modal for displaying full rapport content */}
-      {isModalOpen && selectedRapport && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={handleCloseModal}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="bg-srh-blue text-white px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <FileText className="h-6 w-6" />
-                  <h2 className="text-xl font-bold">Rapport Institutionnel</h2>
-                </div>
-                <button
-                  onClick={handleCloseModal}
-                  className="text-white hover:bg-srh-blue-dark p-2 rounded-md transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {/* Rapport Info */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="inline-block bg-green-100 text-green-800 text-sm font-medium px-3 py-1.5 rounded-full">
-                    Rapport Institutionnel
-                  </span>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Publié le {new Date(selectedRapport.createdAt).toLocaleDateString('fr-FR', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </div>
-                </div>
-
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                  {selectedRapport.name}
-                </h1>
-              </div>
-
-              {/* Document Download Section */}
-              {selectedRapport.document && documents[selectedRapport.document] && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-green-600 p-2 rounded-lg">
-                        <FileText className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-green-900">
-                          Document PDF disponible
-                        </h3>
-                        <p className="text-sm text-green-700">
-                          {documents[selectedRapport.document].title}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDownloadDocument(selectedRapport)}
-                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
-                    >
-                      <Download className="h-4 w-4" />
-                      <span>Télécharger PDF</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Rapport Content */}
-              <div className="prose prose-lg max-w-none">
-                <div className="bg-gray-50 rounded-lg p-6 border">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Contenu du rapport</h3>
-                  <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {selectedRapport.content}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="bg-gray-50 px-6 py-4 border-t flex justify-end space-x-3">
-              {selectedRapport.document && documents[selectedRapport.document] && (
-                <button
-                  onClick={() => handleDownloadDocument(selectedRapport)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Télécharger PDF</span>
-                </button>
-              )}
-              <button
-                onClick={handleCloseModal}
-                className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors"
-              >
-                Fermer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };
