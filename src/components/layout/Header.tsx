@@ -42,6 +42,7 @@ const Header: React.FC = () => {
     { label: 'Membres', href: '/admin/members', icon: Users },
     { label: 'Publications', href: '/admin/publications', icon: File },
     { label: 'Communiqués', href: '/admin/communiques', icon: Send },
+    { label: 'Rapports', href: '/admin/rapports', icon: FileBarChart },
     { label: 'Newsletters', href: '/admin/newsletters', icon: Mail },
     { label: 'Journal Officiel', href: '/admin/jo', icon: Scale },
   ];
