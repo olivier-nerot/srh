@@ -286,35 +286,35 @@ const AdminCommuniques: React.FC = () => {
   }
 
   return (
-    <>
-      {/* Red curved header section */}
-      <section className="bg-red-600 text-white py-20 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">Administration des communiqués</h1>
-              <p className="text-xl opacity-90">Gérer les communiqués de presse du SRH</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="bg-red-100 p-3 rounded-lg mr-4">
+                <Megaphone className="h-8 w-8 text-red-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Gestion des Communiqués</h1>
+                <p className="text-gray-600 mt-1">{publications.length} communiqués</p>
+              </div>
             </div>
-            <div className="flex gap-2">
-              {!editing && (
-                <button
-                  onClick={startAdd}
-                  className="bg-white text-red-600 hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nouveau communiqué
-                </button>
-              )}
-            </div>
+            {!editing && (
+              <button
+                onClick={startAdd}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Nouveau communiqué</span>
+              </button>
+            )}
           </div>
         </div>
-        {/* Curved bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gray-50" 
-             style={{clipPath: 'ellipse(100% 100% at 50% 100%)'}}></div>
-      </section>
+      </div>
 
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Add/Edit Form */}
         {editing && (
@@ -579,9 +579,8 @@ const AdminCommuniques: React.FC = () => {
             )}
           </div>
         )}
-        </div>
       </div>
-    </>
+    </div>
   );
 };
 

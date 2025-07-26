@@ -1,39 +1,114 @@
-import React from 'react';
-import { FileText, Download, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, Download, Calendar, X, ExternalLink, Search } from 'lucide-react';
+
+interface Rapport {
+  id: number;
+  name: string;
+  content: string;
+  document: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Document {
+  id: number;
+  title: string;
+  file_name: string;
+  file_path: string;
+}
 
 const Rapports: React.FC = () => {
-  const rapportsInstitutionnels = [
-    {
-      title: "Rapport de la Cour des comptes sur la formation continue des médecins",
-      description: "Recommandation de fusionner les systèmes de formation continue",
-      date: "2024-01-01",
-      organization: "Cour des comptes"
-    },
-    {
-      title: "Rapport IGAS sur la continuité du service de soins",
-      description: "Analyse de la continuité des services de santé",
-      date: "2023-12-01",
-      organization: "IGAS"
-    },
-    {
-      title: "Rapport de la Cour des comptes sur l'imagerie médicale",
-      description: "Évaluation des équipements et pratiques en imagerie médicale",
-      date: "2022-11-01",
-      organization: "Cour des comptes"
-    },
-    {
-      title: "Propositions conjointes des ordres de santé sur l'accès territorial aux soins",
-      description: "Propositions pour améliorer l'accès aux soins sur le territoire",
-      date: "2022-10-01",
-      organization: "Ordres professionnels"
-    },
-    {
-      title: "Ordonnance sur la certification périodique des professionnels de santé",
-      description: "Cadre réglementaire pour la certification des professionnels",
-      date: "2021-12-01",
-      organization: "Gouvernement"
+  const [rapports, setRapports] = useState<Rapport[]>([]);
+  const [documents, setDocuments] = useState<{ [key: number]: Document }>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedRapport, setSelectedRapport] = useState<Rapport | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchRapports();
+  }, []);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isModalOpen) {
+        handleCloseModal();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
     }
-  ];
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen]);
+
+  const fetchRapports = async () => {
+    try {
+      const response = await fetch('/api/content?contentType=rapports');
+      const result = await response.json();
+      if (result.success) {
+        setRapports(result.rapports);
+        // Fetch document details for rapports that have documents
+        const documentIds = result.rapports
+          .filter((rapport: Rapport) => rapport.document)
+          .map((rapport: Rapport) => rapport.document);
+        if (documentIds.length > 0) {
+          await fetchDocuments(documentIds);
+        }
+      } else {
+        setError('Erreur lors du chargement des rapports');
+      }
+    } catch {
+      setError('Erreur lors du chargement des rapports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDocuments = async (documentIds: number[]) => {
+    try {
+      const response = await fetch(`/api/documents?ids=${documentIds.join(',')}`);
+      const result = await response.json();
+      if (result.success) {
+        const docMap: { [key: number]: Document } = {};
+        result.documents.forEach((doc: Document) => {
+          docMap[doc.id] = doc;
+        });
+        setDocuments(docMap);
+      }
+    } catch (err) {
+      console.error('Error fetching documents:', err);
+    }
+  };
+
+  const handleRapportClick = (rapport: Rapport) => {
+    setSelectedRapport(rapport);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedRapport(null);
+  };
+
+  const handleDownloadDocument = (rapport: Rapport) => {
+    if (rapport.document && documents[rapport.document]) {
+      window.open(documents[rapport.document].file_path, '_blank');
+    }
+  };
+
+  const filteredRapports = rapports.filter(rapport =>
+    rapport.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    rapport.content.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <>
@@ -62,97 +137,213 @@ const Rapports: React.FC = () => {
           </p>
         </div>
 
-        <div className="space-y-6">
-          {rapportsInstitutionnels.map((rapport, index) => (
-            <article key={index} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                  {rapport.organization}
-                </span>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  {new Date(rapport.date).toLocaleDateString('fr-FR')}
-                </div>
-              </div>
-              
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                {rapport.title}
-              </h3>
-              
-              <p className="text-gray-700 mb-4">
-                {rapport.description}
-              </p>
-              
-              <div className="flex items-center justify-between">
-                <button className="text-green-600 hover:text-green-700 font-medium text-sm">
-                  Consulter le rapport
-                </button>
-                <Download className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer" />
-              </div>
-            </article>
-          ))}
+        {/* Search */}
+        <div className="bg-white rounded-lg shadow-sm border p-4 mb-8">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher dans les rapports par nom ou contenu..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+          </div>
         </div>
 
-        {/* Search and Filter */}
-        <section className="bg-gray-50 rounded-lg p-8 mt-16">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Rechercher dans les rapports</h2>
-          <p className="text-gray-700 mb-6">
-            Utilisez les filtres ci-dessous pour trouver rapidement les rapports qui vous intéressent.
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
-                Recherche par mots-clés
-              </label>
-              <input
-                type="text"
-                id="search"
-                placeholder="Ex: formation, imagerie, certification..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="organization" className="block text-sm font-medium text-gray-700 mb-2">
-                Organisation
-              </label>
-              <select
-                id="organization"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="">Toutes les organisations</option>
-                <option value="cour-comptes">Cour des comptes</option>
-                <option value="igas">IGAS</option>
-                <option value="ordres">Ordres professionnels</option>
-                <option value="gouvernement">Gouvernement</option>
-              </select>
-            </div>
-            
-            <div>
-              <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-2">
-                Année
-              </label>
-              <select
-                id="year"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="">Toutes les années</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
-                <option value="2022">2022</option>
-                <option value="2021">2021</option>
-              </select>
-            </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mr-3"></div>
+            <p className="text-gray-600">Chargement des rapports...</p>
           </div>
-          
-          <div className="mt-6">
-            <button className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors">
-              Rechercher
-            </button>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-800">{error}</p>
           </div>
-        </section>
+        ) : filteredRapports.length === 0 ? (
+          <div className="text-center py-12">
+            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">
+              {searchTerm ? 
+                `Aucun rapport trouvé pour "${searchTerm}"` : 
+                'Aucun rapport disponible pour le moment.'
+              }
+            </p>
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className="mt-2 text-green-600 hover:text-green-700 text-sm"
+              >
+                Effacer la recherche
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredRapports.map((rapport) => (
+              <article 
+                key={rapport.id} 
+                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => handleRapportClick(rapport)}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    Rapport Institutionnel
+                  </span>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    {new Date(rapport.createdAt).toLocaleDateString('fr-FR')}
+                  </div>
+                </div>
+                
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 leading-tight">
+                  {rapport.name}
+                </h3>
+                
+                <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                  {rapport.content.substring(0, 150)}...
+                </p>
+                
+                <div className="flex items-center justify-between">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRapportClick(rapport);
+                    }}
+                    className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center space-x-1"
+                  >
+                    <span>Consulter le rapport</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                  {rapport.document && documents[rapport.document] && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadDocument(rapport);
+                      }}
+                      className="text-gray-400 hover:text-gray-600 flex items-center space-x-1"
+                      title={`Télécharger ${documents[rapport.document].title}`}
+                    >
+                      <Download className="h-4 w-4" />
+                      <span className="text-xs">PDF</span>
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Modal for displaying full rapport content */}
+      {isModalOpen && selectedRapport && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={handleCloseModal}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-srh-blue text-white px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <FileText className="h-6 w-6" />
+                  <h2 className="text-xl font-bold">Rapport Institutionnel</h2>
+                </div>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-white hover:bg-srh-blue-dark p-2 rounded-md transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* Rapport Info */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="inline-block bg-green-100 text-green-800 text-sm font-medium px-3 py-1.5 rounded-full">
+                    Rapport Institutionnel
+                  </span>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Publié le {new Date(selectedRapport.createdAt).toLocaleDateString('fr-FR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </div>
+                </div>
+
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                  {selectedRapport.name}
+                </h1>
+              </div>
+
+              {/* Document Download Section */}
+              {selectedRapport.document && documents[selectedRapport.document] && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-green-600 p-2 rounded-lg">
+                        <FileText className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-green-900">
+                          Document PDF disponible
+                        </h3>
+                        <p className="text-sm text-green-700">
+                          {documents[selectedRapport.document].title}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDownloadDocument(selectedRapport)}
+                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>Télécharger PDF</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Rapport Content */}
+              <div className="prose prose-lg max-w-none">
+                <div className="bg-gray-50 rounded-lg p-6 border">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Contenu du rapport</h3>
+                  <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {selectedRapport.content}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 border-t flex justify-end space-x-3">
+              {selectedRapport.document && documents[selectedRapport.document] && (
+                <button
+                  onClick={() => handleDownloadDocument(selectedRapport)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Télécharger PDF</span>
+                </button>
+              )}
+              <button
+                onClick={handleCloseModal}
+                className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -286,35 +286,35 @@ const AdminPublications: React.FC = () => {
   }
 
   return (
-    <>
-      {/* Blue curved header section */}
-      <section className="bg-srh-blue text-white py-20 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">Administration des publications</h1>
-              <p className="text-xl opacity-90">Gérer les newsletters et publications du SRH</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="bg-blue-100 p-3 rounded-lg mr-4">
+                <FileText className="h-8 w-8 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Gestion des Publications</h1>
+                <p className="text-gray-600 mt-1">{publications.length} publications</p>
+              </div>
             </div>
-            <div className="flex gap-2">
-              {!editing && (
-                <button
-                  onClick={startAdd}
-                  className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nouvelle publication
-                </button>
-              )}
-            </div>
+            {!editing && (
+              <button
+                onClick={startAdd}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Nouvelle publication</span>
+              </button>
+            )}
           </div>
         </div>
-        {/* Curved bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gray-50" 
-             style={{clipPath: 'ellipse(100% 100% at 50% 100%)'}}></div>
-      </section>
+      </div>
 
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Add/Edit Form */}
         {editing && (
@@ -579,9 +579,8 @@ const AdminPublications: React.FC = () => {
             )}
           </div>
         )}
-        </div>
       </div>
-    </>
+    </div>
   );
 };
 

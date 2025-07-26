@@ -36,6 +36,15 @@ const faq = sqliteTable('faq', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+const rapports = sqliteTable('rapports', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  content: text('content').notNull(),
+  document: integer('document'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -50,7 +59,7 @@ module.exports = async function handler(req, res) {
   const { contentType } = req.query;
   
   if (!contentType) {
-    return res.status(400).json({ error: 'Content type is required (publications, jotextes, or faq)' });
+    return res.status(400).json({ error: 'Content type is required (publications, jotextes, faq, or rapports)' });
   }
 
   try {
@@ -61,6 +70,8 @@ module.exports = async function handler(req, res) {
         return await handleJOTextes(req, res);
       case 'faq':
         return await handleFAQ(req, res);
+      case 'rapports':
+        return await handleRapports(req, res);
       default:
         return res.status(400).json({ error: 'Invalid content type' });
     }
@@ -550,6 +561,160 @@ async function deleteFAQ(req, res) {
     return res.status(500).json({ 
       success: false, 
       error: 'Error deleting FAQ' 
+    });
+  }
+}
+
+// Rapports handlers
+async function handleRapports(req, res) {
+  switch (req.method) {
+    case 'GET':
+      return await getAllRapports(req, res);
+    case 'POST':
+      return await createRapport(req, res);
+    case 'PUT':
+      return await updateRapport(req, res);
+    case 'DELETE':
+      return await deleteRapport(req, res);
+    default:
+      return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
+async function getAllRapports(req, res) {
+  try {
+    const db = await getDb();
+    const result = await db.select().from(rapports).orderBy(desc(rapports.createdAt));
+    return res.status(200).json({ success: true, rapports: result });
+  } catch (error) {
+    console.error('Error fetching rapports:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Error fetching rapports',
+      rapports: []
+    });
+  }
+}
+
+async function createRapport(req, res) {
+  const { name, content, document, isAdmin } = req.body;
+
+  if (!isAdmin) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Access denied. Admin privileges required.' 
+    });
+  }
+
+  if (!name || !content) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Name and content are required' 
+    });
+  }
+
+  try {
+    const db = await getDb();
+    const result = await db.insert(rapports).values({
+      name,
+      content,
+      document: document || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+
+    return res.status(201).json({ success: true, rapport: result[0] });
+  } catch (error) {
+    console.error('Error creating rapport:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Error creating rapport' 
+    });
+  }
+}
+
+async function updateRapport(req, res) {
+  const { id, name, content, document, isAdmin } = req.body;
+
+  if (!isAdmin) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Access denied. Admin privileges required.' 
+    });
+  }
+
+  if (!id || !name || !content) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'ID, name, and content are required' 
+    });
+  }
+
+  try {
+    const db = await getDb();
+    const result = await db.update(rapports)
+      .set({
+        name,
+        content,
+        document: document || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(rapports.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Rapport not found' 
+      });
+    }
+
+    return res.status(200).json({ success: true, rapport: result[0] });
+  } catch (error) {
+    console.error('Error updating rapport:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Error updating rapport' 
+    });
+  }
+}
+
+async function deleteRapport(req, res) {
+  const { id, isAdmin } = req.body;
+
+  if (!isAdmin) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Access denied. Admin privileges required.' 
+    });
+  }
+
+  if (!id) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'ID is required' 
+    });
+  }
+
+  try {
+    const db = await getDb();
+    const result = await db.delete(rapports)
+      .where(eq(rapports.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Rapport not found' 
+      });
+    }
+
+    return res.status(200).json({ success: true, message: 'Rapport deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting rapport:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Error deleting rapport' 
     });
   }
 }
