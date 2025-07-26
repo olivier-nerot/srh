@@ -104,7 +104,7 @@ const Communiques: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-srh-blue mx-auto mb-4"></div>
           <p className="text-gray-600">Chargement des communiqués...</p>
         </div>
       </div>
@@ -113,8 +113,8 @@ const Communiques: React.FC = () => {
 
   return (
     <>
-      {/* Red curved header section */}
-      <section className="bg-red-600 text-white py-20 relative overflow-hidden">
+      {/* Blue curved header section */}
+      <section className="bg-srh-blue text-white py-20 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex justify-between items-center">
             <div>
@@ -159,7 +159,7 @@ const Communiques: React.FC = () => {
                       onClick={() => toggleTagFilter(tag)}
                       className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
                         isSelected
-                          ? 'bg-red-600 text-white border-red-600 hover:bg-red-700'
+                          ? 'bg-srh-blue text-white border-srh-blue hover:bg-srh-blue-dark'
                           : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
                       }`}
                     >
@@ -226,24 +226,6 @@ const Communiques: React.FC = () => {
             })
           )}
         </div>
-
-        {/* Newsletter Subscription */}
-        <section className="bg-red-50 rounded-lg p-8 mt-16">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Restez informé</h2>
-          <p className="text-gray-700 mb-6">
-            Inscrivez-vous pour recevoir nos communiqués directement dans votre boîte mail.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="email"
-              placeholder="Votre adresse email"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            />
-            <button className="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 transition-colors">
-              S'inscrire
-            </button>
-          </div>
-        </section>
         </div>
       </div>
     </>

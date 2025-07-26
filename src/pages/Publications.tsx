@@ -210,25 +210,6 @@ const Publications: React.FC = () => {
             })
           )}
         </div>
-
-        {/* Newsletter Subscription */}
-        <section className="bg-blue-50 rounded-lg p-8 mt-16">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Restez informé</h2>
-          <p className="text-gray-700 mb-6">
-            Inscrivez-vous pour recevoir nos publications directement dans votre boîte mail.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="email"
-              placeholder="Votre adresse email"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors">
-              S'inscrire
-            </button>
-          </div>
-        </section>
-        </div>
       </div>
     </>
   );
