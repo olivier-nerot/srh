@@ -24,7 +24,7 @@ const RapportDetails: React.FC = () => {
   const rapportId = searchParams.get('id');
   
   const [rapport, setRapport] = useState<Rapport | null>(null);
-  const [document, setDocument] = useState<Document | null>(null);
+  const [pdfDocument, setPdfDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -70,7 +70,7 @@ const RapportDetails: React.FC = () => {
       const response = await fetch(`/api/documents?ids=${documentId}`);
       const result = await response.json();
       if (result.success && result.documents.length > 0) {
-        setDocument(result.documents[0]);
+        setPdfDocument(result.documents[0]);
       }
     } catch (err) {
       console.error('Error fetching document:', err);
@@ -78,11 +78,11 @@ const RapportDetails: React.FC = () => {
   };
 
   const handleDownloadDocument = async () => {
-    if (!document) return;
+    if (!pdfDocument) return;
     
     try {
       // Fetch the file and create a download link
-      const response = await fetch(document.file_path);
+      const response = await fetch(pdfDocument.file_path);
       if (!response.ok) {
         throw new Error('Failed to fetch document');
       }
@@ -93,7 +93,7 @@ const RapportDetails: React.FC = () => {
       // Create a temporary download link
       const link = document.createElement('a');
       link.href = url;
-      link.download = document.file_name || document.title + '.pdf';
+      link.download = pdfDocument.file_name || pdfDocument.title + '.pdf';
       link.style.display = 'none';
       
       // Trigger download
@@ -106,7 +106,7 @@ const RapportDetails: React.FC = () => {
     } catch (error) {
       console.error('Error downloading document:', error);
       // Fallback to window.open if fetch fails
-      window.open(document.file_path, '_blank');
+      window.open(pdfDocument.file_path, '_blank');
     }
   };
 
@@ -199,7 +199,7 @@ const RapportDetails: React.FC = () => {
           </h1>
 
           {/* Document Download Section */}
-          {document && (
+          {pdfDocument && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -211,7 +211,7 @@ const RapportDetails: React.FC = () => {
                       Document PDF disponible
                     </h3>
                     <p className="text-sm text-green-700">
-                      {document.title}
+                      {pdfDocument.title}
                     </p>
                   </div>
                 </div>
@@ -235,7 +235,7 @@ const RapportDetails: React.FC = () => {
               <ArrowLeft className="h-4 w-4" />
               <span>Retour à la liste</span>
             </button>
-            {document && (
+            {pdfDocument && (
               <button
                 onClick={handleDownloadDocument}
                 className="text-green-600 hover:text-green-700 font-medium flex items-center space-x-2"
@@ -271,7 +271,7 @@ const RapportDetails: React.FC = () => {
             <ArrowLeft className="h-4 w-4" />
             <span>Retour à la liste</span>
           </button>
-          {document && (
+          {pdfDocument && (
             <button
               onClick={handleDownloadDocument}
               className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
