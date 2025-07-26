@@ -210,6 +210,7 @@ const Publications: React.FC = () => {
             })
           )}
         </div>
+        </div>
       </div>
     </>
   );
