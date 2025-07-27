@@ -6,6 +6,7 @@ interface Rapport {
   id: number;
   name: string;
   content: string;
+  year: string;
   document: number | null;
   createdAt: Date;
   updatedAt: Date;
@@ -113,6 +114,23 @@ const Rapports: React.FC = () => {
     rapport.content.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Group filtered rapports by year
+  const groupedRapportsByYear = filteredRapports.reduce((groups: { [year: string]: Rapport[] }, rapport) => {
+    const year = rapport.year || 'Sans année';
+    if (!groups[year]) {
+      groups[year] = [];
+    }
+    groups[year].push(rapport);
+    return groups;
+  }, {});
+
+  // Sort years in descending order (most recent first)
+  const sortedYears = Object.keys(groupedRapportsByYear).sort((a, b) => {
+    if (a === 'Sans année') return 1;
+    if (b === 'Sans année') return -1;
+    return parseInt(b) - parseInt(a);
+  });
+
   return (
     <>
       {/* Blue curved header section */}
@@ -128,13 +146,13 @@ const Rapports: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center mb-8">
-          <FileText className="h-8 w-8 text-green-600 mr-3" />
+          <FileText className="h-8 w-8 text-blue-600 mr-3" />
           <h2 className="text-3xl font-bold text-gray-900">Rapports institutionnels</h2>
         </div>
         
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
-          <h3 className="text-lg font-semibold text-green-900 mb-2">À propos des rapports</h3>
-          <p className="text-green-800">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+          <h3 className="text-lg font-semibold text-blue-900 mb-2">À propos des rapports</h3>
+          <p className="text-blue-800">
             Les rapports institutionnels présentés ici émanent d'organismes officiels (Cour des comptes, IGAS, etc.) 
             et traitent de sujets importants pour l'exercice de la radiologie hospitalière.
           </p>
@@ -149,14 +167,14 @@ const Rapports: React.FC = () => {
               placeholder="Rechercher dans les rapports par nom ou contenu..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mr-3"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
             <p className="text-gray-600">Chargement des rapports...</p>
           </div>
         ) : error ? (
@@ -175,64 +193,82 @@ const Rapports: React.FC = () => {
             {searchTerm && (
               <button 
                 onClick={() => setSearchTerm('')}
-                className="mt-2 text-green-600 hover:text-green-700 text-sm"
+                className="mt-2 text-blue-600 hover:text-blue-700 text-sm"
               >
                 Effacer la recherche
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredRapports.map((rapport) => (
-              <article 
-                key={rapport.id} 
-                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => handleRapportClick(rapport)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                    Rapport Institutionnel
-                  </span>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    {new Date(rapport.createdAt).toLocaleDateString('fr-FR')}
+          <div className="space-y-12">
+            {sortedYears.map((year) => (
+              <div key={year} className="space-y-6">
+                {/* Year Header */}
+                <div className="flex items-center space-x-4">
+                  <div className="bg-srh-blue text-white px-4 py-2 rounded-lg font-bold text-lg">
+                    {year}
                   </div>
+                  <div className="flex-1 h-px bg-gray-200"></div>
+                  <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                    {groupedRapportsByYear[year].length} document{groupedRapportsByYear[year].length > 1 ? 's' : ''}
+                  </span>
                 </div>
                 
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 leading-tight">
-                  {rapport.name}
-                </h3>
-                
-                <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                  {rapport.content.substring(0, 150)}...
-                </p>
-                
-                <div className="flex items-center justify-between">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRapportClick(rapport);
-                    }}
-                    className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center space-x-1"
-                  >
-                    <span>Consulter le rapport</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </button>
-                  {rapport.document && documents[rapport.document] && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownloadDocument(rapport);
-                      }}
-                      className="text-gray-400 hover:text-gray-600 flex items-center space-x-1"
-                      title={`Télécharger ${documents[rapport.document].title}`}
+                {/* Year Content Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {groupedRapportsByYear[year].map((rapport) => (
+                    <article 
+                      key={rapport.id} 
+                      className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                      onClick={() => handleRapportClick(rapport)}
                     >
-                      <Download className="h-4 w-4" />
-                      <span className="text-xs">PDF</span>
-                    </button>
-                  )}
+                      <div className="flex items-start justify-between mb-4">
+                        <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                          Rapport Institutionnel
+                        </span>
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          {new Date(rapport.createdAt).toLocaleDateString('fr-FR')}
+                        </div>
+                      </div>
+                      
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 leading-tight">
+                        {rapport.name}
+                      </h3>
+                      
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                        {rapport.content.substring(0, 150)}...
+                      </p>
+                      
+                      <div className="flex items-center justify-between">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRapportClick(rapport);
+                          }}
+                          className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center space-x-1"
+                        >
+                          <span>Consulter le rapport</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                        {rapport.document && documents[rapport.document] && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadDocument(rapport);
+                            }}
+                            className="text-gray-400 hover:text-gray-600 flex items-center space-x-1"
+                            title={`Télécharger ${documents[rapport.document].title}`}
+                          >
+                            <Download className="h-4 w-4" />
+                            <span className="text-xs">PDF</span>
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              </article>
+              </div>
             ))}
           </div>
         )}

@@ -226,25 +226,6 @@ const JOText: React.FC = () => {
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={handleBackToList}
-              className="text-gray-600 hover:text-gray-700 font-medium flex items-center space-x-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Retour à la liste</span>
-            </button>
-            {pdfDocument && (
-              <button
-                onClick={handleDownloadDocument}
-                className="text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-2"
-              >
-                <Download className="h-4 w-4" />
-                <span>Télécharger PDF</span>
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Text Content */}
@@ -272,14 +253,7 @@ const JOText: React.FC = () => {
         </div>
 
         {/* Bottom Actions */}
-        <div className="mt-8 flex items-center justify-between bg-gray-50 rounded-lg p-4">
-          <button 
-            onClick={handleBackToList}
-            className="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Retour à la liste</span>
-          </button>
+        <div className="mt-8 flex items-center justify-center bg-gray-50 rounded-lg p-4">
           {pdfDocument && (
             <button
               onClick={handleDownloadDocument}

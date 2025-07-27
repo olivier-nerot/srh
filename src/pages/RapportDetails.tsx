@@ -118,7 +118,7 @@ const RapportDetails: React.FC = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mr-3"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
           <p className="text-gray-600">Chargement du rapport...</p>
         </div>
       </div>
@@ -132,7 +132,7 @@ const RapportDetails: React.FC = () => {
           <p className="text-red-800">{error || 'Rapport non trouvé'}</p>
           <button 
             onClick={handleBackToList}
-            className="mt-4 text-green-600 hover:text-green-700 font-medium flex items-center space-x-2"
+            className="mt-4 text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-2"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Retour à la liste</span>
@@ -144,13 +144,13 @@ const RapportDetails: React.FC = () => {
 
   return (
     <>
-      {/* Green curved header section */}
-      <section className="bg-green-600 text-white py-20 relative overflow-hidden">
+      {/* Blue curved header section */}
+      <section className="bg-srh-blue text-white py-20 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center mb-4">
             <button 
               onClick={handleBackToList}
-              className="text-white hover:bg-green-700 p-2 rounded-md transition-colors mr-4"
+              className="text-white hover:bg-srh-blue-dark p-2 rounded-md transition-colors mr-4"
             >
               <ArrowLeft className="h-6 w-6" />
             </button>
@@ -170,7 +170,7 @@ const RapportDetails: React.FC = () => {
         <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-8">
           <button 
             onClick={handleBackToList}
-            className="hover:text-green-600 transition-colors"
+            className="hover:text-blue-600 transition-colors"
           >
             Rapports institutionnels
           </button>
@@ -181,7 +181,7 @@ const RapportDetails: React.FC = () => {
         {/* Rapport Info Header */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <span className="inline-block bg-green-100 text-green-800 text-sm font-medium px-3 py-1.5 rounded-full">
+            <span className="inline-block bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1.5 rounded-full">
               Rapport Institutionnel
             </span>
             <div className="flex items-center text-sm text-gray-500">
@@ -200,24 +200,24 @@ const RapportDetails: React.FC = () => {
 
           {/* Document Download Section */}
           {pdfDocument && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="bg-green-600 p-2 rounded-lg">
+                  <div className="bg-blue-600 p-2 rounded-lg">
                     <FileText className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-green-900">
+                    <h3 className="font-medium text-blue-900">
                       Document PDF disponible
                     </h3>
-                    <p className="text-sm text-green-700">
+                    <p className="text-sm text-blue-700">
                       {pdfDocument.title}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={handleDownloadDocument}
-                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
                 >
                   <Download className="h-4 w-4" />
                   <span>Télécharger PDF</span>
@@ -226,31 +226,12 @@ const RapportDetails: React.FC = () => {
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={handleBackToList}
-              className="text-gray-600 hover:text-gray-700 font-medium flex items-center space-x-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Retour à la liste</span>
-            </button>
-            {pdfDocument && (
-              <button
-                onClick={handleDownloadDocument}
-                className="text-green-600 hover:text-green-700 font-medium flex items-center space-x-2"
-              >
-                <Download className="h-4 w-4" />
-                <span>Télécharger PDF</span>
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Rapport Content */}
         <div className="bg-white border border-gray-200 rounded-lg p-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-            <FileText className="h-5 w-5 mr-2 text-green-600" />
+            <FileText className="h-5 w-5 mr-2 text-blue-600" />
             Contenu du rapport
           </h2>
           <div className="prose prose-lg max-w-none">
@@ -263,18 +244,11 @@ const RapportDetails: React.FC = () => {
         </div>
 
         {/* Bottom Actions */}
-        <div className="mt-8 flex items-center justify-between bg-gray-50 rounded-lg p-4">
-          <button 
-            onClick={handleBackToList}
-            className="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700 transition-colors flex items-center space-x-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Retour à la liste</span>
-          </button>
+        <div className="mt-8 flex items-center justify-center bg-gray-50 rounded-lg p-4">
           {pdfDocument && (
             <button
               onClick={handleDownloadDocument}
-              className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center space-x-2"
+              className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
             >
               <Download className="h-4 w-4" />
               <span>Télécharger PDF</span>
