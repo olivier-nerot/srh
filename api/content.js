@@ -40,6 +40,7 @@ const rapports = sqliteTable('rapports', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
   content: text('content').notNull(),
+  year: text('year'),
   document: integer('document'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),

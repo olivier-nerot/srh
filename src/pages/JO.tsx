@@ -6,6 +6,7 @@ interface JOText {
   id: number;
   name: string;
   content: string;
+  year: string;
   document: number | null;
   createdAt: Date;
   updatedAt: Date;
@@ -25,6 +26,22 @@ const JO: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Utility function to extract plain text from HTML content
+  const extractTextFromHtml = (htmlContent: string): string => {
+    if (!htmlContent) return '';
+    
+    // Check if content contains HTML
+    if (htmlContent.includes('<div class="pdf-content">')) {
+      // Create a temporary DOM element to strip HTML tags
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlContent;
+      return tempDiv.textContent || tempDiv.innerText || '';
+    }
+    
+    // Return as-is if it's plain text
+    return htmlContent;
+  };
 
   useEffect(() => {
     fetchJOTexts();
@@ -108,10 +125,28 @@ const JO: React.FC = () => {
     }
   };
 
-  const filteredTexts = journalOfficielTexts.filter(text =>
-    text.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    text.content.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTexts = journalOfficielTexts.filter(text => {
+    const plainTextContent = extractTextFromHtml(text.content);
+    return text.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           plainTextContent.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  // Group filtered texts by year
+  const groupedTextsByYear = filteredTexts.reduce((groups: { [year: string]: JOText[] }, text) => {
+    const year = text.year || 'Sans année';
+    if (!groups[year]) {
+      groups[year] = [];
+    }
+    groups[year].push(text);
+    return groups;
+  }, {});
+
+  // Sort years in descending order (most recent first)
+  const sortedYears = Object.keys(groupedTextsByYear).sort((a, b) => {
+    if (a === 'Sans année') return 1;
+    if (b === 'Sans année') return -1;
+    return parseInt(b) - parseInt(a);
+  });
 
   return (
     <>
@@ -182,57 +217,80 @@ const JO: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredTexts.map((text) => (
-              <article 
-                key={text.id} 
-                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => handleTextClick(text)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                    Texte Officiel
-                  </span>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    {new Date(text.createdAt).toLocaleDateString('fr-FR')}
+          <div className="space-y-12">
+            {sortedYears.map((year) => (
+              <div key={year} className="space-y-6">
+                {/* Year Header */}
+                <div className="flex items-center space-x-4">
+                  <div className="bg-srh-blue text-white px-4 py-2 rounded-lg font-bold text-lg">
+                    {year}
                   </div>
+                  <div className="flex-1 h-px bg-gray-200"></div>
+                  <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                    {groupedTextsByYear[year].length} document{groupedTextsByYear[year].length > 1 ? 's' : ''}
+                  </span>
                 </div>
                 
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 leading-tight">
-                  {text.name}
-                </h3>
-                
-                <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                  {text.content.substring(0, 150)}...
-                </p>
-                
-                <div className="flex items-center justify-between">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTextClick(text);
-                    }}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center space-x-1"
-                  >
-                    <span>Consulter le texte</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </button>
-                  {text.document && documents[text.document] && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownloadDocument(text);
-                      }}
-                      className="text-gray-400 hover:text-gray-600 flex items-center space-x-1"
-                      title={`Télécharger ${documents[text.document].title}`}
+                {/* Year Content Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {groupedTextsByYear[year].map((text) => (
+                    <article 
+                      key={text.id} 
+                      className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                      onClick={() => handleTextClick(text)}
                     >
-                      <Download className="h-4 w-4" />
-                      <span className="text-xs">PDF</span>
-                    </button>
-                  )}
+                      <div className="flex items-start justify-between mb-4">
+                        <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                          Texte Officiel
+                        </span>
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          {new Date(text.createdAt).toLocaleDateString('fr-FR')}
+                        </div>
+                      </div>
+                      
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 leading-tight">
+                        {text.name}
+                      </h3>
+                      
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                        {(() => {
+                          const plainText = extractTextFromHtml(text.content);
+                          return plainText.length > 150 
+                            ? plainText.substring(0, 150) + '...'
+                            : plainText || 'Aucun aperçu disponible.';
+                        })()}
+                      </p>
+                      
+                      <div className="flex items-center justify-between">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTextClick(text);
+                          }}
+                          className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center space-x-1"
+                        >
+                          <span>Consulter le texte</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                        {text.document && documents[text.document] && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadDocument(text);
+                            }}
+                            className="text-gray-400 hover:text-gray-600 flex items-center space-x-1"
+                            title={`Télécharger ${documents[text.document].title}`}
+                          >
+                            <Download className="h-4 w-4" />
+                            <span className="text-xs">PDF</span>
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              </article>
+              </div>
             ))}
           </div>
         )}
