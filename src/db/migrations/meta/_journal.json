@@ -71,6 +71,13 @@
       "when": 1753516562786,
       "tag": "0009_magical_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1753609852422,
+      "tag": "0010_luxuriant_hercules",
+      "breakpoints": true
     }
   ]
 }

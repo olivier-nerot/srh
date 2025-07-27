@@ -254,11 +254,20 @@ const JOText: React.FC = () => {
             Contenu du texte
           </h2>
           <div className="prose prose-lg max-w-none">
-            <div className="bg-gray-50 rounded-lg p-6 border">
-              <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                {joText.content}
+            {joText.content && joText.content.includes('<div class="pdf-content">') ? (
+              // Display formatted HTML content
+              <div 
+                className="html-content"
+                dangerouslySetInnerHTML={{ __html: joText.content }}
+              />
+            ) : (
+              // Fallback for plain text content
+              <div className="bg-gray-50 rounded-lg p-6 border">
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {joText.content || 'Aucun contenu disponible.'}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
