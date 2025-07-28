@@ -5,7 +5,7 @@ import { Calendar, Tag } from 'lucide-react';
 interface Publication {
   id: number;
   title: string;
-  content: string;
+  content: string | null; // Nullable for JO texts
   tags: string[];
   pubdate: string;
   subscribersonly: boolean;
@@ -38,7 +38,16 @@ const CONTENT_TYPES = {
 };
 
 // Helper function to render Delta JSON content
-const renderContent = (content: string): React.ReactNode => {
+const renderContent = (content: string | null): React.ReactNode => {
+  // Handle null content (e.g., JO texts without content)
+  if (!content) {
+    return (
+      <div className="text-gray-500 italic">
+        Ce document ne contient que le titre. Consultez le document original via les liens disponibles.
+      </div>
+    );
+  }
+  
   try {
     // Try to parse as Delta JSON
     const delta = JSON.parse(content);

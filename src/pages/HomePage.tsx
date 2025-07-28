@@ -10,7 +10,7 @@ import type { NewsItem } from '../types';
 interface Publication {
   id: number;
   title: string;
-  content: string;
+  content: string | null; // Nullable for JO texts
   tags: string[];
   pubdate: string;
   subscribersonly: boolean;
@@ -23,7 +23,12 @@ interface Publication {
 }
 
 // Helper function to convert Delta JSON to plain text for excerpts
-const deltaToPlainText = (content: string): string => {
+const deltaToPlainText = (content: string | null): string => {
+  // Handle null content (e.g., JO texts)
+  if (!content) {
+    return '';
+  }
+  
   try {
     // Try to parse as Delta JSON
     const delta = JSON.parse(content);

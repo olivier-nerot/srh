@@ -10,7 +10,7 @@ export interface NewsItem {
   id: string;
   title: string;
   excerpt: string;
-  content: string;
+  content: string | null; // Nullable for JO texts
   publishedAt: string;
   slug: string;
   image?: string;
