@@ -117,15 +117,45 @@ const Publications: React.FC = () => {
 
   // Helper function to extract year from publication date
   const getPublicationYear = (pubdate: string): string => {
-    const date = new Date(parseInt(pubdate));
-    return date.getFullYear().toString();
+    try {
+      // First try parsing as ISO date string (most common format)
+      const date = new Date(pubdate);
+      if (!isNaN(date.getTime())) {
+        const year = date.getFullYear();
+        if (year > 1990 && year <= new Date().getFullYear() + 10) {
+          return year.toString();
+        }
+      }
+      
+      // Try to parse as timestamp (milliseconds) - but only if it looks like a timestamp
+      const timestamp = parseInt(pubdate);
+      if (timestamp && timestamp > 946684800000) { // After year 2000 in timestamp format
+        const dateFromTimestamp = new Date(timestamp);
+        const year = dateFromTimestamp.getFullYear();
+        if (year > 1990 && year <= new Date().getFullYear() + 10) {
+          return year.toString();
+        }
+      }
+      
+      // Last resort: extract year from string using regex
+      const yearMatch = pubdate.match(/\b(20[0-9][0-9])\b/);
+      if (yearMatch) {
+        return yearMatch[1];
+      }
+      
+      // Default fallback
+      return new Date().getFullYear().toString();
+    } catch (error) {
+      return new Date().getFullYear().toString();
+    }
   };
 
-  // Filter publications based on selected tags (only show homepage publications for public)
+  // Filter publications based on selected tags 
+  // For type-specific pages, show ALL publications of that type
+  // For homepage, only show homepage publications
   const filteredPublications = selectedTags.length === 0 
-    ? publications.filter(pub => pub.homepage)
+    ? publications // Show all publications for type-specific pages
     : publications
-        .filter(pub => pub.homepage)
         .filter(pub => 
           selectedTags.some(selectedTag => 
             pub.tags && pub.tags.includes(selectedTag)
@@ -237,7 +267,9 @@ const Publications: React.FC = () => {
             <p className="text-gray-600">
               {publications.length === 0 
                 ? config.emptyMessage
-                : "Aucun élément ne correspond aux tags sélectionnés."
+                : selectedTags.length > 0 
+                  ? "Aucun élément ne correspond aux tags sélectionnés."
+                  : config.emptyMessage
               }
             </p>
           </div>

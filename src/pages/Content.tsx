@@ -105,11 +105,11 @@ const Content: React.FC = () => {
     });
   };
 
-  // Filter publications based on selected tags and homepage visibility
+  // Filter publications based on selected tags
+  // For type-specific pages, show ALL publications of that type
   const filteredPublications = selectedTags.length === 0 
-    ? publications.filter(pub => pub.homepage)
+    ? publications // Show all publications for type-specific pages
     : publications
-        .filter(pub => pub.homepage)
         .filter(pub => 
           selectedTags.some(selectedTag => 
             pub.tags && pub.tags.includes(selectedTag)
