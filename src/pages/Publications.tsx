@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import InfoCard from '../components/ui/InfoCard';
 
 interface Publication {
@@ -11,9 +12,38 @@ interface Publication {
   homepage: boolean;
   picture?: string;
   attachmentIds: number[];
+  type: 'publication' | 'communique' | 'jo' | 'rapport';
   createdAt: string;
   updatedAt: string;
 }
+
+// Content type configuration
+const CONTENT_TYPES = {
+  publication: {
+    title: 'Nos publications',
+    subtitle: 'Newsletters et publications du SRH',
+    emptyMessage: 'Aucune publication disponible pour le moment.',
+    category: 'Publication' as const
+  },
+  communique: {
+    title: 'Communiqués',
+    subtitle: 'Communiqués de presse et positions du SRH',
+    emptyMessage: 'Aucun communiqué disponible pour le moment.',
+    category: 'Communiqué' as const
+  },
+  jo: {
+    title: 'Journal Officiel',
+    subtitle: 'Textes du Journal Officiel',
+    emptyMessage: 'Aucun texte du Journal Officiel disponible pour le moment.',
+    category: 'Journal Officiel' as const
+  },
+  rapport: {
+    title: 'Rapports institutionnels',
+    subtitle: 'Rapports et études du SRH',
+    emptyMessage: 'Aucun rapport disponible pour le moment.',
+    category: 'Rapport' as const
+  }
+};
 
 
 // Helper function to convert Delta JSON to plain text for excerpts
@@ -23,7 +53,7 @@ const deltaToPlainText = (content: string): string => {
     const delta = JSON.parse(content);
     if (delta.ops && Array.isArray(delta.ops)) {
       // Extract just the text content without formatting
-      return delta.ops.map((op: any) => {
+      return delta.ops.map((op: { insert?: string }) => {
         if (typeof op.insert === 'string') {
           return op.insert.replace(/\n/g, ' ').trim();
         }
@@ -42,27 +72,32 @@ const deltaToPlainText = (content: string): string => {
 
 
 const Publications: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const contentType = (searchParams.get('type') as keyof typeof CONTENT_TYPES) || 'publication';
+  const config = CONTENT_TYPES[contentType];
+  
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchPublications();
-  }, []);
-
-  const fetchPublications = async () => {
-    try {
-      const response = await fetch('/api/content?contentType=publications&type=publication');
-      const data = await response.json();
-      if (data.success) {
-        setPublications(data.publications);
+    const fetchData = async () => {
+      try {
+        const response = await fetch(`/api/content?contentType=publications&type=${contentType}`);
+        const data = await response.json();
+        if (data.success) {
+          setPublications(data.publications);
+        }
+      } catch (error) {
+        console.error(`Error fetching ${contentType}:`, error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching publications:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    
+    fetchData();
+  }, [contentType]);
+
 
 
   const toggleTagFilter = (tag: string) => {
@@ -92,7 +127,7 @@ const Publications: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-srh-blue mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement des publications...</p>
+          <p className="text-gray-600">Chargement du contenu...</p>
         </div>
       </div>
     );
@@ -105,8 +140,8 @@ const Publications: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">Nos publications</h1>
-              <p className="text-xl opacity-90">Newsletters et publications du SRH</p>
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">{config.title}</h1>
+              <p className="text-xl opacity-90">{config.subtitle}</p>
             </div>
           </div>
         </div>
@@ -177,8 +212,8 @@ const Publications: React.FC = () => {
             <div className="col-span-full bg-white rounded-lg shadow-sm p-8 text-center">
               <p className="text-gray-600">
                 {publications.length === 0 
-                  ? "Aucune publication disponible pour le moment." 
-                  : "Aucune publication ne correspond aux tags sélectionnés."
+                  ? config.emptyMessage
+                  : "Aucun élément ne correspond aux tags sélectionnés."
                 }
               </p>
             </div>
@@ -196,8 +231,9 @@ const Publications: React.FC = () => {
                   : plainTextContent,
                 content: publication.content,
                 publishedAt: publication.pubdate,
-                slug: `publication-${publication.id}`,
-                category: publication.tags.includes('Newsletter') ? 'Newsletter' as const : 'Publication' as const,
+                slug: `${contentType}-${publication.id}`,
+                category: config.category,
+                contentType: contentType,
               };
               
               return (

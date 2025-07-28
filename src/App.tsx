@@ -9,11 +9,8 @@ import Bureau from './pages/Bureau';
 import Statuts from './pages/Statuts';
 import NosInformations from './pages/NosInformations';
 import Publications from './pages/Publications';
-import Communiques from './pages/Communiques';
+import ContentItem from './pages/ContentItem';
 import Content from './pages/Content';
-import TextesOfficiels from './pages/TextesOfficiels';
-import JO from './pages/JO';
-import Rapports from './pages/Rapports';
 import NosLiens from './pages/NosLiens';
 import ContactezNous from './pages/ContactezNous';
 import Login from './pages/Login';
@@ -24,14 +21,9 @@ import Profile from './pages/Profile';
 import ProfileEdit from './pages/ProfileEdit';
 import AdminMembers from './pages/admin/AdminMembers';
 import AdminPublications from './pages/admin/AdminPublications';
-import AdminJO from './pages/admin/AdminJO';
-import AdminCommuniques from './pages/admin/AdminCommuniques';
-import AdminRapports from './pages/admin/AdminRapports';
 import AdminRoute from './components/auth/AdminRoute';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import FAQ from './pages/FAQ';
-import JOText from './pages/JOText';
-import RapportDetails from './pages/RapportDetails';
 
 function App() {
   useEffect(() => {
@@ -53,13 +45,8 @@ function App() {
           <Route path="/statuts" element={<Statuts />} />
           <Route path="/nos-informations" element={<NosInformations />} />
           <Route path="/publications" element={<Publications />} />
-          <Route path="/communiques" element={<Communiques />} />
+          <Route path="/item" element={<ContentItem />} />
           <Route path="/content" element={<Content />} />
-          <Route path="/textes-officiels" element={<TextesOfficiels />} />
-          <Route path="/jo" element={<JO />} />
-          <Route path="/jo/text" element={<JOText />} />
-          <Route path="/rapports" element={<Rapports />} />
-          <Route path="/rapports/details" element={<RapportDetails />} />
           <Route path="/nos-liens" element={<NosLiens />} />
           <Route path="/contactez-nous" element={<ContactezNous />} />
           <Route path="/login" element={<Login />} />
@@ -84,9 +71,6 @@ function App() {
               <Routes>
                 <Route path="members" element={<AdminMembers />} />
                 <Route path="publications" element={<AdminPublications />} />
-                <Route path="communiques" element={<AdminCommuniques />} />
-                <Route path="rapports" element={<AdminRapports />} />
-                <Route path="jo" element={<AdminJO />} />
                 {/* Add more admin routes here */}
               </Routes>
             </AdminRoute>

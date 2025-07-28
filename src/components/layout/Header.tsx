@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, Menu, X, User, LogOut, FileText, HelpCircle, Users, File, Send, Mail, 
+import { ChevronDown, Menu, X, User, LogOut, FileText, HelpCircle, Users, File, Send, 
          Building2, UserCheck, ScrollText, BookOpen, MessageCircle, Scale, FileBarChart } from 'lucide-react';
 import { siteContent } from '../../data/content';
 import { useAuthStore } from '../../stores/authStore';
@@ -40,11 +40,10 @@ const Header: React.FC = () => {
 
   const adminMenuItems = [
     { label: 'Membres', href: '/admin/members', icon: Users },
-    { label: 'Publications', href: '/admin/publications', icon: File },
-    { label: 'Communiqués', href: '/admin/communiques', icon: Send },
-    { label: 'Newsletters', href: '/admin/newsletters', icon: Mail },
-    { label: 'Journal Officiel', href: '/admin/jo', icon: Scale },
-    { label: 'Rapports', href: '/admin/rapports', icon: FileBarChart },
+    { label: 'Publications', href: '/admin/publications?type=publication', icon: File },
+    { label: 'Communiqués', href: '/admin/publications?type=communique', icon: Send },
+    { label: 'Journal Officiel', href: '/admin/publications?type=jo', icon: Scale },
+    { label: 'Rapports', href: '/admin/publications?type=rapport', icon: FileBarChart },
   ];
 
   // Icons mapping for navigation items

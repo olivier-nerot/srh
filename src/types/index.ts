@@ -15,7 +15,8 @@ export interface NewsItem {
   slug: string;
   image?: string;
   pdf?: string;
-  category: 'Publication' | 'Communiqué' | 'Newsletter';
+  category: 'Publication' | 'Communiqué' | 'Newsletter' | 'Journal Officiel' | 'Rapport';
+  contentType?: 'publication' | 'communique' | 'jo' | 'rapport';
 }
 
 export interface JobPosting {

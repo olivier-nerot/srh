@@ -15,16 +15,16 @@ export const siteContent: SiteContent = {
       title: "Nos informations",
       href: "/nos-informations",
       children: [
-        { title: "Nos publications", href: "/publications" },
-        { title: "Communiqués", href: "/communiques" }
+        { title: "Nos publications", href: "/publications?type=publication" },
+        { title: "Communiqués", href: "/publications?type=communique" }
       ]
     },
     {
       title: "Textes officiels",
       href: "/textes-officiels",
       children: [
-        { title: "Textes du Journal Officiel", href: "/jo" },
-        { title: "Rapports institutionnels", href: "/rapports" }
+        { title: "Textes du Journal Officiel", href: "/publications?type=jo" },
+        { title: "Rapports institutionnels", href: "/publications?type=rapport" }
       ]
     },
     {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import QuillEditor from 'quill-next-react';
 import 'quill-next/dist/quill.snow.css';
 import { Edit, Plus, Trash2, Save, X, FileText, Calendar } from 'lucide-react';
@@ -15,6 +16,7 @@ interface Publication {
   homepage: boolean;
   picture?: string;
   attachmentIds: number[];
+  type: 'publication' | 'communique' | 'jo' | 'rapport';
   createdAt: string;
   updatedAt: string;
 }
@@ -29,7 +31,32 @@ interface EditingPublication {
   homepage: boolean;
   picture?: string;
   attachmentIds: number[];
+  type: 'publication' | 'communique' | 'jo' | 'rapport';
 }
+
+// Content type configuration
+const CONTENT_TYPES = {
+  publication: {
+    title: 'Publications',
+    singular: 'publication',
+    icon: FileText
+  },
+  communique: {
+    title: 'Communiqués',
+    singular: 'communiqué',
+    icon: FileText
+  },
+  jo: {
+    title: 'Journal Officiel',
+    singular: 'texte du Journal Officiel',
+    icon: FileText
+  },
+  rapport: {
+    title: 'Rapports institutionnels',
+    singular: 'rapport',
+    icon: FileText
+  }
+};
 
 // Helper component to display tag chips
 const TagChips: React.FC<{ tags: string[] }> = ({ tags }) => {
@@ -56,17 +83,18 @@ const PublicationContentDisplay: React.FC<{ content: string }> = ({ content }) =
     const delta = JSON.parse(content);
     if (delta.ops && Array.isArray(delta.ops)) {
       // Convert Delta ops to simple HTML
-      const html = delta.ops.map((op: any) => {
+      const html = delta.ops.map((op: { insert?: string; attributes?: Record<string, unknown> }) => {
         if (typeof op.insert === 'string') {
           let text = op.insert;
           
           // Apply basic formatting
           if (op.attributes) {
-            if (op.attributes.bold) text = `<strong>${text}</strong>`;
-            if (op.attributes.italic) text = `<em>${text}</em>`;
-            if (op.attributes.underline) text = `<u>${text}</u>`;
-            if (op.attributes.link) text = `<a href="${op.attributes.link}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-            if (op.attributes.header) text = `<h${op.attributes.header}>${text}</h${op.attributes.header}>`;
+            const attrs = op.attributes as Record<string, unknown>;
+            if (attrs.bold) text = `<strong>${text}</strong>`;
+            if (attrs.italic) text = `<em>${text}</em>`;
+            if (attrs.underline) text = `<u>${text}</u>`;
+            if (attrs.link) text = `<a href="${attrs.link}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+            if (attrs.header) text = `<h${attrs.header}>${text}</h${attrs.header}>`;
           }
           
           // Convert newlines to br tags
@@ -88,11 +116,15 @@ const PublicationContentDisplay: React.FC<{ content: string }> = ({ content }) =
 };
 
 const AdminPublications: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const contentType = (searchParams.get('type') as keyof typeof CONTENT_TYPES) || 'publication';
+  const config = CONTENT_TYPES[contentType];
+  
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<EditingPublication | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [quillRef, setQuillRef] = useState<any>(null);
+  const [quillRef, setQuillRef] = useState<unknown>(null);
   const [hasEditorContent, setHasEditorContent] = useState(false);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingTags, setEditingTags] = useState<string[]>([]);
@@ -104,30 +136,32 @@ const AdminPublications: React.FC = () => {
   const [editingAttachmentIds, setEditingAttachmentIds] = useState<number[]>([]);
 
   useEffect(() => {
-    fetchPublications();
-  }, []);
-
-  const fetchPublications = async () => {
-    try {
-      const response = await fetch('/api/content?contentType=publications&type=publication');
-      const data = await response.json();
-      if (data.success) {
-        setPublications(data.publications);
+    const fetchData = async () => {
+      try {
+        const response = await fetch(`/api/content?contentType=publications&type=${contentType}`);
+        const data = await response.json();
+        if (data.success) {
+          setPublications(data.publications);
+        }
+      } catch (error) {
+        console.error(`Error fetching ${contentType}:`, error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching publications:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    
+    fetchData();
+  }, [contentType]);
+
 
   const handleSave = async () => {
     if (!editing) return;
 
     // Get the current content from the Quill editor as Delta JSON
     let contentValue = editing.content;
-    if (quillRef) {
-      const delta = quillRef.getContents();
+    if (quillRef && typeof quillRef === 'object' && 'getContents' in quillRef) {
+      const quill = quillRef as { getContents: () => unknown };
+      const delta = quill.getContents();
       contentValue = JSON.stringify(delta);
     }
 
@@ -150,14 +184,14 @@ const AdminPublications: React.FC = () => {
           homepage: editingHomepage,
           picture: editingPicture,
           attachmentIds: editingAttachmentIds,
-          type: 'publication',
+          type: contentType,
           isAdmin: true,
         }),
       });
 
       const data = await response.json();
       if (data.success) {
-        await fetchPublications(); // Refresh the list
+        window.location.reload(); // Refresh the page to reload data
         setEditing(null);
         setShowAddForm(false);
         setQuillRef(null);
@@ -187,7 +221,7 @@ const AdminPublications: React.FC = () => {
 
       const data = await response.json();
       if (data.success) {
-        await fetchPublications(); // Refresh the list
+        window.location.reload(); // Refresh the page to reload data
       } else {
         alert('Erreur lors de la suppression: ' + data.error);
       }
@@ -218,6 +252,7 @@ const AdminPublications: React.FC = () => {
       homepage: publication.homepage,
       picture: publication.picture,
       attachmentIds: publication.attachmentIds || [],
+      type: contentType,
     });
     setShowAddForm(false);
   };
@@ -242,6 +277,7 @@ const AdminPublications: React.FC = () => {
       homepage: true,
       picture: undefined,
       attachmentIds: [],
+      type: contentType,
     });
     setShowAddForm(true);
   };
@@ -279,7 +315,7 @@ const AdminPublications: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-srh-blue mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement des publications...</p>
+          <p className="text-gray-600">Chargement du contenu...</p>
         </div>
       </div>
     );
@@ -296,8 +332,8 @@ const AdminPublications: React.FC = () => {
                 <FileText className="h-8 w-8 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Gestion des Publications</h1>
-                <p className="text-gray-600 mt-1">{publications.length} publications</p>
+                <h1 className="text-2xl font-bold text-gray-900">Gestion des {config.title}</h1>
+                <p className="text-gray-600 mt-1">{publications.length} éléments</p>
               </div>
             </div>
             {!editing && (
@@ -306,7 +342,7 @@ const AdminPublications: React.FC = () => {
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
               >
                 <Plus className="h-4 w-4" />
-                <span>Nouvelle publication</span>
+                <span>Nouveau {config.singular}</span>
               </button>
             )}
           </div>
@@ -320,7 +356,7 @@ const AdminPublications: React.FC = () => {
         {editing && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
             <h3 className="text-lg font-semibold mb-4">
-              {showAddForm ? 'Ajouter une nouvelle publication' : 'Modifier la publication'}
+              {showAddForm ? `Ajouter un nouveau ${config.singular}` : `Modifier le ${config.singular}`}
             </h3>
             
             <div className="space-y-4">
@@ -333,7 +369,7 @@ const AdminPublications: React.FC = () => {
                   value={editingTitle}
                   onChange={(e) => setEditingTitle(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
-                  placeholder="Entrez le titre de la publication..."
+                  placeholder={`Entrez le titre du ${config.singular}...`}
                 />
               </div>
               
@@ -505,18 +541,18 @@ const AdminPublications: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
             <div className="flex items-center mb-4">
               <FileText className="h-8 w-8 text-blue-600 mr-3" />
-              <h2 className="text-2xl font-bold text-gray-900">Gestion des publications</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Gestion des {config.title}</h2>
             </div>
             
             {publications.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-gray-600">Aucune publication disponible pour le moment.</p>
+                <p className="text-gray-600">Aucun {config.singular} disponible pour le moment.</p>
                 <button
                   onClick={startAdd}
                   className="mt-4 bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md inline-flex items-center gap-2 transition-colors"
                 >
                   <Plus className="h-4 w-4" />
-                  Ajouter la première publication
+                  Ajouter le premier {config.singular}
                 </button>
               </div>
             ) : (

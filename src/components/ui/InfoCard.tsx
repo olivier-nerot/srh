@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, FileText, Megaphone, Mail } from 'lucide-react';
+import { ArrowRight, FileText, Megaphone, Mail, Scale, FileBarChart } from 'lucide-react';
 import type { NewsItem } from '../../types';
 
 interface InfoCardProps {
@@ -30,6 +30,20 @@ const getCategoryConfig = (category: NewsItem['category']) => {
         bgColor: 'bg-green-100',
         textColor: 'text-green-800',
         borderColor: 'border-green-200'
+      };
+    case 'Journal Officiel':
+      return {
+        icon: Scale,
+        bgColor: 'bg-purple-100',
+        textColor: 'text-purple-800',
+        borderColor: 'border-purple-200'
+      };
+    case 'Rapport':
+      return {
+        icon: FileBarChart,
+        bgColor: 'bg-orange-100',
+        textColor: 'text-orange-800',
+        borderColor: 'border-orange-200'
       };
     default:
       return {
@@ -70,7 +84,7 @@ const InfoCard: React.FC<InfoCardProps> = ({ article, image }) => {
         </p>
         <div className="flex justify-end">
           <Link 
-            to={`/article?id=${article.id}`}
+            to={article.contentType ? `/item?id=${article.id}&type=${article.contentType}` : `/article?id=${article.id}`}
             className="text-srh-blue hover:text-srh-blue-dark font-medium text-sm inline-flex items-center"
           >
             Lire plus
