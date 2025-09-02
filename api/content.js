@@ -101,16 +101,19 @@ async function handlePublications(req, res) {
 
 async function getAllPublications(req, res) {
   try {
-    const { type } = req.query;
+    const { type, id } = req.query;
     const db = await getDb();
     
     let query = db.select().from(publications);
     
-    // Filter by specific publication type if provided
-    if (type) {
+    // Filter by specific publication ID if provided (for individual publication view)
+    if (id) {
+      query = query.where(eq(publications.id, parseInt(id)));
+    } else if (type) {
+      // Filter by specific publication type if provided
       query = query.where(eq(publications.type, type));
     }
-    // If no type filter, return all publications
+    // If no filter, return all publications
     
     const result = await query.orderBy(desc(publications.pubdate));
     return res.status(200).json({ success: true, publications: result });

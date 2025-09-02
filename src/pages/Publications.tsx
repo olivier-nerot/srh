@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Download } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
 
 interface Publication {
   id: number;
@@ -84,14 +84,24 @@ const Publications: React.FC = () => {
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const response = await fetch(`/api/content?contentType=publications&type=${contentType}`);
+        
+        // Check if response is ok
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        
         if (data.success) {
           setPublications(data.publications);
+        } else {
+          console.error('API returned error:', data.error);
         }
       } catch (error) {
         console.error(`Error fetching ${contentType}:`, error);
@@ -150,17 +160,22 @@ const Publications: React.FC = () => {
     }
   };
 
-  // Filter publications based on selected tags 
-  // For type-specific pages, show ALL publications of that type
-  // For homepage, only show homepage publications
-  const filteredPublications = selectedTags.length === 0 
-    ? publications // Show all publications for type-specific pages
-    : publications
-        .filter(pub => 
-          selectedTags.some(selectedTag => 
-            pub.tags && pub.tags.includes(selectedTag)
-          )
+  // Filter publications based on selected tags and search text
+  const filteredPublications = publications
+    .filter(pub => {
+      // Filter by selected tags (AND logic - publication must have ALL selected tags)
+      const matchesTags = selectedTags.length === 0 || 
+        selectedTags.every(selectedTag => 
+          pub.tags && pub.tags.includes(selectedTag)
         );
+      
+      // Filter by search text (title or content)
+      const matchesSearchText = searchText.trim() === '' || 
+        pub.title.toLowerCase().includes(searchText.toLowerCase()) ||
+        (pub.content && deltaToPlainText(pub.content).toLowerCase().includes(searchText.toLowerCase()));
+      
+      return matchesTags && matchesSearchText;
+    });
 
   // Group publications by year
   const publicationsByYear = filteredPublications.reduce((acc, pub) => {
@@ -190,25 +205,24 @@ const Publications: React.FC = () => {
   return (
     <>
       {/* Blue curved header section */}
-      <section className="bg-srh-blue text-white py-20 relative overflow-hidden">
+      <section className="bg-srh-blue text-white py-12 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">{config.title}</h1>
-              <p className="text-xl opacity-90">{config.subtitle}</p>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">{config.title}</h1>
+              <p className="text-lg opacity-90">{config.subtitle}</p>
             </div>
           </div>
         </div>
         {/* Curved bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gray-50" 
+        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gray-50" 
              style={{clipPath: 'ellipse(100% 100% at 50% 100%)'}}></div>
       </section>
 
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 py-4">
 
-
-        {/* All Tags List */}
+        {/* Filters: Search + Tags */}
         {publications.length > 0 && (() => {
           // Extract all unique tags from filtered publications, excluding year tags, and sort alphabetically
           const availableTags = Array.from(
@@ -220,43 +234,62 @@ const Publications: React.FC = () => {
             )
           ).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
           
-          if (availableTags.length === 0) return null;
-          
           return (
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Tags {selectedTags.length > 0 && `(${selectedTags.length} sélectionné${selectedTags.length > 1 ? 's' : ''})`}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {availableTags.map((tag) => {
-                  const isSelected = selectedTags.includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleTagFilter(tag)}
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-srh-blue text-white border-srh-blue hover:bg-srh-blue-dark'
-                          : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
+            <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
+              {/* First line: Search input */}
+              <div className="relative mb-2">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  type="text"
+                  placeholder="Rechercher..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-srh-blue focus:border-transparent outline-none"
+                />
+                {searchText && (
+                  <button
+                    onClick={() => setSearchText('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-              {selectedTags.length > 0 && (
-                <div className="mt-3">
+              
+              {/* Second line: Tags and clear button */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-1 flex-1 min-h-[24px]">
+                  {availableTags.map((tag) => {
+                    const isSelected = selectedTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleTagFilter(tag)}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-srh-blue text-white border-srh-blue hover:bg-srh-blue-dark'
+                            : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                {(selectedTags.length > 0 || searchText.trim()) && (
                   <button
                     type="button"
-                    onClick={() => setSelectedTags([])}
-                    className="text-sm text-gray-600 hover:text-gray-800 underline"
+                    onClick={() => {
+                      setSelectedTags([]);
+                      setSearchText('');
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-700 underline whitespace-nowrap ml-2"
                   >
-                    Effacer tous les filtres
+                    Effacer
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           );
         })()}
@@ -274,18 +307,18 @@ const Publications: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-12">
+          <div className="space-y-8">
             {sortedYears.map((year) => (
               <div key={year}>
                 {/* Year separator */}
-                <div className="flex items-center mb-6">
+                <div className="flex items-center mb-4">
                   <div className="flex-grow h-px bg-gray-300"></div>
-                  <h2 className="px-4 text-2xl font-bold text-gray-800">{year}</h2>
+                  <h2 className="px-3 text-xl font-bold text-gray-800">{year}</h2>
                   <div className="flex-grow h-px bg-gray-300"></div>
                 </div>
                 
                 {/* Publications grid for this year */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {publicationsByYear[year].map((publication) => {
                     // Convert Delta content to plain text for excerpt
                     const plainTextContent = deltaToPlainText(publication.content);

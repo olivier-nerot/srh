@@ -5,10 +5,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 **Build and Development:**
-- `npm run dev` - Start development server on port 5173
+- `npm run dev` - Start Vite development server (frontend) on port 5173
 - `npm run build` - TypeScript compilation + Vite production build
 - `npm run preview` - Preview production build locally
 - `npm run lint` - Run ESLint for code quality checks
+
+**Development Setup (Dual Server):**
+- **Frontend Server**: `npm run dev` - Vite development server on http://localhost:5173
+- **API Server**: `vercel dev --listen 3002 --yes` - Vercel dev server for API routes on port 3002
+- **Both servers are required** for full functionality during development
+- API routes are automatically proxied from frontend server to API server
+- Install Vercel CLI globally: `npm install -g vercel`
+
+**Development Workflow:**
+1. Start API server: `vercel dev --listen 3002 --yes`
+2. Start frontend server: `npm run dev`
+3. Access application at: http://localhost:5173
 
 **Database Operations:**
 - `npm run db:generate` - Generate Drizzle migrations
