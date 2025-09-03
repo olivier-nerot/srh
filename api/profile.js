@@ -90,10 +90,12 @@ async function updateProfile(req, res) {
   const {
     firstname,
     lastname,
+    email,
     hospital,
     address,
     subscription,
     newsletter,
+    isadmin,
     // Professional information fields
     huTitulaire,
     phLiberal,
@@ -133,10 +135,12 @@ async function updateProfile(req, res) {
       .set({
         firstname: firstname || null,
         lastname: lastname || null,
+        email: email || null,
         hospital: hospital || null,
         address: address || null,
         subscription: subscription || null,
         newsletter: Boolean(newsletter),
+        isadmin: isadmin !== undefined ? Boolean(isadmin) : undefined,
         infopro: JSON.stringify(professionalInfo),
         updatedAt: new Date(),
       })

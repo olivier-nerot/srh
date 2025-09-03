@@ -104,7 +104,7 @@ const ContactezNous: React.FC = () => {
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Ressources utiles</h3>
               <div className="space-y-2">
-                <a href="#" className="block text-blue-600 hover:text-blue-700 transition-colors">
+                <a href="/faq" className="block text-blue-600 hover:text-blue-700 transition-colors">
                   → FAQ - Questions fréquemment posées
                 </a>
                 <a 

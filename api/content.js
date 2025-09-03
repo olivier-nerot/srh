@@ -47,6 +47,19 @@ const rapports = sqliteTable('rapports', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+const liens = sqliteTable('liens', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  icon: text('icon').notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  category: text('category').notNull(),
+  url: text('url').notNull(),
+  logo: text('logo'),
+  picture: text('picture'), // Base64 encoded logo image
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -61,7 +74,7 @@ module.exports = async function handler(req, res) {
   const { contentType } = req.query;
   
   if (!contentType) {
-    return res.status(400).json({ error: 'Content type is required (publications, jotextes, faq, or rapports)' });
+    return res.status(400).json({ error: 'Content type is required (publications, jotextes, faq, rapports, or liens)' });
   }
 
   try {
@@ -74,6 +87,8 @@ module.exports = async function handler(req, res) {
         return await handleFAQ(req, res);
       case 'rapports':
         return await handleRapports(req, res);
+      case 'liens':
+        return await handleLiens(req, res);
       default:
         return res.status(400).json({ error: 'Invalid content type' });
     }
@@ -720,6 +735,177 @@ async function deleteRapport(req, res) {
     return res.status(500).json({ 
       success: false, 
       error: 'Error deleting rapport' 
+    });
+  }
+}
+
+// Liens handlers
+async function handleLiens(req, res) {
+  switch (req.method) {
+    case 'GET':
+      return await getAllLiens(req, res);
+    case 'POST':
+      return await createLien(req, res);
+    case 'PUT':
+      return await updateLien(req, res);
+    case 'DELETE':
+      return await deleteLien(req, res);
+    default:
+      return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
+async function getAllLiens(req, res) {
+  try {
+    const { category } = req.query;
+    const db = await getDb();
+    
+    let query = db.select().from(liens);
+    
+    // Filter by category if provided
+    if (category) {
+      query = query.where(eq(liens.category, category));
+    }
+    
+    const result = await query.orderBy(asc(liens.category), asc(liens.title));
+    return res.status(200).json({ success: true, liens: result });
+  } catch (error) {
+    console.error('Error fetching liens:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Error fetching liens',
+      liens: []
+    });
+  }
+}
+
+async function createLien(req, res) {
+  const { icon, title, description, category, url, logo, picture, isAdmin } = req.body;
+
+  if (!isAdmin) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Access denied. Admin privileges required.' 
+    });
+  }
+
+  if (!icon || !title || !description || !category || !url) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Icon, title, description, category, and URL are required' 
+    });
+  }
+
+  try {
+    const db = await getDb();
+    const result = await db.insert(liens).values({
+      icon,
+      title,
+      description,
+      category,
+      url,
+      logo: logo || null,
+      picture: picture || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+
+    return res.status(201).json({ success: true, lien: result[0] });
+  } catch (error) {
+    console.error('Error creating lien:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Error creating lien' 
+    });
+  }
+}
+
+async function updateLien(req, res) {
+  const { id, icon, title, description, category, url, logo, picture, isAdmin } = req.body;
+
+  if (!isAdmin) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Access denied. Admin privileges required.' 
+    });
+  }
+
+  if (!id || !icon || !title || !description || !category || !url) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'ID, icon, title, description, category, and URL are required' 
+    });
+  }
+
+  try {
+    const db = await getDb();
+    const result = await db.update(liens)
+      .set({
+        icon,
+        title,
+        description,
+        category,
+        url,
+        logo: logo || null,
+        picture: picture || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(liens.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Lien not found' 
+      });
+    }
+
+    return res.status(200).json({ success: true, lien: result[0] });
+  } catch (error) {
+    console.error('Error updating lien:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Error updating lien' 
+    });
+  }
+}
+
+async function deleteLien(req, res) {
+  const { id, isAdmin } = req.body;
+
+  if (!isAdmin) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Access denied. Admin privileges required.' 
+    });
+  }
+
+  if (!id) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'ID is required' 
+    });
+  }
+
+  try {
+    const db = await getDb();
+    const result = await db.delete(liens)
+      .where(eq(liens.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Lien not found' 
+      });
+    }
+
+    return res.status(200).json({ success: true, message: 'Lien deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting lien:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Error deleting lien' 
     });
   }
 }

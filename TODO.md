@@ -22,11 +22,11 @@ bouton nous décrouvrir
 * filtrage tags par ET (docs et FAQ)
 * liens vers rapports institutionnels / JO : tjrs vers mm doc
 download du pdf. ne pas traduire en txt
-* recherche sur les titres
-editer liens
-contactez nous : lien faq KO
-profil : pas d'édition du champs admin
-bug sur profil pro (assistant specialiste)
+* recherche sur les titres et contenu (++ publis et FAQ)
+* editer liens
+* contactez nous : lien faq KO
+* profil : pas d'édition du champs admin
+* bug sur profil pro (assistant specialiste)
 config resend
 config stripe
 FAQ dans menu : lien vers adhesion si non logué

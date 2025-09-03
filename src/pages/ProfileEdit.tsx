@@ -30,6 +30,7 @@ interface FormData {
   address: string;
   subscription: string;
   newsletter: boolean;
+  isadmin: boolean;
   // Professional information
   huTitulaire: boolean;
   phLiberal: boolean;
@@ -62,6 +63,7 @@ const ProfileEdit: React.FC = () => {
     address: '',
     subscription: '',
     newsletter: true,
+    isadmin: false,
     // Professional information
     huTitulaire: false,
     phLiberal: false,
@@ -143,6 +145,7 @@ const ProfileEdit: React.FC = () => {
           address: user.address || '',
           subscription: user.subscription || '',
           newsletter: user.newsletter ?? true,
+          isadmin: user.isadmin ?? false,
           // Professional information
           huTitulaire: professionalInfo.huTitulaire || false,
           phLiberal: professionalInfo.phLiberal || false,
@@ -179,19 +182,6 @@ const ProfileEdit: React.FC = () => {
     setError('');
 
     try {
-      // Prepare professional info
-      const professionalInfo = {
-        huTitulaire: formData.huTitulaire,
-        phLiberal: formData.phLiberal,
-        hospitaloUniversitaireTitulaire: formData.hospitaloUniversitaireTitulaire,
-        adhesionCollegiale: formData.adhesionCollegiale,
-        huLiberal: formData.huLiberal,
-        hospitaloUniversitaireCCA: formData.hospitaloUniversitaireCCA,
-        adhesionAlliance: formData.adhesionAlliance,
-        assistantSpecialiste: formData.assistantSpecialiste,
-        assistantTempsPartage: formData.assistantTempsPartage,
-      };
-
       // Call update API
       const response = await fetch(`/api/profile?id=${userId}`, {
         method: 'PUT',
@@ -206,7 +196,17 @@ const ProfileEdit: React.FC = () => {
           address: formData.address,
           subscription: formData.subscription,
           newsletter: formData.newsletter,
-          infopro: JSON.stringify(professionalInfo),
+          isadmin: formData.isadmin,
+          // Professional information fields (sent individually)
+          huTitulaire: formData.huTitulaire,
+          phLiberal: formData.phLiberal,
+          hospitaloUniversitaireTitulaire: formData.hospitaloUniversitaireTitulaire,
+          adhesionCollegiale: formData.adhesionCollegiale,
+          huLiberal: formData.huLiberal,
+          hospitaloUniversitaireCCA: formData.hospitaloUniversitaireCCA,
+          adhesionAlliance: formData.adhesionAlliance,
+          assistantSpecialiste: formData.assistantSpecialiste,
+          assistantTempsPartage: formData.assistantTempsPartage,
         }),
       });
 
@@ -465,6 +465,23 @@ const ProfileEdit: React.FC = () => {
                     Je souhaite recevoir la newsletter du SRH
                   </label>
                 </div>
+
+                {/* Admin checkbox - only visible to admins */}
+                {currentUser?.isadmin && (
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="isadmin"
+                      name="isadmin"
+                      checked={formData.isadmin}
+                      onChange={handleInputChange}
+                      className="h-4 w-4 text-srh-blue focus:ring-srh-blue border-gray-300 rounded"
+                    />
+                    <label htmlFor="isadmin" className="text-sm text-gray-700">
+                      Administrateur
+                    </label>
+                  </div>
+                )}
               </div>
             )}
 

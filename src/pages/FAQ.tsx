@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/authStore';
 import QuillEditor from 'quill-next-react';
 // import { Delta } from 'quill-next';
 import 'quill-next/dist/quill.snow.css';
-import { Edit, Plus, Trash2, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Edit, Plus, Trash2, Save, X, ChevronDown, ChevronRight, Search } from 'lucide-react';
 
 interface FAQItem {
   id: number;
@@ -78,6 +78,29 @@ const FAQAnswerDisplay: React.FC<{ answer: string }> = ({ answer }) => {
   return <div dangerouslySetInnerHTML={{ __html: answer }} />;
 };
 
+// Helper function to convert Delta JSON to plain text for search
+const deltaToPlainText = (answer: string): string => {
+  try {
+    // Try to parse as Delta JSON
+    const delta = JSON.parse(answer);
+    if (delta.ops && Array.isArray(delta.ops)) {
+      // Extract just the text content without formatting
+      return delta.ops.map((op: { insert?: string }) => {
+        if (typeof op.insert === 'string') {
+          return op.insert.replace(/\n/g, ' ').trim();
+        }
+        return '';
+      }).join('').trim();
+    }
+  } catch {
+    // Parsing failed, treat as HTML and strip tags
+    return answer.replace(/<[^>]*>/g, '').trim();
+  }
+  
+  // Fallback: strip HTML tags and return plain text
+  return answer.replace(/<[^>]*>/g, '').trim();
+};
+
 const FAQ: React.FC = () => {
   const { user } = useAuthStore();
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
@@ -91,6 +114,7 @@ const FAQ: React.FC = () => {
   const [editingTagsInput, setEditingTagsInput] = useState('');
   const [expandedFAQs, setExpandedFAQs] = useState<Set<number>>(new Set());
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [searchText, setSearchText] = useState('');
 
   const isAdmin = user?.isadmin === true;
 
@@ -240,14 +264,21 @@ const FAQ: React.FC = () => {
     });
   };
 
-  // Filter FAQs based on selected tags
-  const filteredFAQs = selectedTags.length === 0 
-    ? faqs 
-    : faqs.filter(faq => 
-        selectedTags.some(selectedTag => 
-          faq.tags && faq.tags.includes(selectedTag)
-        )
+  // Filter FAQs based on selected tags and search text
+  const filteredFAQs = faqs.filter(faq => {
+    // Filter by selected tags (AND logic - FAQ must have ALL selected tags)
+    const matchesTags = selectedTags.length === 0 || 
+      selectedTags.every(selectedTag => 
+        faq.tags && faq.tags.includes(selectedTag)
       );
+    
+    // Filter by search text (question or answer)
+    const matchesSearchText = searchText.trim() === '' || 
+      faq.question.toLowerCase().includes(searchText.toLowerCase()) ||
+      deltaToPlainText(faq.answer).toLowerCase().includes(searchText.toLowerCase());
+    
+    return matchesTags && matchesSearchText;
+  });
 
 
 
@@ -454,54 +485,73 @@ const FAQ: React.FC = () => {
           </div>
         )}
 
-        {/* All Tags List */}
+        {/* Filters: Search + Tags */}
         {!editing && faqs.length > 0 && (() => {
-          // Extract all unique tags from filtered FAQs and sort alphabetically
+          // Extract all unique tags from all FAQs and sort alphabetically
           const availableTags = Array.from(
             new Set(
-              filteredFAQs
+              faqs
                 .flatMap(faq => faq.tags || [])
                 .filter(tag => tag && tag.trim().length > 0)
             )
           ).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
           
-          if (availableTags.length === 0) return null;
-          
           return (
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Tags {selectedTags.length > 0 && `(${selectedTags.length} sélectionné${selectedTags.length > 1 ? 's' : ''})`}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {availableTags.map((tag) => {
-                  const isSelected = selectedTags.includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleTagFilter(tag)}
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-srh-blue text-white border-srh-blue hover:bg-srh-blue-dark'
-                          : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
+            <div className="bg-white rounded-lg shadow-sm p-3 mb-8">
+              {/* First line: Search input */}
+              <div className="relative mb-2">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  type="text"
+                  placeholder="Rechercher dans les questions et réponses..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-srh-blue focus:border-transparent outline-none"
+                />
+                {searchText && (
+                  <button
+                    onClick={() => setSearchText('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-              {selectedTags.length > 0 && (
-                <div className="mt-3">
+              
+              {/* Second line: Tags and clear button */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-1 flex-1 min-h-[24px]">
+                  {availableTags.map((tag) => {
+                    const isSelected = selectedTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleTagFilter(tag)}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-srh-blue text-white border-srh-blue hover:bg-srh-blue-dark'
+                            : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                {(selectedTags.length > 0 || searchText.trim()) && (
                   <button
                     type="button"
-                    onClick={() => setSelectedTags([])}
-                    className="text-sm text-gray-600 hover:text-gray-800 underline"
+                    onClick={() => {
+                      setSelectedTags([]);
+                      setSearchText('');
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-700 underline whitespace-nowrap ml-2"
                   >
-                    Effacer tous les filtres
+                    Effacer
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           );
         })()}
@@ -514,7 +564,9 @@ const FAQ: React.FC = () => {
                 <p className="text-gray-600">
                   {faqs.length === 0 
                     ? "Aucune FAQ disponible pour le moment." 
-                    : "Aucune FAQ ne correspond aux tags sélectionnés."
+                    : (selectedTags.length > 0 || searchText.trim())
+                      ? "Aucune FAQ ne correspond aux critères de recherche."
+                      : "Aucune FAQ disponible pour le moment."
                   }
                 </p>
                 {isAdmin && (

@@ -1,214 +1,219 @@
-import React from 'react';
-import { ExternalLink, Building, Users, GraduationCap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ExternalLink, Building, Users, GraduationCap, Edit, Plus, Trash2, Save, X, Upload } from 'lucide-react';
+import { useAuthStore } from '../stores/authStore';
+import QuillEditor from 'quill-next-react';
+import 'quill-next/dist/quill.snow.css';
 
-// Import partner logos
-import afibLogo from '../assets/images/partner-logos/afib.png';
-import afppeLogo from '../assets/images/partner-logos/afppe.png';
-import apirLogo from '../assets/images/partner-logos/apir.png';
-import appaLogo from '../assets/images/partner-logos/appa.jpg';
-import cngLogo from '../assets/images/partner-logos/cng.png';
-import cnehLogo from '../assets/images/partner-logos/cneh.png';
-import cerfLogo from '../assets/images/partner-logos/cerf.png';
-import aphpLogo from '../assets/images/partner-logos/aphp.png';
-import cnpmemLogo from '../assets/images/partner-logos/cnpmem.png';
-import cnomLogo from '../assets/images/partner-logos/cnom.png';
-import cnpg4Logo from '../assets/images/partner-logos/cnpg4.png';
-import fmcrimLogo from '../assets/images/partner-logos/fmcrim.png';
-import fhfLogo from '../assets/images/partner-logos/fhf.png';
-import fnmrLogo from '../assets/images/partner-logos/fnmr.png';
-import specialitesMedicalesLogo from '../assets/images/partner-logos/specialites-medicales.png';
-import lehLogo from '../assets/images/partner-logos/leh.png';
-import sfrLogo from '../assets/images/partner-logos/sfr.jpeg';
-import snamhpLogo from '../assets/images/partner-logos/snamhp.png';
-import unirLogo from '../assets/images/partner-logos/unir.png';
-import braccoLogo from '../assets/images/partner-logos/bracco.png';
-import fujifilmLogo from '../assets/images/partner-logos/fujifilm.png';
-import geHealthcareLogo from '../assets/images/partner-logos/ge-healthcare.png';
-import guerbetLogo from '../assets/images/partner-logos/guerbet.png';
-import siemensLogo from '../assets/images/partner-logos/siemens.png';
-import terumoLogo from '../assets/images/partner-logos/terumo.png';
-import toshibaLogo from '../assets/images/partner-logos/toshiba.png';
+interface Lien {
+  id: number;
+  icon: string;
+  title: string;
+  description: string;
+  category: string;
+  url: string;
+  logo: string | null;
+  picture: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface EditingLien {
+  id?: number;
+  icon: string;
+  title: string;
+  description: string;
+  category: string;
+  url: string;
+  logo: string;
+  picture: string;
+}
+
+interface LinkCategory {
+  title: string;
+  icon: typeof Users | typeof GraduationCap | typeof Building;
+  color: string;
+  links: Lien[];
+}
+
 
 const NosLiens: React.FC = () => {
-  const linkCategories = [
+  const { user } = useAuthStore();
+  const [liens, setLiens] = useState<Lien[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<EditingLien | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [quillRef, setQuillRef] = useState<any>(null);
+  const [hasEditorContent, setHasEditorContent] = useState(false);
+
+  const isAdmin = user?.isadmin === true;
+
+  useEffect(() => {
+    fetchLiens();
+  }, []);
+
+  const fetchLiens = async () => {
+    try {
+      const response = await fetch('/api/content?contentType=liens');
+      const data = await response.json();
+      if (data.success) {
+        setLiens(data.liens);
+      }
+    } catch (error) {
+      console.error('Error fetching liens:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!editing || !isAdmin) return;
+
+    // Get the current content from the Quill editor as plain text
+    let description = editing.description;
+    if (quillRef) {
+      description = quillRef.getText().trim();
+    }
+
+    try {
+      const url = '/api/content?contentType=liens';
+      const method = editing.id ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...editing,
+          description,
+          isAdmin: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchLiens(); // Refresh the list
+        setEditing(null);
+        setShowAddForm(false);
+        setQuillRef(null);
+      } else {
+        alert('Erreur lors de la sauvegarde: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error saving lien:', error);
+      alert('Erreur lors de la sauvegarde');
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!isAdmin || !confirm('Êtes-vous sûr de vouloir supprimer ce lien ?')) return;
+
+    try {
+      const response = await fetch('/api/content?contentType=liens', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          isAdmin: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        await fetchLiens(); // Refresh the list
+      } else {
+        alert('Erreur lors de la suppression: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error deleting lien:', error);
+      alert('Erreur lors de la suppression');
+    }
+  };
+
+  const startEdit = (lien: Lien) => {
+    setQuillRef(null);
+    setHasEditorContent(false);
+    setEditing({
+      id: lien.id,
+      icon: lien.icon,
+      title: lien.title,
+      description: lien.description,
+      category: lien.category,
+      url: lien.url,
+      logo: lien.logo || '',
+      picture: lien.picture || '',
+    });
+    setShowAddForm(false);
+  };
+
+  const startAdd = () => {
+    setQuillRef(null);
+    setHasEditorContent(false);
+    setEditing({
+      icon: 'Users', // Default icon, will be set based on category
+      title: '',
+      description: '',
+      category: 'Organisations professionnelles et syndicats',
+      url: '',
+      logo: '',
+      picture: '',
+    });
+    setShowAddForm(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setShowAddForm(false);
+    setQuillRef(null);
+  };
+
+  // Group liens by category
+  const linkCategories: LinkCategory[] = [
     {
       title: "Organisations professionnelles et syndicats",
       icon: Users,
       color: "blue",
-      links: [
-        {
-          name: "Association Française des Ingénieurs Biomédicaux (AFIB)",
-          url: "https://afib.asso.fr/",
-          description: "Association des ingénieurs biomédicaux",
-          logo: afibLogo
-        },
-        {
-          name: "Association Française du Personnel Paramédical d'Électroradiologie (AFPPE)",
-          url: "https://www.afppe.com/",
-          description: "Association du personnel paramédical d'électroradiologie",
-          logo: afppeLogo
-        },
-        {
-          name: "Association Parisienne des Internes en Radiologie (APIR)",
-          url: "https://www.apir-radio.com/",
-          description: "Association des internes en radiologie de Paris",
-          logo: apirLogo
-        },
-        {
-          name: "Association pour les Praticiens Hospitaliers et Assimilés (APPA)",
-          url: "https://www.appa-asso.org/appa",
-          description: "Association des praticiens hospitaliers",
-          logo: appaLogo
-        },
-        {
-          name: "Centre National de Gestion (CNG)",
-          url: "https://www.cng.sante.fr/",
-          description: "Gestion des carrières des praticiens hospitaliers",
-          logo: cngLogo
-        },
-        {
-          name: "Centre National d'Expertise Hospitalière (CNEH)",
-          url: "https://www.cneh.fr/",
-          description: "Centre d'expertise hospitalière",
-          logo: cnehLogo
-        },
-        {
-          name: "Collège des Enseignants de Radiologie de France (CERF)",
-          url: "https://cerf.radiologie.fr/",
-          description: "Collège universitaire de radiologie",
-          logo: cerfLogo
-        },
-        {
-          name: "Collégiale des Radiologues de l'AP-HP",
-          url: "https://www.radiologues-aphp.fr/",
-          description: "Collégiale des radiologues de l'Assistance Publique - Hôpitaux de Paris",
-          logo: aphpLogo
-        },
-        {
-          name: "Conseil National Professionnel de Médecine d'Urgence (CNPMEM)",
-          url: "https://www.cnpmem.fr/",
-          description: "Conseil national professionnel de médecine d'urgence",
-          logo: cnpmemLogo
-        },
-        {
-          name: "Conseil National de l'Ordre des Médecins (CNOM)",
-          url: "https://www.conseil-national.medecin.fr/",
-          description: "Instance ordinale des médecins en France",
-          logo: cnomLogo
-        }
-      ]
+      links: liens.filter(lien => lien.category === "Organisations professionnelles et syndicats")
     },
     {
       title: "Sociétés savantes et formations",
-      icon: GraduationCap,
+      icon: GraduationCap, 
       color: "green",
-      links: [
-        {
-          name: "Centre National Professionnel de Gérontologie 4 (CNPG4)",
-          url: "https://www.cnpg4-radiologie.fr/",
-          description: "Centre national professionnel de gérontologie",
-          logo: cnpg4Logo
-        },
-        {
-          name: "Fédération de Médecine Continue et de Recherche en Imagerie Médicale (FMCRIM)",
-          url: "http://www.fmcrim.fr/#accueil",
-          description: "Fédération de médecine continue en imagerie médicale",
-          logo: fmcrimLogo
-        },
-        {
-          name: "Fédération Hospitalière de France (FHF)",
-          url: "https://www.fhf.fr/",
-          description: "Fédération des établissements hospitaliers publics",
-          logo: fhfLogo
-        },
-        {
-          name: "Fédération Nationale de Médecine du Travail et de Radioprotection (FNMR)",
-          url: "https://www.fnmr.org/",
-          description: "Fédération nationale de médecine du travail",
-          logo: fnmrLogo
-        },
-        {
-          name: "Intersyndicat National des Spécialités Médicales",
-          url: "http://www.specialitesmedicales.org/",
-          description: "Intersyndicat des spécialités médicales",
-          logo: specialitesMedicalesLogo
-        },
-        {
-          name: "Les Entreprises Hospitalières (LEH)",
-          url: "https://www.leh.fr/",
-          description: "Association des entreprises hospitalières",
-          logo: lehLogo
-        },
-        {
-          name: "Société Française de Radiologie (SFR)",
-          url: "http://www.sfrnet.org/",
-          description: "Société savante de radiologie française",
-          logo: sfrLogo
-        },
-        {
-          name: "Syndicat National des Médecins Hospitaliers Praticiens (SNAMHP)",
-          url: "https://www.snamhp.org/",
-          description: "Syndicat des médecins hospitaliers praticiens",
-          logo: snamhpLogo
-        },
-        {
-          name: "Union Nationale des Internes et Jeunes Radiologues (UNIR)",
-          url: "https://unir-radio.fr/",
-          description: "Union des internes et jeunes radiologues",
-          logo: unirLogo
-        }
-      ]
+      links: liens.filter(lien => lien.category === "Sociétés savantes et formations")
     },
     {
       title: "Partenaires industriels",
       icon: Building,
-      color: "red",
-      links: [
-        {
-          name: "Bracco",
-          url: "https://www.bracco.com/en",
-          description: "Entreprise spécialisée en produits de contraste et imagerie diagnostique",
-          logo: braccoLogo
-        },
-        {
-          name: "Fujifilm Healthcare",
-          url: "https://www.fujifilm.com/uk/en/healthcare",
-          description: "Solutions d'imagerie médicale et de diagnostic",
-          logo: fujifilmLogo
-        },
-        {
-          name: "GE Healthcare",
-          url: "https://www.gehealthcare.fr/",
-          description: "Technologies médicales et solutions d'imagerie",
-          logo: geHealthcareLogo
-        },
-        {
-          name: "Guerbet",
-          url: "https://www.guerbet.com/fr",
-          description: "Spécialiste mondial des produits de contraste",
-          logo: guerbetLogo
-        },
-        {
-          name: "Siemens Healthineers",
-          url: "https://www.siemens-healthineers.com/fr",
-          description: "Technologies médicales avancées",
-          logo: siemensLogo
-        },
-        {
-          name: "Terumo Europe",
-          url: "http://terumo-europe.com/",
-          description: "Dispositifs médicaux et solutions interventionnelles",
-          logo: terumoLogo
-        },
-        {
-          name: "Toshiba Medical",
-          url: "https://www.toshiba-medical.eu/fr/",
-          description: "Systèmes d'imagerie médicale",
-          logo: toshibaLogo
-        }
-      ]
+      color: "red", 
+      links: liens.filter(lien => lien.category === "Partenaires industriels")
     }
   ];
+
+  const quillConfig = {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        ['bold', 'italic', 'underline'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        ['link'],
+        ['clean']
+      ],
+    },
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-srh-blue mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement des liens...</p>
+        </div>
+      </div>
+    );
+  }
+
 
   const getColorClasses = (color: string) => {
     const colorMap = {
@@ -237,8 +242,21 @@ const NosLiens: React.FC = () => {
       {/* Blue curved header section */}
       <section className="bg-srh-blue text-white py-20 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Nos liens</h1>
-          <p className="text-xl opacity-90">Ressources et partenaires institutionnels</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">Nos liens</h1>
+              <p className="text-xl opacity-90">Ressources et partenaires institutionnels</p>
+            </div>
+            {isAdmin && !editing && (
+              <button
+                onClick={startAdd}
+                className="bg-white text-srh-blue hover:bg-gray-100 px-4 py-2 rounded-md flex items-center gap-2 transition-colors font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Nouveau lien
+              </button>
+            )}
+          </div>
         </div>
         {/* Curved bottom */}
         <div className="absolute bottom-0 left-0 right-0 h-20 bg-white" 
@@ -246,6 +264,191 @@ const NosLiens: React.FC = () => {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        
+        {/* Add/Edit Form */}
+        {editing && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <h3 className="text-lg font-semibold mb-4">
+              {showAddForm ? 'Ajouter un nouveau lien' : 'Modifier le lien'}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Titre
+                </label>
+                <input
+                  type="text"
+                  value={editing.title}
+                  onChange={(e) => setEditing({...editing, title: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
+                  placeholder="Nom de l'organisation..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  URL
+                </label>
+                <input
+                  type="url"
+                  value={editing.url}
+                  onChange={(e) => setEditing({...editing, url: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
+                  placeholder="https://example.com"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Catégorie
+                </label>
+                <select
+                  value={editing.category}
+                  onChange={(e) => {
+                    const category = e.target.value;
+                    let icon = 'Users'; // default
+                    if (category === 'Sociétés savantes et formations') icon = 'GraduationCap';
+                    else if (category === 'Partenaires industriels') icon = 'Building';
+                    setEditing({...editing, category, icon});
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
+                >
+                  <option value="Organisations professionnelles et syndicats">Organisations professionnelles et syndicats</option>
+                  <option value="Sociétés savantes et formations">Sociétés savantes et formations</option>
+                  <option value="Partenaires industriels">Partenaires industriels</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Logo (URL)
+                </label>
+                <input
+                  type="text"
+                  value={editing.logo}
+                  onChange={(e) => setEditing({...editing, logo: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-srh-blue"
+                  placeholder="URL du logo ou chemin relatif..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Logo (Upload)
+                </label>
+                <div className="space-y-3">
+                  {editing.picture && (
+                    <div className="relative inline-block">
+                      <img
+                        src={editing.picture}
+                        alt="Logo preview"
+                        className="w-20 h-20 object-contain border border-gray-200 rounded-md bg-white p-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditing({...editing, picture: ''})}
+                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                        title="Supprimer le logo"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          // Validate file size (max 500KB)
+                          if (file.size > 500 * 1024) {
+                            alert('Fichier trop volumineux. Taille maximale : 500KB.');
+                            return;
+                          }
+                          
+                          // Validate file type
+                          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                          if (!allowedTypes.includes(file.type)) {
+                            alert('Type de fichier non supporté. Utilisez JPEG, PNG ou WebP.');
+                            return;
+                          }
+                          
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const base64 = event.target?.result as string;
+                            setEditing({...editing, picture: base64});
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                      id="logo-upload"
+                    />
+                    <label
+                      htmlFor="logo-upload"
+                      className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Choisir un fichier
+                    </label>
+                    <span className="text-xs text-gray-500">
+                      JPEG, PNG ou WebP - Max 500KB
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <QuillEditor
+                  onReady={(quill) => {
+                    setQuillRef(quill);
+                    
+                    // Set up text-change event listener
+                    quill.on('text-change', (_delta, _oldDelta, source) => {
+                      if (source === 'user') {
+                        const text = quill.getText().trim();
+                        setHasEditorContent(text.length > 0);
+                      }
+                    });
+                    
+                    // Set initial content
+                    if (editing?.description) {
+                      quill.setText(editing.description);
+                      setHasEditorContent(editing.description.trim().length > 0);
+                    } else {
+                      setHasEditorContent(false);
+                    }
+                  }}
+                  config={quillConfig}
+                />
+              </div>
+              
+              <div className="flex gap-2 pt-4">
+                <button
+                  onClick={handleSave}
+                  disabled={!editing.title.trim() || !editing.url.trim() || !hasEditorContent}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+                >
+                  <Save className="h-4 w-4" />
+                  Sauvegarder
+                </button>
+                <button
+                  onClick={cancelEdit}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="mb-8">
           <p className="text-lg text-gray-700">
             Retrouvez ici une sélection de liens utiles pour votre pratique professionnelle : 
@@ -265,18 +468,18 @@ const NosLiens: React.FC = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {category.links.map((link, linkIndex) => (
+                  {category.links.map((link) => (
                     <div
-                      key={linkIndex}
+                      key={link.id}
                       className={`border rounded-lg p-6 hover:shadow-lg transition-shadow ${getColorClasses(category.color)}`}
                     >
                       <div className="flex gap-4 h-full">
                         {/* Logo on the left */}
                         <div className="flex-shrink-0 w-20">
-                          {link.logo && (
+                          {(link.picture || link.logo) && (
                             <img 
-                              src={link.logo} 
-                              alt={`Logo ${link.name}`}
+                              src={link.picture || link.logo || ''} 
+                              alt={`Logo ${link.title}`}
                               className="w-full h-full object-contain bg-white rounded-lg border border-gray-200 p-2"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
@@ -289,9 +492,31 @@ const NosLiens: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-2">
                             <h3 className="text-lg font-semibold text-gray-900 flex-1">
-                              {link.name}
+                              {link.title}
                             </h3>
-                            <ExternalLink className="h-5 w-5 text-gray-400 ml-2 flex-shrink-0" />
+                            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                              {/* Admin Controls */}
+                              {isAdmin && !editing && (
+                                <div className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEdit(link)}
+                                    className="text-gray-500 hover:text-gray-700 p-1 transition-colors"
+                                    title="Éditer"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(link.id)}
+                                    className="text-gray-500 hover:text-red-600 p-1 transition-colors"
+                                    title="Supprimer"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           
                           <p className="text-gray-700 mb-4 text-sm">
@@ -336,30 +561,6 @@ const NosLiens: React.FC = () => {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-12 text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Actions rapides</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <a
-              href="/jadhere-au-srh"
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Adhérer au SRH
-            </a>
-            <a
-              href="/contactez-nous"
-              className="border border-blue-600 text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors"
-            >
-              Nous contacter
-            </a>
-            <a
-              href="/nos-informations"
-              className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Nos publications
-            </a>
-          </div>
-        </div>
       </div>
     </>
   );
