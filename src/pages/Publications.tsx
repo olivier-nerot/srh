@@ -86,6 +86,17 @@ const Publications: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
 
+  // Download attachment function
+  const downloadAttachment = async (attachmentId: number) => {
+    try {
+      // For PDFs and documents, open in new window instead of downloading
+      window.open(`/api/download?id=${attachmentId}`, '_blank');
+    } catch (error) {
+      console.error('Error opening document:', error);
+      alert('Erreur lors de l\'ouverture du document');
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -248,6 +259,7 @@ const Publications: React.FC = () => {
                 />
                 {searchText && (
                   <button
+                    type="button"
                     onClick={() => setSearchText('')}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
                   >
@@ -348,10 +360,8 @@ const Publications: React.FC = () => {
                             </h3>
                             {publication.attachmentIds && publication.attachmentIds.length > 0 && (
                               <button
-                                onClick={() => {
-                                  // TODO: Implement download functionality for first attachment
-                                  console.log('Download attachment:', publication.attachmentIds[0]);
-                                }}
+                                type="button"
+                                onClick={() => downloadAttachment(publication.attachmentIds[0])}
                                 className="ml-2 p-1 text-gray-400 hover:text-srh-blue transition-colors"
                                 title="Télécharger le document"
                               >
@@ -374,7 +384,7 @@ const Publications: React.FC = () => {
                           {plainTextContent && (
                             <p className="text-gray-600 text-sm mb-4 line-clamp-3">
                               {plainTextContent.length > 150 
-                                ? plainTextContent.substring(0, 150) + '...' 
+                                ? `${plainTextContent.substring(0, 150)}...`
                                 : plainTextContent}
                             </p>
                           )}
@@ -400,6 +410,7 @@ const Publications: React.FC = () => {
                           
                           {/* Read more link */}
                           <button
+                            type="button"
                             onClick={() => {
                               window.location.href = `/item?id=${publication.id}&type=${contentType}`;
                             }}

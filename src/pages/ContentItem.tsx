@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Navigate } from 'react-router-dom';
-import { Calendar, Tag } from 'lucide-react';
+import { Calendar, Tag, FileText } from 'lucide-react';
 
 interface Publication {
   id: number;
@@ -13,6 +13,20 @@ interface Publication {
   picture?: string;
   attachmentIds: number[];
   type: 'publication' | 'communique' | 'jo' | 'rapport';
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Document {
+  id: number;
+  title: string;
+  description?: string;
+  fileName: string;
+  filePath: string;
+  fileSize?: number;
+  mimeType?: string;
+  category: string;
+  isPublic: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,8 +105,28 @@ const ContentItem: React.FC = () => {
   const type = searchParams.get('type') as keyof typeof CONTENT_TYPES;
   
   const [item, setItem] = useState<Publication | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch documents by attachment IDs
+  const fetchDocuments = async (attachmentIds: number[]): Promise<Document[]> => {
+    if (!attachmentIds || attachmentIds.length === 0) return [];
+    
+    try {
+      const response = await fetch(`/api/documents?ids=${attachmentIds.join(',')}`);
+      const data = await response.json();
+      return data.success ? data.documents : [];
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      return [];
+    }
+  };
+
+  // Open document in new tab
+  const openDocument = (documentId: number) => {
+    window.open(`/api/download?id=${documentId}`, '_blank');
+  };
 
   useEffect(() => {
     if (!id || !type) return;
@@ -102,7 +136,12 @@ const ContentItem: React.FC = () => {
         const response = await fetch(`/api/content?contentType=publications&type=${type}&id=${id}`);
         const data = await response.json();
         if (data.success && data.publications && data.publications.length > 0) {
-          setItem(data.publications[0]);
+          const publication = data.publications[0];
+          setItem(publication);
+          
+          // Fetch documents if there are attachment IDs
+          const docs = await fetchDocuments(publication.attachmentIds || []);
+          setDocuments(docs);
         } else {
           setError('Contenu non trouvé');
         }
@@ -220,6 +259,50 @@ const ContentItem: React.FC = () => {
                     >
                       {tag}
                     </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Attachments */}
+            {documents && documents.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Documents attachés
+                </h3>
+                <div className="space-y-3">
+                  {documents.map((document) => (
+                    <div 
+                      key={document.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                      onClick={() => openDocument(document.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-srh-blue flex-shrink-0" />
+                        <div>
+                          <div className="font-medium text-gray-900 hover:text-srh-blue">
+                            {document.title}
+                          </div>
+                          {document.description && (
+                            <div className="text-sm text-gray-600">
+                              {document.description}
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-500">
+                            {document.fileName}
+                            {document.fileSize && (
+                              <span className="ml-2">
+                                ({(document.fileSize / 1024).toFixed(0)} KB)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Cliquer pour ouvrir
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
