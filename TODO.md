@@ -28,9 +28,11 @@ bouton nous décrouvrir
 * profil : pas d'édition du champs admin
 * bug sur profil pro (assistant specialiste)
 * ++ maj des pdfs
-config resend
+* contact form. A qui ???
+* config resend
+* bureau SRH ok
 config stripe
-FAQ dans menu : lien vers adhesion si non logué
+ * FAQ dans menu : lien vers adhesion si non logué + page de redirection
 
 Newsletter : = publications/communiques. bouton envoyer aux adhérents. + liste des pub/com depuis 3 mois.
 

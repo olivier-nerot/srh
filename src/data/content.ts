@@ -32,6 +32,10 @@ export const siteContent: SiteContent = {
       href: "/nos-liens"
     },
     {
+      title: "FAQ",
+      href: "/faq"
+    },
+    {
       title: "Contactez-nous",
       href: "/contactez-nous"
     }

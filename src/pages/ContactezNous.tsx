@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MapPin, Upload } from 'lucide-react';
+import emailjs from '@emailjs/browser';
 import Button from '../components/ui/Button';
 
 const ContactezNous: React.FC = () => {
@@ -13,6 +14,11 @@ const ContactezNous: React.FC = () => {
   });
 
   const [file, setFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{
+    type: 'success' | 'error' | null;
+    message: string;
+  }>({ type: null, message: '' });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -38,10 +44,57 @@ const ContactezNous: React.FC = () => {
     setFile(selectedFile);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', formData, file);
-    // Here you would handle the form submission
+    setIsSubmitting(true);
+    setSubmitStatus({ type: null, message: '' });
+
+    try {
+      // EmailJS configuration
+      const serviceId = 'service_8u9bwk6';
+      const templateId = 'template_u7rrarv';
+      const publicKey = 'k1t7oB9LVNDtMrKMa';
+
+      // Prepare template parameters
+      const templateParams = {
+        subject: formData.subject,
+        is_member: formData.isMember === 'yes' ? 'Oui' : 'Non',
+        identity: formData.identity,
+        contact_details: formData.contactDetails,
+        message: formData.message,
+        anonymize: formData.anonymize ? 'Oui' : 'Non',
+        file_attached: file ? file.name : 'Aucun fichier',
+        to_email: 'contact@srh-info.org',
+      };
+
+      // Send email using EmailJS
+      await emailjs.send(serviceId, templateId, templateParams, publicKey);
+
+      setSubmitStatus({
+        type: 'success',
+        message: 'Votre message a été envoyé avec succès ! Nous vous répondrons dans les plus brefs délais.'
+      });
+      
+      // Reset form
+      setFormData({
+        subject: '',
+        isMember: '',
+        identity: '',
+        contactDetails: '',
+        message: '',
+        anonymize: false
+      });
+      setFile(null);
+
+    } catch (error) {
+      console.error('EmailJS error:', error);
+      setSubmitStatus({
+        type: 'error',
+        message: 'Erreur lors de l\'envoi du message. Veuillez réessayer plus tard.'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -76,25 +129,25 @@ const ContactezNous: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <h4 className="font-medium text-gray-900">Président</h4>
-                  <p className="text-gray-700">Professeur Olivier HELENON</p>
-                  <p className="text-gray-600 text-sm">Hôpital Necker-Enfants Malades, Paris</p>
+                  <p className="text-gray-700">Docteur Thomas MARTINELLI</p>
+                  <p className="text-gray-600 text-sm">Centre Hospitalier de Valence, Service de Radiologie</p>
                 </div>
 
                 <div>
-                  <h4 className="font-medium text-gray-900">Secrétaire</h4>
-                  <p className="text-gray-700">Dr. Thomas Martinelli</p>
-                  <p className="text-gray-600 text-sm">Service de Radiologie, Hôpital de Valence</p>
+                  <h4 className="font-medium text-gray-900">Vice-Président Secrétaire Général</h4>
+                  <p className="text-gray-700">Professeur Pierre Champsaur</p>
+                  <p className="text-gray-600 text-sm">Hôpital Sainte Marguerite, AP-HM, Marseille</p>
                 </div>
 
                 <div>
-                  <h4 className="font-medium text-gray-900">Trésorier</h4>
-                  <p className="text-gray-700">Professeur Jean Pierre Tasu</p>
-                  <p className="text-gray-600 text-sm">CHU La Milétrie, Poitiers</p>
+                  <h4 className="font-medium text-gray-900">Trésorière</h4>
+                  <p className="text-gray-700">Professeure Nadya Pyatigorskaya</p>
+                  <p className="text-gray-600 text-sm">CHU Pitié-Salpêtrière, AP-HP, Paris</p>
                 </div>
 
                 <div>
-                  <h4 className="font-medium text-gray-900">Trésorier adjoint</h4>
-                  <p className="text-gray-700">Dr. Anne LIESSE</p>
+                  <h4 className="font-medium text-gray-900">Trésorière adjointe</h4>
+                  <p className="text-gray-700">Docteur Anne LIESSE</p>
                   <p className="text-gray-600 text-sm">Hôpital Victor Provo, Roubaix</p>
                 </div>
               </div>
@@ -122,6 +175,17 @@ const ContactezNous: React.FC = () => {
           {/* Contact Form */}
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Envoyez-nous un message</h2>
+            
+            {/* Status Message */}
+            {submitStatus.type && (
+              <div className={`mb-6 p-4 rounded-md ${
+                submitStatus.type === 'success' 
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
+              }`}>
+                {submitStatus.message}
+              </div>
+            )}
             
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Subject */}
@@ -271,8 +335,13 @@ const ContactezNous: React.FC = () => {
 
               {/* Submit Button */}
               <div>
-                <Button type="submit" size="lg" className="w-full bg-blue-600 hover:bg-blue-700">
-                  Envoyer le message
+                <Button 
+                  type="submit" 
+                  size="lg" 
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Envoi en cours...' : 'Envoyer le message'}
                 </Button>
               </div>
             </form>

@@ -8,55 +8,91 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const { setUser } = useAuthStore();
   const [email, setEmail] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [isOtpSent, setIsOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    try {
-      // Call login API endpoint
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: email.toLowerCase().trim() }),
-      });
+    setError('');
 
-      const result = await response.json();
-      
-      if (result.success && result.user) {
-        // Convert database user to auth user format
-        const authUser = {
-          id: result.user.id.toString(),
-          email: result.user.email,
-          firstname: result.user.firstname || '',
-          lastname: result.user.lastname || '',
-          isadmin: Boolean(result.user.isadmin),
-          newsletter: true, // Default value since not returned from login
-          hospital: result.user.hospital || '',
-          address: '', // Not returned from login for security
-          subscription: result.user.subscription || '',
-          infopro: '', // Not returned from login for security
-        };
+    try {
+      if (!isOtpSent) {
+        // Step 1: Send OTP
+        const response = await fetch('/api/auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: email.toLowerCase().trim() }),
+        });
+
+        const result = await response.json();
         
-        // Set user in auth store
-        setUser(authUser);
-        
-        // Navigate to homepage
-        navigate('/');
+        if (result.success) {
+          setIsOtpSent(true);
+        } else {
+          setError(result.error || 'Erreur lors de l\'envoi du code');
+        }
       } else {
-        // Show error message
-        alert(result.error || 'Erreur lors de la connexion');
+        // Step 2: Verify OTP
+        const response = await fetch('/api/verify-otp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            email: email.toLowerCase().trim(),
+            otp: otp.trim()
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (result.success && result.user) {
+          // Convert database user to auth user format
+          const authUser = {
+            id: result.user.id.toString(),
+            email: result.user.email,
+            firstname: result.user.firstname || '',
+            lastname: result.user.lastname || '',
+            isadmin: Boolean(result.user.isadmin),
+            newsletter: true, // Default value since not returned from login
+            hospital: result.user.hospital || '',
+            address: '', // Not returned from login for security
+            subscription: result.user.subscription || '',
+            infopro: '', // Not returned from login for security
+          };
+          
+          // Set user in auth store
+          setUser(authUser);
+          
+          // Navigate to homepage
+          navigate('/');
+        } else {
+          setError(result.error || 'Code invalide');
+        }
       }
     } catch (error) {
       console.error('Login error:', error);
-      alert('Erreur lors de la connexion. Veuillez réessayer.');
+      setError('Erreur lors de la connexion. Veuillez réessayer.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleResendCode = async () => {
+    setIsOtpSent(false);
+    setOtp('');
+    setError('');
+  };
+
+  const handleBackToEmail = () => {
+    setIsOtpSent(false);
+    setOtp('');
+    setError('');
   };
 
   return (
@@ -75,19 +111,30 @@ const Login: React.FC = () => {
       </section>
 
       <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {!isSubmitted ? (
-          <div className="bg-white shadow-xl rounded-lg p-8">
-            <div className="text-center mb-8">
-              <div className="bg-srh-blue text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="h-8 w-8" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Connexion sécurisée</h2>
-              <p className="text-gray-600">
-                Entrez votre adresse email pour vous connecter
-              </p>
+        <div className="bg-white shadow-xl rounded-lg p-8">
+          <div className="text-center mb-8">
+            <div className="bg-srh-blue text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="h-8 w-8" />
             </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {isOtpSent ? 'Entrez votre code' : 'Connexion sécurisée'}
+            </h2>
+            <p className="text-gray-600">
+              {isOtpSent 
+                ? `Code envoyé à ${email}` 
+                : 'Entrez votre adresse email pour vous connecter'
+              }
+            </p>
+          </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="mb-6 p-4 border border-red-200 rounded-md bg-red-50">
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {!isOtpSent ? (
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Adresse email
@@ -108,76 +155,91 @@ const Login: React.FC = () => {
                   Utilisez l'adresse email associée à votre adhésion SRH
                 </p>
               </div>
+            ) : (
+              <div>
+                <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-2">
+                  Code de vérification
+                </label>
+                <input
+                  type="text"
+                  id="otp"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  required
+                  maxLength={6}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-srh-blue focus:border-transparent text-center text-2xl font-mono tracking-widest"
+                  placeholder="000000"
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Entrez le code à 6 chiffres reçu par email
+                </p>
+              </div>
+            )}
 
-              <button
-                type="submit"
-                disabled={!email || isLoading}
-                className="w-full bg-srh-blue text-white py-3 px-4 rounded-md hover:bg-srh-blue-dark focus:ring-2 focus:ring-offset-2 focus:ring-srh-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-              >
-                {isLoading ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Connexion...
-                  </div>
-                ) : (
-                  <div className="flex items-center">
-                    Se connecter
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </div>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <div className="space-y-4 text-sm text-gray-600">
-                <div className="flex items-start">
-                  <div className="bg-green-100 text-green-800 rounded-full p-1 mr-3 mt-0.5">
-                    <Shield className="h-3 w-3" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Connexion automatique</p>
-                    <p>Connexion directe si votre email est enregistré</p>
-                  </div>
+            <button
+              type="submit"
+              disabled={(!email && !isOtpSent) || (isOtpSent && otp.length !== 6) || isLoading}
+              className="w-full bg-srh-blue text-white py-3 px-4 rounded-md hover:bg-srh-blue-dark focus:ring-2 focus:ring-offset-2 focus:ring-srh-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            >
+              {isLoading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  {isOtpSent ? 'Vérification...' : 'Envoi en cours...'}
                 </div>
-                <div className="flex items-start">
-                  <div className="bg-blue-100 text-blue-800 rounded-full p-1 mr-3 mt-0.5">
-                    <Mail className="h-3 w-3" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Accès réservé aux adhérents</p>
-                    <p>Seuls les emails enregistrés peuvent se connecter</p>
-                  </div>
+              ) : (
+                <div className="flex items-center">
+                  {isOtpSent ? 'Vérifier le code' : 'Envoyer le code'}
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </div>
+              )}
+            </button>
+          </form>
+
+          {isOtpSent && (
+            <div className="mt-6 text-center space-y-2">
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={isLoading}
+                className="text-srh-blue hover:text-srh-blue-dark font-medium text-sm"
+              >
+                Renvoyer le code
+              </button>
+              <br />
+              <button
+                type="button"
+                onClick={handleBackToEmail}
+                disabled={isLoading}
+                className="text-gray-500 hover:text-gray-700 text-sm"
+              >
+                ← Modifier l'adresse email
+              </button>
+            </div>
+          )}
+
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <div className="space-y-4 text-sm text-gray-600">
+              <div className="flex items-start">
+                <div className="bg-green-100 text-green-800 rounded-full p-1 mr-3 mt-0.5">
+                  <Shield className="h-3 w-3" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Connexion par email</p>
+                  <p>Un code vous sera envoyé par email</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="bg-blue-100 text-blue-800 rounded-full p-1 mr-3 mt-0.5">
+                  <Mail className="h-3 w-3" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Accès réservé aux adhérents</p>
+                  <p>Seuls les emails enregistrés peuvent se connecter</p>
                 </div>
               </div>
             </div>
           </div>
-        ) : (
-          <div className="bg-white shadow-xl rounded-lg p-8 text-center">
-            <div className="bg-green-100 text-green-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail className="h-8 w-8" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Email envoyé !</h2>
-            <p className="text-gray-600 mb-6">
-              Un code de connexion a été envoyé à l'adresse :<br />
-              <strong className="text-gray-900">{email}</strong>
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <p className="text-blue-800 text-sm">
-                Vérifiez votre boîte de réception (et vos spams) puis cliquez sur le lien 
-                de connexion reçu par email.
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setIsSubmitted(false);
-                setEmail('');
-              }}
-              className="text-srh-blue hover:text-srh-blue-dark font-medium"
-            >
-              Renvoyer un code
-            </button>
-          </div>
-        )}
+        </div>
 
         <div className="mt-8 text-center">
           <p className="text-gray-600 text-sm">

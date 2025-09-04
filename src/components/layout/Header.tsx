@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, Menu, X, User, LogOut, FileText, HelpCircle, Users, File, Send, 
-         Building2, UserCheck, ScrollText, BookOpen, MessageCircle, Scale, FileBarChart } from 'lucide-react';
+         Building2, UserCheck, ScrollText, BookOpen, MessageCircle, Scale, FileBarChart, Mail } from 'lucide-react';
 import { siteContent } from '../../data/content';
 import { useAuthStore } from '../../stores/authStore';
 import logoSvg from '../../assets/images/logo.svg';
@@ -44,6 +44,7 @@ const Header: React.FC = () => {
     { label: 'Communiqués', href: '/admin/publications?type=communique', icon: Send },
     { label: 'Journal Officiel', href: '/admin/publications?type=jo', icon: Scale },
     { label: 'Rapports', href: '/admin/publications?type=rapport', icon: FileBarChart },
+    { label: 'Newsletter', href: '/admin/newsletter', icon: Mail },
   ];
 
   // Icons mapping for navigation items
