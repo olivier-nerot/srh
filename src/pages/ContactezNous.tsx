@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Upload } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 import Button from '../components/ui/Button';
 
@@ -8,12 +8,9 @@ const ContactezNous: React.FC = () => {
     subject: '',
     isMember: '',
     identity: '',
-    contactDetails: '',
-    message: '',
-    anonymize: false
+    email: '',
+    message: ''
   });
-
-  const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: 'success' | 'error' | null;
@@ -35,14 +32,6 @@ const ContactezNous: React.FC = () => {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0] || null;
-    if (selectedFile && selectedFile.size > 10 * 1024 * 1024) {
-      alert('Le fichier ne peut pas dépasser 10 MB');
-      return;
-    }
-    setFile(selectedFile);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +41,7 @@ const ContactezNous: React.FC = () => {
     try {
       // EmailJS configuration
       const serviceId = 'service_fefb1yy';
-      const templateId = 'template_u7rrarv';
+      const templateId = 'template_i5edz8c';
       const publicKey = 'k1t7oB9LVNDtMrKMa';
 
       // Prepare template parameters
@@ -60,10 +49,8 @@ const ContactezNous: React.FC = () => {
         subject: formData.subject,
         is_member: formData.isMember === 'yes' ? 'Oui' : 'Non',
         identity: formData.identity,
-        contact_details: formData.contactDetails,
+        contact_details: formData.email,
         message: formData.message,
-        anonymize: formData.anonymize ? 'Oui' : 'Non',
-        file_attached: file ? file.name : 'Aucun fichier',
         to_email: 'contact@srh-info.org',
       };
 
@@ -80,11 +67,9 @@ const ContactezNous: React.FC = () => {
         subject: '',
         isMember: '',
         identity: '',
-        contactDetails: '',
-        message: '',
-        anonymize: false
+        email: '',
+        message: ''
       });
-      setFile(null);
 
     } catch (error) {
       console.error('EmailJS error:', error);
@@ -258,19 +243,19 @@ const ContactezNous: React.FC = () => {
                 />
               </div>
 
-              {/* Contact Details */}
+              {/* Email */}
               <div>
-                <label htmlFor="contactDetails" className="block text-sm font-medium text-gray-700 mb-2">
-                  Coordonnées *
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email *
                 </label>
                 <input
-                  type="text"
-                  id="contactDetails"
-                  name="contactDetails"
+                  type="email"
+                  id="email"
+                  name="email"
                   required
-                  value={formData.contactDetails}
+                  value={formData.email}
                   onChange={handleInputChange}
-                  placeholder="Email et/ou téléphone"
+                  placeholder="votre.email@exemple.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -292,46 +277,6 @@ const ContactezNous: React.FC = () => {
                 />
               </div>
 
-              {/* File Upload */}
-              <div>
-                <label htmlFor="file" className="block text-sm font-medium text-gray-700 mb-2">
-                  Fichier joint (optionnel, max 10 MB)
-                </label>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="file"
-                    id="file"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  />
-                  <label
-                    htmlFor="file"
-                    className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Choisir un fichier
-                  </label>
-                  {file && (
-                    <span className="text-sm text-gray-600">{file.name}</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Anonymize Option */}
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="anonymize"
-                  name="anonymize"
-                  checked={formData.anonymize}
-                  onChange={handleInputChange}
-                  className="mr-2 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="anonymize" className="text-sm text-gray-700">
-                  Anonymiser ma question (pour publication sur le site)
-                </label>
-              </div>
 
               {/* Submit Button */}
               <div>

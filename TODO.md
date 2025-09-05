@@ -35,7 +35,7 @@ bouton nous découvrir
 
  * Newsletter : = publications/communiques. bouton envoyer aux adhérents. + liste des pub/com depuis 3 mois.
 
-création du compte
+* création du compte
  * test envoi email contact
  * test newsletter
 config stripe
