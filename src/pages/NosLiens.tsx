@@ -35,6 +35,19 @@ interface LinkCategory {
   links: Lien[];
 }
 
+// Helper function to get the correct logo source
+const getLogoSrc = (link: Lien): string => {
+  const logoUrl = link.picture || link.logo || '';
+  
+  // Only accept base64 data URLs - all logos should be stored as base64 in database
+  if (logoUrl.startsWith('data:')) {
+    return logoUrl;
+  }
+  
+  // If it's not base64, return empty string to hide the image
+  // This ensures we never use file paths and only use properly stored base64 images
+  return '';
+};
 
 const NosLiens: React.FC = () => {
   const { user } = useAuthStore();
@@ -478,7 +491,7 @@ const NosLiens: React.FC = () => {
                         <div className="flex-shrink-0 w-20">
                           {(link.picture || link.logo) && (
                             <img 
-                              src={link.picture || link.logo || ''} 
+                              src={getLogoSrc(link)} 
                               alt={`Logo ${link.title}`}
                               className="w-full h-full object-contain bg-white rounded-lg border border-gray-200 p-2"
                               onError={(e) => {
