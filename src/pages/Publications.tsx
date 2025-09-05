@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Download, Search } from 'lucide-react';
+import { formatDateToDDMMYYYY, getYearFromDate } from '../utils/dateUtils';
 
 interface Publication {
   id: number;
@@ -41,7 +42,7 @@ const CONTENT_TYPES = {
     title: 'Rapports institutionnels',
     subtitle: 'Rapports et études du SRH',
     emptyMessage: 'Aucun rapport disponible pour le moment.',
-    category: 'Rapport' as const
+    category: 'Rapport institutionnel' as const
   }
 };
 
@@ -136,40 +137,6 @@ const Publications: React.FC = () => {
     });
   };
 
-  // Helper function to extract year from publication date
-  const getPublicationYear = (pubdate: string): string => {
-    try {
-      // First try parsing as ISO date string (most common format)
-      const date = new Date(pubdate);
-      if (!isNaN(date.getTime())) {
-        const year = date.getFullYear();
-        if (year > 1990 && year <= new Date().getFullYear() + 10) {
-          return year.toString();
-        }
-      }
-      
-      // Try to parse as timestamp (milliseconds) - but only if it looks like a timestamp
-      const timestamp = parseInt(pubdate);
-      if (timestamp && timestamp > 946684800000) { // After year 2000 in timestamp format
-        const dateFromTimestamp = new Date(timestamp);
-        const year = dateFromTimestamp.getFullYear();
-        if (year > 1990 && year <= new Date().getFullYear() + 10) {
-          return year.toString();
-        }
-      }
-      
-      // Last resort: extract year from string using regex
-      const yearMatch = pubdate.match(/\b(20[0-9][0-9])\b/);
-      if (yearMatch) {
-        return yearMatch[1];
-      }
-      
-      // Default fallback
-      return new Date().getFullYear().toString();
-    } catch (error) {
-      return new Date().getFullYear().toString();
-    }
-  };
 
   // Filter publications based on selected tags and search text
   const filteredPublications = publications
@@ -190,7 +157,7 @@ const Publications: React.FC = () => {
 
   // Group publications by year
   const publicationsByYear = filteredPublications.reduce((acc, pub) => {
-    const year = getPublicationYear(pub.pubdate);
+    const year = getYearFromDate(pub.pubdate);
     if (!acc[year]) {
       acc[year] = [];
     }
@@ -370,10 +337,10 @@ const Publications: React.FC = () => {
                             )}
                           </div>
                           
-                          {/* Year and category */}
+                          {/* Date and category */}
                           <div className="flex items-center gap-2 mb-3">
                             <span className="px-2 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
-                              {year}
+                              {formatDateToDDMMYYYY(publication.pubdate)}
                             </span>
                             <span className="px-2 py-1 bg-srh-blue/10 text-srh-blue text-sm rounded-full">
                               {config.category}

@@ -8,14 +8,14 @@ const publications = sqliteTable('publications', {
   title: text('title').notNull(),
   content: text('content').notNull(),
   tags: text('tags', { mode: 'json' }),
-  pubdate: integer('pubdate', { mode: 'timestamp' }).notNull(),
+  pubdate: integer('pubdate').notNull(),
   subscribersonly: integer('subscribersonly', { mode: 'boolean' }).notNull(),
   homepage: integer('homepage', { mode: 'boolean' }).notNull(),
   picture: text('picture'),
   attachmentIds: text('attachment_ids', { mode: 'json' }),
   type: text('type').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
 });
 
 const jotextes = sqliteTable('jotextes', {
@@ -24,8 +24,8 @@ const jotextes = sqliteTable('jotextes', {
   content: text('content').notNull(),
   year: text('year'),
   document: integer('document'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
 });
 
 const faq = sqliteTable('faq', {
@@ -33,8 +33,8 @@ const faq = sqliteTable('faq', {
   question: text('question').notNull(),
   answer: text('answer').notNull(),
   tags: text('tags', { mode: 'json' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
 });
 
 const rapports = sqliteTable('rapports', {
@@ -43,8 +43,8 @@ const rapports = sqliteTable('rapports', {
   content: text('content').notNull(),
   year: text('year'),
   document: integer('document'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
 });
 
 const liens = sqliteTable('liens', {
@@ -56,8 +56,8 @@ const liens = sqliteTable('liens', {
   url: text('url').notNull(),
   logo: text('logo'),
   picture: text('picture'), // Base64 encoded logo image
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
 });
 
 module.exports = async function handler(req, res) {
@@ -165,14 +165,14 @@ async function createPublication(req, res) {
       title,
       content,
       tags: tags || [],
-      pubdate: new Date(pubdate),
+      pubdate: new Date(pubdate).getTime(),
       subscribersonly: subscribersonly || false,
       homepage: homepage !== undefined ? homepage : true,
       picture: picture || null,
       attachmentIds: attachmentIds || [],
       type: type || 'publication',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date().getTime(),
+      updatedAt: new Date().getTime(),
     }).returning();
 
     return res.status(201).json({ success: true, publication: result[0] });
@@ -209,13 +209,13 @@ async function updatePublication(req, res) {
         title,
         content,
         tags: tags || [],
-        pubdate: new Date(pubdate),
+        pubdate: new Date(pubdate).getTime(),
         subscribersonly: subscribersonly || false,
         homepage: homepage !== undefined ? homepage : true,
         picture: picture || null,
         attachmentIds: attachmentIds || [],
         type: type || 'publication',
-        updatedAt: new Date(),
+        updatedAt: new Date().getTime(),
       })
       .where(eq(publications.id, id))
       .returning();
@@ -331,8 +331,8 @@ async function createJOText(req, res) {
       name,
       content,
       document: document || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date().getTime(),
+      updatedAt: new Date().getTime(),
     }).returning();
 
     return res.status(201).json({ success: true, jotext: result[0] });
@@ -369,7 +369,7 @@ async function updateJOText(req, res) {
         name,
         content,
         document: document || null,
-        updatedAt: new Date(),
+        updatedAt: new Date().getTime(),
       })
       .where(eq(jotextes.id, id))
       .returning();
@@ -485,8 +485,8 @@ async function createFAQ(req, res) {
       question,
       answer,
       tags: tags || [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date().getTime(),
+      updatedAt: new Date().getTime(),
     }).returning();
 
     return res.status(201).json({ success: true, faq: result[0] });
@@ -523,7 +523,7 @@ async function updateFAQ(req, res) {
         question,
         answer,
         tags: tags || [],
-        updatedAt: new Date(),
+        updatedAt: new Date().getTime(),
       })
       .where(eq(faq.id, id))
       .returning();
@@ -639,8 +639,8 @@ async function createRapport(req, res) {
       name,
       content,
       document: document || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date().getTime(),
+      updatedAt: new Date().getTime(),
     }).returning();
 
     return res.status(201).json({ success: true, rapport: result[0] });
@@ -677,7 +677,7 @@ async function updateRapport(req, res) {
         name,
         content,
         document: document || null,
-        updatedAt: new Date(),
+        updatedAt: new Date().getTime(),
       })
       .where(eq(rapports.id, id))
       .returning();
@@ -806,8 +806,8 @@ async function createLien(req, res) {
       url,
       logo: logo || null,
       picture: picture || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date().getTime(),
+      updatedAt: new Date().getTime(),
     }).returning();
 
     return res.status(201).json({ success: true, lien: result[0] });
@@ -848,7 +848,7 @@ async function updateLien(req, res) {
         url,
         logo: logo || null,
         picture: picture || null,
-        updatedAt: new Date(),
+        updatedAt: new Date().getTime(),
       })
       .where(eq(liens.id, id))
       .returning();

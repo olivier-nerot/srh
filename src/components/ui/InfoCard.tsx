@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, FileText, Megaphone, Mail, Scale, FileBarChart } from 'lucide-react';
 import type { NewsItem } from '../../types';
+import { formatDateToDDMMYYYY } from '../../utils/dateUtils';
 
 interface InfoCardProps {
   article: NewsItem;
@@ -45,6 +46,13 @@ const getCategoryConfig = (category: NewsItem['category']) => {
         textColor: 'text-orange-800',
         borderColor: 'border-orange-200'
       };
+    case 'Rapport institutionnel':
+      return {
+        icon: FileBarChart,
+        bgColor: 'bg-orange-100',
+        textColor: 'text-orange-800',
+        borderColor: 'border-orange-200'
+      };
     default:
       return {
         icon: FileText,
@@ -73,7 +81,9 @@ const InfoCard: React.FC<InfoCardProps> = ({ article, image }) => {
       <div className="p-6 flex flex-col flex-grow">
         <div className="flex justify-between items-start mb-3">
           <time className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-            {new Date(article.publishedAt).toLocaleDateString('fr-FR')}
+            {article.publishedAt && article.publishedAt.match(/^\d{2}\/\d{2}\/\d{4}$/) 
+              ? article.publishedAt 
+              : formatDateToDDMMYYYY(article.publishedAt)}
           </time>
         </div>
         <h3 className="text-lg font-semibold mb-3 text-gray-900">

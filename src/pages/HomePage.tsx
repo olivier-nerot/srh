@@ -6,13 +6,14 @@ import InfoCard from '../components/ui/InfoCard';
 import homepageLeft from '../assets/images/homepage-left.webp';
 import homepageRight2 from '../assets/images/homepage-right-2.webp';
 import type { NewsItem } from '../types';
+import { formatDateToDDMMYYYY } from '../utils/dateUtils';
 
 interface Publication {
   id: number;
   title: string;
   content: string | null; // Nullable for JO texts
   tags: string[];
-  pubdate: string;
+  pubdate: string | number; // Can be string or timestamp
   subscribersonly: boolean;
   homepage: boolean;
   picture?: string;
@@ -34,7 +35,7 @@ const deltaToPlainText = (content: string | null): string => {
     const delta = JSON.parse(content);
     if (delta.ops && Array.isArray(delta.ops)) {
       // Extract just the text content without formatting
-      return delta.ops.map((op: any) => {
+      return delta.ops.map((op: { insert?: string }) => {
         if (typeof op.insert === 'string') {
           return op.insert.replace(/\n/g, ' ').trim();
         }
@@ -61,6 +62,35 @@ const HomePage: React.FC = () => {
     fetchHomepagePublications();
   }, [isLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Filter publications from the last 6 months
+  const isWithinLastSixMonths = (pubdate: string | number): boolean => {
+    try {
+      let publicationDate: Date;
+      
+      if (typeof pubdate === 'number') {
+        // Handle timestamp (milliseconds)
+        publicationDate = new Date(pubdate);
+      } else if (typeof pubdate === 'string') {
+        // Handle string dates
+        publicationDate = new Date(pubdate);
+      } else {
+        return false;
+      }
+      
+      // Validate the parsed date
+      if (isNaN(publicationDate.getTime())) {
+        return false;
+      }
+      
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      
+      return publicationDate >= sixMonthsAgo && publicationDate <= new Date();
+    } catch {
+      return false;
+    }
+  };
+
   const fetchHomepagePublications = async () => {
     try {
       const response = await fetch('/api/content?contentType=publications');
@@ -69,10 +99,25 @@ const HomePage: React.FC = () => {
         // Filter publications that should appear on homepage
         let homepagePublications = data.publications.filter((pub: Publication) => pub.homepage);
         
+        // Filter publications from the last 6 months
+        const recentPubs = homepagePublications.filter((pub: Publication) => {
+          const isRecent = isWithinLastSixMonths(pub.pubdate);
+          return isRecent;
+        });
+        
         // If user is not logged in, exclude subscriber-only publications
         if (!isLoggedIn) {
-          homepagePublications = homepagePublications.filter((pub: Publication) => !pub.subscribersonly);
+          homepagePublications = recentPubs.filter((pub: Publication) => !pub.subscribersonly);
+        } else {
+          homepagePublications = recentPubs;
         }
+        
+        // Sort by publication date (most recent first)
+        homepagePublications.sort((a: Publication, b: Publication) => {
+          const dateA = new Date(a.pubdate).getTime();
+          const dateB = new Date(b.pubdate).getTime();
+          return dateB - dateA;
+        });
         
         setPublications(homepagePublications);
       }
@@ -87,6 +132,23 @@ const HomePage: React.FC = () => {
   const transformToNewsItem = (publication: Publication): NewsItem => {
     const plainTextContent = deltaToPlainText(publication.content);
     
+    // Map publication types to proper categories
+    const getCategory = (type: string): NewsItem['category'] => {
+      switch (type) {
+        case 'newsletter':
+          return 'Newsletter';
+        case 'communique':
+          return 'Communiqué';
+        case 'jo':
+          return 'Journal Officiel';
+        case 'rapport':
+          return 'Rapport institutionnel';
+        case 'publication':
+        default:
+          return 'Publication';
+      }
+    };
+    
     return {
       id: publication.id.toString(),
       title: publication.title,
@@ -94,11 +156,10 @@ const HomePage: React.FC = () => {
         ? `${plainTextContent.substring(0, 200)}...` 
         : plainTextContent,
       content: publication.content,
-      publishedAt: publication.pubdate,
+      publishedAt: formatDateToDDMMYYYY(publication.pubdate),
       slug: `publication-${publication.id}`,
-      category: publication.type === 'newsletter' ? 'Newsletter' as const
-               : publication.type === 'communique' ? 'Communiqué' as const
-               : 'Publication' as const,
+      category: getCategory(publication.type),
+      contentType: publication.type as 'publication' | 'communique' | 'jo' | 'rapport',
     };
   };
   return (
