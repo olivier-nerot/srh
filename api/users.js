@@ -66,6 +66,8 @@ async function createUser(req, res) {
       });
     }
 
+    const now = new Date();
+    
     const result = await db.insert(users).values({
       email: userData.email,
       firstname: userData.firstname,
@@ -76,6 +78,8 @@ async function createUser(req, res) {
       infopro: userData.infopro || '',
       newsletter: userData.newsletter ?? true,
       isadmin: userData.isadmin ?? false,
+      createdAt: now,
+      updatedAt: now,
     }).returning();
 
     return res.status(201).json({ success: true, user: result[0] });

@@ -17,7 +17,7 @@ ajout d'un bouton isadmin sur page profil. visible que par admins...
 
 ------ 
 limites par dates sur actualités
-bouton nous décrouvrir
+bouton nous découvrir
 * carte de france a ameliorer + bouton fermer
 * filtrage tags par ET (docs et FAQ)
 * liens vers rapports institutionnels / JO : tjrs vers mm doc
@@ -28,12 +28,18 @@ bouton nous décrouvrir
 * profil : pas d'édition du champs admin
 * bug sur profil pro (assistant specialiste)
 * ++ maj des pdfs
-* contact form. A qui ???
+* contact form. A qui ??? contact@
 * config resend
 * bureau SRH ok
-config stripe
  * FAQ dans menu : lien vers adhesion si non logué + page de redirection
 
-Newsletter : = publications/communiques. bouton envoyer aux adhérents. + liste des pub/com depuis 3 mois.
+ * Newsletter : = publications/communiques. bouton envoyer aux adhérents. + liste des pub/com depuis 3 mois.
+
+création du compte
+ * test envoi email contact
+ * test newsletter
+config stripe
+changer CB membre (recurrence annuelle ?)
+
 
 

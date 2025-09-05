@@ -68,12 +68,22 @@ function deltaToHtml(content) {
 }
 
 // Generate HTML email template
-function generateEmailTemplate(title, content, selectedPublications, userEmail) {
-  let baseUrl = process.env.VERCEL_URL || 'https://srh-info.org';
+function generateEmailTemplate(title, content, selectedPublications, userEmail, req) {
+  let baseUrl;
   
-  // Ensure the URL has a protocol
-  if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-    baseUrl = `https://${baseUrl}`;
+  // Always use the request host when available
+  if (req && req.headers && req.headers.host) {
+    const protocol = req.headers['x-forwarded-proto'] || 
+                    (req.connection && req.connection.encrypted ? 'https' : 'http') ||
+                    'https'; // Default to https for security
+    baseUrl = `${protocol}://${req.headers.host}`;
+  } else {
+    // Fallback only when request is not available
+    baseUrl = process.env.VERCEL_URL || 'https://srh-info.org';
+    // Ensure the URL has a protocol
+    if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      baseUrl = `https://${baseUrl}`;
+    }
   }
   
   const publicationsHtml = selectedPublications.map(pub => {
@@ -279,7 +289,8 @@ async function previewNewsletter(req, res) {
       title,
       content,
       selectedPublications,
-      'preview@example.com' // Placeholder email for preview
+      'preview@example.com', // Placeholder email for preview
+      req
     );
 
     return res.status(200).json({
@@ -344,7 +355,8 @@ async function sendNewsletter(req, res) {
           title,
           content,
           selectedPublications,
-          subscriber.email
+          subscriber.email,
+          req
         );
 
         await resend.emails.send({

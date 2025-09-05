@@ -51,7 +51,7 @@ const ContactezNous: React.FC = () => {
 
     try {
       // EmailJS configuration
-      const serviceId = 'service_8u9bwk6';
+      const serviceId = 'service_fefb1yy';
       const templateId = 'template_u7rrarv';
       const publicKey = 'k1t7oB9LVNDtMrKMa';
 
