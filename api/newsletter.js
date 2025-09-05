@@ -69,7 +69,12 @@ function deltaToHtml(content) {
 
 // Generate HTML email template
 function generateEmailTemplate(title, content, selectedPublications, userEmail) {
-  const baseUrl = process.env.VERCEL_URL || 'https://srh-info.org';
+  let baseUrl = process.env.VERCEL_URL || 'https://srh-info.org';
+  
+  // Ensure the URL has a protocol
+  if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    baseUrl = `https://${baseUrl}`;
+  }
   
   const publicationsHtml = selectedPublications.map(pub => {
     const publicationUrl = `${baseUrl}/publications/${pub.id}`;
