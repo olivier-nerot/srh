@@ -26,6 +26,7 @@ const AdminMembers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubscription, setFilterSubscription] = useState('all');
   const [filterPaymentStatus, setFilterPaymentStatus] = useState('all');
@@ -39,21 +40,39 @@ const AdminMembers: React.FC = () => {
     try {
       const result = await getAllUsers();
       if (result.success) {
-        // Fetch payment information for each user
-        const usersWithPayments = await Promise.all(
-          result.users.map(async (user: User) => {
-            try {
-              const paymentResult = await getUserLastPayment(user.email);
-              return {
-                ...user,
-                lastPayment: paymentResult.success ? paymentResult.lastPayment : null
-              };
-            } catch (error) {
-              console.error(`Error fetching payment for ${user.email}:`, error);
-              return { ...user, lastPayment: null };
-            }
-          })
-        );
+        // Fetch payment information for each user with rate limiting
+        const usersWithPayments: User[] = [];
+        const batchSize = 5; // Process 5 users at a time
+        const delay = 200; // 200ms delay between batches
+        
+        setLoadingProgress({ current: 0, total: result.users.length });
+        
+        for (let i = 0; i < result.users.length; i += batchSize) {
+          const batch = result.users.slice(i, i + batchSize);
+          
+          const batchResults = await Promise.all(
+            batch.map(async (user: User) => {
+              try {
+                const paymentResult = await getUserLastPayment(user.email);
+                return {
+                  ...user,
+                  lastPayment: paymentResult.success ? paymentResult.lastPayment : null
+                };
+              } catch (error) {
+                console.error(`Error fetching payment for ${user.email}:`, error);
+                return { ...user, lastPayment: null };
+              }
+            })
+          );
+          
+          usersWithPayments.push(...batchResults);
+          setLoadingProgress({ current: i + batchSize, total: result.users.length });
+          
+          // Add delay between batches to avoid rate limiting
+          if (i + batchSize < result.users.length) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
         setUsers(usersWithPayments);
       } else {
         setError(result.error || 'Erreur lors du chargement des membres');
@@ -76,6 +95,18 @@ const AdminMembers: React.FC = () => {
     return user.lastPayment.created > oneYearAgo;
   };
 
+  const hasExpiredPayment = (user: User): boolean => {
+    // User has expired payment if they have a successful payment that's older than 1 year
+    if (!user.lastPayment || user.lastPayment.status !== 'succeeded') {
+      return false;
+    }
+    
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    
+    return user.lastPayment.created <= oneYearAgo;
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,7 +119,7 @@ const AdminMembers: React.FC = () => {
     const matchesPaymentStatus = 
       filterPaymentStatus === 'all' ||
       (filterPaymentStatus === 'valid' && isValidRegistration(user)) ||
-      (filterPaymentStatus === 'expired' && !isValidRegistration(user)) ||
+      (filterPaymentStatus === 'expired' && hasExpiredPayment(user)) ||
       (filterPaymentStatus === 'no-payment' && !user.lastPayment);
     
     return matchesSearch && matchesSubscription && matchesPaymentStatus;
@@ -174,7 +205,20 @@ const AdminMembers: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement des membres...</p>
+          <p className="text-gray-600">
+            {loadingProgress.total > 0 
+              ? `Chargement des paiements... ${Math.min(loadingProgress.current, loadingProgress.total)}/${loadingProgress.total}`
+              : 'Chargement des membres...'
+            }
+          </p>
+          {loadingProgress.total > 0 && (
+            <div className="w-64 bg-gray-200 rounded-full h-2 mt-4">
+              <div 
+                className="bg-red-600 h-2 rounded-full transition-all duration-300" 
+                style={{ width: `${Math.min((loadingProgress.current / loadingProgress.total) * 100, 100)}%` }}
+              ></div>
+            </div>
+          )}
         </div>
       </div>
     );
