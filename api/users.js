@@ -15,8 +15,8 @@ const users = sqliteTable('users', {
   address: text('address'),
   subscription: text('subscription'),
   subscribedUntil: integer('subscribed_until', { mode: 'timestamp' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  created_at: text('created_at'),
+  updated_at: text('updated_at'),
 });
 
 module.exports = async function handler(req, res) {
@@ -78,8 +78,8 @@ async function createUser(req, res) {
       infopro: userData.infopro || '',
       newsletter: userData.newsletter ?? true,
       isadmin: userData.isadmin ?? false,
-      createdAt: now,
-      updatedAt: now,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
     }).returning();
 
     return res.status(201).json({ success: true, user: result[0] });
@@ -150,7 +150,7 @@ async function updateExistingUsersSubscriptions(req, res) {
     
     const updates = [];
     for (const user of usersWithoutSubscription) {
-      const baseDate = user.createdAt ? new Date(user.createdAt) : new Date();
+      const baseDate = user.created_at ? new Date(user.created_at) : new Date();
       const subscriptionDate = new Date(baseDate.getTime() + 365 * 24 * 60 * 60 * 1000);
       
       updates.push(

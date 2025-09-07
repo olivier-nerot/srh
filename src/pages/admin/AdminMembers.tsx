@@ -15,8 +15,8 @@ interface User {
   isadmin: boolean | null;
   newsletter: boolean | null;
   subscribedUntil?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const AdminMembers: React.FC = () => {
@@ -83,12 +83,21 @@ const AdminMembers: React.FC = () => {
     navigate(`/profile?id=${userId}`);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  const formatDate = (dateInput: string | Date | null | undefined) => {
+    if (!dateInput) return 'Date non disponible';
+    
+    try {
+      const date = new Date(dateInput);
+      if (isNaN(date.getTime())) return 'Date invalide';
+      
+      return date.toLocaleDateString('fr-FR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Date invalide';
+    }
   };
 
   const parseProfessionalInfo = (infopro: string | null) => {
@@ -292,7 +301,7 @@ const AdminMembers: React.FC = () => {
                 {/* Creation Date */}
                 <div className="flex items-center text-xs text-gray-500 pt-3 border-t border-gray-100">
                   <Calendar className="h-3 w-3 mr-1" />
-                  Inscrit le {formatDate(user.createdAt.toString())}
+                  Inscrit le {formatDate(user.created_at)}
                 </div>
               </div>
             </div>
