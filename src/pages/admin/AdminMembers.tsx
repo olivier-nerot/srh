@@ -44,6 +44,9 @@ const AdminMembers: React.FC = () => {
           result.users.map(async (user: User) => {
             try {
               const paymentResult = await getUserLastPayment(user.email);
+              if (!paymentResult.success) {
+                console.error(`Payment API error for ${user.email}:`, paymentResult.error);
+              }
               return {
                 ...user,
                 lastPayment: paymentResult.success ? paymentResult.lastPayment : null

@@ -31,7 +31,7 @@ function App() {
     // Test connection via API
     fetch('/api/utils?utilType=test-connection')
       .then(res => res.json())
-      .then(result => console.log('Connection test:', result))
+      .then(() => {}) // Connection test successful
       .catch(err => console.error('Connection test failed:', err));
   }, []);
 

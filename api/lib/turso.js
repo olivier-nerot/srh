@@ -20,7 +20,6 @@ async function testConnection() {
   try {
     const { turso } = await initializeDb();
     const result = await turso.execute("SELECT 1 as test");
-    console.log("Turso connection successful:", result);
     return { success: true, data: result };
   } catch (error) {
     console.error("Turso connection failed:", error);

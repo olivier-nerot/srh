@@ -121,13 +121,10 @@ async function getUserByEmail(req, res) {
 
 async function getAllUsers(req, res) {
   try {
-    console.log('getAllUsers: Starting...');
     // Get database
     const db = await getDb();
-    console.log('getAllUsers: Database connected');
 
     const result = await db.select().from(users).orderBy(asc(users.lastname), asc(users.firstname));
-    console.log('getAllUsers: Query executed, found', result.length, 'users');
     
     return res.status(200).json({ success: true, users: result });
   } catch (error) {

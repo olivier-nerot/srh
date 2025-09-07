@@ -11,8 +11,22 @@ const API_BASE = '';
 
 export async function getUserLastPayment(email: string): Promise<{ success: boolean; lastPayment: Payment | null; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE}/api/payments?email=${encodeURIComponent(email)}`);
+    const url = `${API_BASE}/api/payments?email=${encodeURIComponent(email)}`;
+    console.log('Fetching payment from:', url);
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.error('Payment API response not OK:', response.status, response.statusText);
+      return {
+        success: false,
+        lastPayment: null,
+        error: `API error: ${response.status} ${response.statusText}`
+      };
+    }
+    
     const result = await response.json();
+    console.log('Payment API result for', email, ':', result);
     
     if (result.success && result.lastPayment) {
       // Convert the created date string back to Date object
