@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase } from 'lucide-react';
+import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase, CreditCard, Euro } from 'lucide-react';
 import { getAllUsers } from '../../services/userService';
+import { getUserLastPayment, type Payment } from '../../services/paymentService';
 
 interface User {
   id: number;
@@ -17,6 +18,7 @@ interface User {
   subscribedUntil?: Date | null;
   created_at: string | null;
   updated_at: string | null;
+  lastPayment?: Payment | null;
 }
 
 const AdminMembers: React.FC = () => {
@@ -36,7 +38,22 @@ const AdminMembers: React.FC = () => {
     try {
       const result = await getAllUsers();
       if (result.success) {
-        setUsers(result.users);
+        // Fetch payment information for each user
+        const usersWithPayments = await Promise.all(
+          result.users.map(async (user: User) => {
+            try {
+              const paymentResult = await getUserLastPayment(user.email);
+              return {
+                ...user,
+                lastPayment: paymentResult.success ? paymentResult.lastPayment : null
+              };
+            } catch (error) {
+              console.error(`Error fetching payment for ${user.email}:`, error);
+              return { ...user, lastPayment: null };
+            }
+          })
+        );
+        setUsers(usersWithPayments);
       } else {
         setError(result.error || 'Erreur lors du chargement des membres');
       }
@@ -297,6 +314,55 @@ const AdminMembers: React.FC = () => {
                     {user.newsletter ? 'Activée' : 'Désactivée'}
                   </span>
                 </div>
+
+                {/* Last Payment */}
+                {user.lastPayment ? (
+                  <div className="mb-3">
+                    <div className="flex items-center mb-2">
+                      <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-sm font-medium text-gray-700">Dernier paiement:</span>
+                    </div>
+                    <div className="ml-6 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Montant:</span>
+                        <span className="text-sm font-medium text-green-600 flex items-center">
+                          <Euro className="h-3 w-3 mr-1" />
+                          {user.lastPayment.amount} €
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Date:</span>
+                        <span className="text-sm text-gray-600">
+                          {formatDate(user.lastPayment.created)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Statut:</span>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          user.lastPayment.status === 'succeeded' 
+                            ? 'bg-green-100 text-green-800' 
+                            : user.lastPayment.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {user.lastPayment.status === 'succeeded' ? 'Réussi' : 
+                           user.lastPayment.status === 'pending' ? 'En attente' : 
+                           'Échoué'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-3">
+                    <div className="flex items-center mb-2">
+                      <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-sm font-medium text-gray-700">Paiement:</span>
+                    </div>
+                    <div className="ml-6">
+                      <span className="text-sm text-gray-500">Aucun paiement trouvé</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Creation Date */}
                 <div className="flex items-center text-xs text-gray-500 pt-3 border-t border-gray-100">
