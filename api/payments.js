@@ -29,42 +29,10 @@ export default async function handler(req, res) {
 
 
     if (customers.data.length === 0) {
-      // Try searching for charges by receipt_email instead
-      try {
-        const charges = await stripe.charges.list({
-          limit: 50, // Search more charges
-        }, requestOptions);
-        
-        // Filter charges by receipt_email (case insensitive)
-        const chargesForEmail = charges.data.filter(charge => 
-          charge.receipt_email && charge.receipt_email.toLowerCase() === email.toLowerCase()
-        );
-        
-        if (chargesForEmail.length > 0) {
-          const lastCharge = chargesForEmail[0]; // Most recent
-          
-          const lastPayment = {
-            id: lastCharge.id,
-            amount: lastCharge.amount / 100,
-            currency: lastCharge.currency,
-            status: lastCharge.status,
-            created: new Date(lastCharge.created * 1000),
-            description: lastCharge.description,
-          };
-
-          return res.status(200).json({
-            success: true,
-            lastPayment: lastPayment,
-          });
-        }
-      } catch (chargeError) {
-        console.error('Error searching charges:', chargeError);
-      }
-      
       return res.status(200).json({ 
         success: true, 
         lastPayment: null,
-        message: 'No payment found for this email'
+        message: 'No customer found for this email'
       });
     }
 
@@ -127,7 +95,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error fetching payments for email:', email, error);
+    console.error('Error fetching payments for email:', req.query.email, error);
     return res.status(500).json({
       success: false,
       error: 'Error fetching payment information',
