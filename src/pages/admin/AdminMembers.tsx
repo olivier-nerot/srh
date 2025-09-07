@@ -61,10 +61,10 @@ const AdminMembers: React.FC = () => {
 
   const getSubscriptionLabel = (subscription: string) => {
     const subscriptions: { [key: string]: string } = {
-      'practicing': 'Médecin hospitalier en exercice',
-      'retired': 'Radiologue retraité',
-      'assistant': 'Assistant spécialiste',
-      'first-time': 'Première adhésion'
+      'practicing': 'Médecin hospitalier en exercice, Professeur des Universités',
+      'retired': 'Radiologue hospitalier/universitaire retraité',
+      'assistant': 'Radiologue assistant spécialiste',
+      'first-time': 'Première adhésion (dans l\'année de nomination)'
     };
     return subscriptions[subscription] || subscription;
   };
@@ -189,10 +189,10 @@ const AdminMembers: React.FC = () => {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 >
                   <option value="all">Tous les types d'adhésion</option>
-                  <option value="practicing">Médecin en exercice</option>
-                  <option value="retired">Retraité</option>
-                  <option value="assistant">Assistant spécialiste</option>
-                  <option value="first-time">Première adhésion</option>
+                  <option value="practicing">Médecin hospitalier en exercice, Professeur des Universités</option>
+                  <option value="retired">Radiologue hospitalier/universitaire retraité</option>
+                  <option value="assistant">Radiologue assistant spécialiste</option>
+                  <option value="first-time">Première adhésion (dans l'année de nomination)</option>
                 </select>
               </div>
             </div>
