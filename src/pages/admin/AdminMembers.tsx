@@ -26,6 +26,7 @@ const AdminMembers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [loadingPayments, setLoadingPayments] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubscription, setFilterSubscription] = useState('all');
@@ -40,48 +41,71 @@ const AdminMembers: React.FC = () => {
     try {
       const result = await getAllUsers();
       if (result.success) {
-        // Fetch payment information for each user with rate limiting
-        const usersWithPayments: User[] = [];
-        const batchSize = 5; // Process 5 users at a time
-        const delay = 200; // 200ms delay between batches
+        // Set users immediately without payment data
+        const usersWithoutPayments = result.users.map((user: User) => ({
+          ...user,
+          lastPayment: null
+        }));
+        setUsers(usersWithoutPayments);
+        setLoading(false);
         
-        setLoadingProgress({ current: 0, total: result.users.length });
-        
-        for (let i = 0; i < result.users.length; i += batchSize) {
-          const batch = result.users.slice(i, i + batchSize);
-          
-          const batchResults = await Promise.all(
-            batch.map(async (user: User) => {
-              try {
-                const paymentResult = await getUserLastPayment(user.email);
-                return {
-                  ...user,
-                  lastPayment: paymentResult.success ? paymentResult.lastPayment : null
-                };
-              } catch (error) {
-                console.error(`Error fetching payment for ${user.email}:`, error);
-                return { ...user, lastPayment: null };
-              }
-            })
-          );
-          
-          usersWithPayments.push(...batchResults);
-          setLoadingProgress({ current: i + batchSize, total: result.users.length });
-          
-          // Add delay between batches to avoid rate limiting
-          if (i + batchSize < result.users.length) {
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-        }
-        setUsers(usersWithPayments);
+        // Start background payment loading
+        loadPaymentsInBackground(result.users);
       } else {
         setError(result.error || 'Erreur lors du chargement des membres');
+        setLoading(false);
       }
     } catch (err) {
       setError('Erreur lors du chargement des membres');
-    } finally {
       setLoading(false);
     }
+  };
+
+  const loadPaymentsInBackground = async (userList: User[]) => {
+    setLoadingPayments(true);
+    setLoadingProgress({ current: 0, total: userList.length });
+    
+    const batchSize = 5; // Process 5 users at a time
+    const delay = 200; // 200ms delay between batches
+    
+    for (let i = 0; i < userList.length; i += batchSize) {
+      const batch = userList.slice(i, i + batchSize);
+      
+      const batchResults = await Promise.all(
+        batch.map(async (user: User) => {
+          try {
+            const paymentResult = await getUserLastPayment(user.email);
+            return {
+              email: user.email,
+              lastPayment: paymentResult.success ? paymentResult.lastPayment : null
+            };
+          } catch (error) {
+            console.error(`Error fetching payment for ${user.email}:`, error);
+            return {
+              email: user.email,
+              lastPayment: null
+            };
+          }
+        })
+      );
+      
+      // Update users with payment data for this batch
+      setUsers(prevUsers => 
+        prevUsers.map(user => {
+          const paymentData = batchResults.find(result => result.email === user.email);
+          return paymentData ? { ...user, lastPayment: paymentData.lastPayment } : user;
+        })
+      );
+      
+      setLoadingProgress({ current: i + batchSize, total: userList.length });
+      
+      // Add delay between batches to avoid rate limiting
+      if (i + batchSize < userList.length) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    setLoadingPayments(false);
   };
 
   const isValidRegistration = (user: User): boolean => {
@@ -205,20 +229,7 @@ const AdminMembers: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">
-            {loadingProgress.total > 0 
-              ? `Chargement des paiements... ${Math.min(loadingProgress.current, loadingProgress.total)}/${loadingProgress.total}`
-              : 'Chargement des membres...'
-            }
-          </p>
-          {loadingProgress.total > 0 && (
-            <div className="w-64 bg-gray-200 rounded-full h-2 mt-4">
-              <div 
-                className="bg-red-600 h-2 rounded-full transition-all duration-300" 
-                style={{ width: `${Math.min((loadingProgress.current / loadingProgress.total) * 100, 100)}%` }}
-              ></div>
-            </div>
-          )}
+          <p className="text-gray-600">Chargement des membres...</p>
         </div>
       </div>
     );
@@ -237,6 +248,19 @@ const AdminMembers: React.FC = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Gestion des Membres</h1>
                 <p className="text-gray-600 mt-1">{users.length} membres inscrits</p>
+                {loadingPayments && (
+                  <div className="mt-2">
+                    <p className="text-sm text-blue-600 mb-1">
+                      Chargement des paiements... {Math.min(loadingProgress.current, loadingProgress.total)}/{loadingProgress.total}
+                    </p>
+                    <div className="w-64 bg-gray-200 rounded-full h-1.5">
+                      <div 
+                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300" 
+                        style={{ width: `${Math.min((loadingProgress.current / loadingProgress.total) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
