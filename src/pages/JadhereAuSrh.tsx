@@ -11,8 +11,8 @@ import {
 } from '@stripe/react-stripe-js';
 import { createUser } from '../services/userService';
 
-// Initialize Stripe
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51...');
+// Initialize Stripe - use test key for development
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51...');
 
 const JadhereAuSrh: React.FC = () => {
   const navigate = useNavigate();
@@ -358,9 +358,41 @@ const JadhereAuSrh: React.FC = () => {
         throw new Error(result.error || 'Payment processing failed');
       }
 
-      // For now, we'll just return success
-      // TODO: Implement proper Stripe payment confirmation
-      console.log('Payment result:', result);
+      // Confirm the payment with Stripe using the clientSecret
+      if (result.clientSecret) {
+        let confirmationResult;
+        
+        if (result.type === 'subscription') {
+          // For subscriptions, confirm the subscription's payment intent
+          confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: `${user.firstname} ${user.lastname}`,
+                email: user.email,
+              },
+            }
+          });
+        } else {
+          // For one-time payments, confirm the payment intent
+          confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: `${user.firstname} ${user.lastname}`,
+                email: user.email,
+              },
+            }
+          });
+        }
+
+        if (confirmationResult.error) {
+          throw new Error(confirmationResult.error.message || 'Payment confirmation failed');
+        }
+
+        console.log('Payment confirmed successfully:', confirmationResult);
+        return { success: true, data: { ...result, confirmation: confirmationResult } };
+      }
 
       return { success: true, data: result };
     } catch (error) {
@@ -551,35 +583,36 @@ const JadhereAuSrh: React.FC = () => {
 
             {/* Tabbed Membership Form */}
             {selectedTier && (
-              <div className="mt-8 bg-white border border-gray-200 rounded-lg p-6">
-                {/* Tab Navigation */}
-                <div className="border-b border-gray-200 mb-6">
-                  <nav className="-mb-px flex w-full">
-                    {tabs.map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = activeTab === tab.id;
-                      isTabValid(tab.id);
-                      
-                      return (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id as any)}
-                          className={`group inline-flex items-center justify-center py-2 px-1 border-b-2 font-medium text-sm flex-1 ${
-                            isActive
-                              ? 'border-blue-500 text-blue-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                          }`}
-                        >
-                          <Icon className={`mr-2 h-5 w-5 ${isActive ? 'text-blue-500' : 'text-gray-400'}`} />
-                          {tab.label}
-                        </button>
-                      );
-                    })}
-                  </nav>
-                </div>
+              <Elements stripe={stripePromise}>
+                <div className="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+                  {/* Tab Navigation */}
+                  <div className="border-b border-gray-200 mb-6">
+                    <nav className="-mb-px flex w-full">
+                      {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        isTabValid(tab.id);
+                        
+                        return (
+                          <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`group inline-flex items-center justify-center py-2 px-1 border-b-2 font-medium text-sm flex-1 ${
+                              isActive
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                          >
+                            <Icon className={`mr-2 h-5 w-5 ${isActive ? 'text-blue-500' : 'text-gray-400'}`} />
+                            {tab.label}
+                          </button>
+                        );
+                      })}
+                    </nav>
+                  </div>
 
-                {/* Tab Content */}
-                <div className="space-y-6">
+                  {/* Tab Content */}
+                  <div className="space-y-6">
                   {/* Personal Information Tab */}
                   {activeTab === 'personal' && (
                     <div className="space-y-6">
@@ -732,35 +765,34 @@ const JadhereAuSrh: React.FC = () => {
 
                   {/* Payment Tab */}
                   {activeTab === 'payment' && (
-                    <Elements stripe={stripePromise}>
-                      <div className="space-y-6">
-                        <h3 className="text-xl font-semibold text-gray-900">Règlement</h3>
+                    <div className="space-y-6">
+                      <h3 className="text-xl font-semibold text-gray-900">Règlement</h3>
+                      
+                      <PaymentForm selectedTier={getSelectedTierData()} />
+
+                      <div className="flex justify-between items-center pt-6">
+                        <Button
+                          onClick={() => setActiveTab('professional')}
+                          variant="outline"
+                        >
+                          Précédent
+                        </Button>
                         
-                        <PaymentForm selectedTier={getSelectedTierData()} />
+                        <PaymentHandler />
 
-                        <div className="flex justify-between items-center pt-6">
-                          <Button
-                            onClick={() => setActiveTab('professional')}
-                            variant="outline"
-                          >
-                            Précédent
-                          </Button>
-                          
-                          <PaymentHandler />
-
-                          <Button
-                            disabled={true}
-                            variant="outline"
-                            className="opacity-50 cursor-not-allowed"
-                          >
-                            Suivant
-                          </Button>
-                        </div>
+                        <Button
+                          disabled={true}
+                          variant="outline"
+                          className="opacity-50 cursor-not-allowed"
+                        >
+                          Suivant
+                        </Button>
                       </div>
-                    </Elements>
+                    </div>
                   )}
+                  </div>
                 </div>
-              </div>
+              </Elements>
             )}
           </div>
 
