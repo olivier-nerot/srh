@@ -13,7 +13,13 @@ import { createUser } from '../services/userService';
 import StripeCardInput from '../components/StripeCardInput';
 
 // Initialize Stripe - use test key for development
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51...');
+const stripePublicKey = import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51...';
+
+console.log('=== FRONTEND STRIPE DEBUG ===');
+console.log('Using test key:', stripePublicKey?.startsWith('pk_test_'));
+console.log('Using live key:', stripePublicKey?.startsWith('pk_live_'));
+
+const stripePromise = loadStripe(stripePublicKey);
 
 // Stable Elements options to prevent re-renders
 const elementsOptions = {

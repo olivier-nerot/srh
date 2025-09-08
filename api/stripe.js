@@ -1,6 +1,13 @@
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_API_KEY, {
+// Use test key for development, live key for production
+const stripeSecretKey = process.env.STRIPE_TEST_SECRET_API_KEY || process.env.STRIPE_SECRET_API_KEY;
+
+console.log('=== STRIPE DEBUG ===');
+console.log('Using test key:', stripeSecretKey?.startsWith('sk_test_'));
+console.log('Using live key:', stripeSecretKey?.startsWith('sk_live_'));
+
+const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2024-11-20.acacia',
 });
 
