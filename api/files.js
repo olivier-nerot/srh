@@ -137,8 +137,8 @@ async function handleDocumentUpload(req, res) {
       mimeType: mimeType || 'application/pdf',
       category: category || 'other',
       isPublic: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     }).returning();
 
     return res.status(201).json({

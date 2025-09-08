@@ -10,8 +10,8 @@ export const articles = sqliteTable('articles', {
   status: text('status', { enum: ['draft', 'published', 'archived'] }).default('draft'),
   authorId: integer('author_id').references(() => users.id),
   publishedAt: integer('published_at', { mode: 'timestamp' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => Date.now()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => Date.now()),
 });
 
 import { users } from './users';
