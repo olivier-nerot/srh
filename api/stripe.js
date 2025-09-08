@@ -66,15 +66,16 @@ async function getPayments(req, res) {
     }
 
     // Use the connected account ID for API calls
-    const requestOptions = process.env.STRIPE_COMPANY_ID ? {
-      stripeAccount: process.env.STRIPE_COMPANY_ID
-    } : {};
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID
+    };
 
     // Search for customers by email in the connected account
-    const customers = await stripe.customers.list({
+    const customerParams = {
       email: email,
       limit: 10, // Get more results for debugging
-    }, requestOptions);
+    };
+    const customers = await stripe.customers.list(customerParams, requestOptions);
 
     if (customers.data.length === 0) {
       return res.status(200).json({ 
@@ -87,10 +88,11 @@ async function getPayments(req, res) {
     const customer = customers.data[0];
 
     // Try to get charges first (for completed payments)
-    const charges = await stripe.charges.list({
+    const chargeParams = {
       customer: customer.id,
       limit: 1,
-    }, requestOptions);
+    };
+    const charges = await stripe.charges.list(chargeParams, requestOptions);
 
     if (charges.data.length > 0) {
       const lastCharge = charges.data[0];
@@ -112,10 +114,11 @@ async function getPayments(req, res) {
     }
 
     // If no charges, try payment intents
-    const paymentIntents = await stripe.paymentIntents.list({
+    const paymentIntentParams = {
       customer: customer.id,
       limit: 1,
-    }, requestOptions);
+    };
+    const paymentIntents = await stripe.paymentIntents.list(paymentIntentParams, requestOptions);
 
     if (paymentIntents.data.length === 0) {
       return res.status(200).json({ 
@@ -168,31 +171,33 @@ async function createPayment(req, res) {
     }
 
     // Use the connected account ID for API calls
-    const requestOptions = process.env.STRIPE_COMPANY_ID ? {
-      stripeAccount: process.env.STRIPE_COMPANY_ID
-    } : {};
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID
+    };
 
     // Create or get customer
     let stripeCustomer;
     
     // First try to find existing customer
-    const existingCustomers = await stripe.customers.list({
+    const existingCustomerParams = {
       email: customer.email,
       limit: 1,
-    }, requestOptions);
+    };
+    const existingCustomers = await stripe.customers.list(existingCustomerParams, requestOptions);
 
     if (existingCustomers.data.length > 0) {
       stripeCustomer = existingCustomers.data[0];
     } else {
       // Create new customer
-      stripeCustomer = await stripe.customers.create({
+      const newCustomerParams = {
         email: customer.email,
         name: customer.name,
         metadata: {
           tier: tierData.id,
           hospital: customer.hospital || '',
         }
-      }, requestOptions);
+      };
+      stripeCustomer = await stripe.customers.create(newCustomerParams, requestOptions);
     }
 
     if (recurring) {
@@ -202,7 +207,7 @@ async function createPayment(req, res) {
       const priceId = await createOrGetPrice(tierData, requestOptions);
       
       // Create the subscription
-      const subscription = await stripe.subscriptions.create({
+      const subscriptionParams = {
         customer: stripeCustomer.id,
         items: [{
           price: priceId,
@@ -214,7 +219,8 @@ async function createPayment(req, res) {
           tier: tierData.id,
           hospital: customer.hospital || '',
         }
-      }, requestOptions);
+      };
+      const subscription = await stripe.subscriptions.create(subscriptionParams, requestOptions);
 
       return res.status(200).json({
         success: true,
@@ -225,7 +231,7 @@ async function createPayment(req, res) {
       });
     } else {
       // Create a one-time payment intent
-      const paymentIntent = await stripe.paymentIntents.create({
+      const paymentIntentParams = {
         amount: amount,
         currency: currency,
         customer: stripeCustomer.id,
@@ -235,7 +241,8 @@ async function createPayment(req, res) {
           type: 'one_time_membership',
         },
         description: `Adhésion SRH - ${tierData.title}`,
-      }, requestOptions);
+      };
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams, requestOptions);
 
       return res.status(200).json({
         success: true,
@@ -269,15 +276,16 @@ async function getSubscriptions(req, res) {
     }
 
     // Use the connected account ID for API calls
-    const requestOptions = process.env.STRIPE_COMPANY_ID ? {
-      stripeAccount: process.env.STRIPE_COMPANY_ID
-    } : {};
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID
+    };
 
     // Search for customers by email in the connected account
-    const customers = await stripe.customers.list({
+    const customerSearchParams = {
       email: email,
       limit: 10,
-    }, requestOptions);
+    };
+    const customers = await stripe.customers.list(customerSearchParams, requestOptions);
 
     if (customers.data.length === 0) {
       return res.status(200).json({ 
@@ -290,11 +298,12 @@ async function getSubscriptions(req, res) {
     const customer = customers.data[0];
 
     // Get all subscriptions for this customer
-    const subscriptions = await stripe.subscriptions.list({
+    const subscriptionListParams = {
       customer: customer.id,
       status: 'all', // Get all statuses (active, past_due, canceled, etc.)
       limit: 100,
-    }, requestOptions);
+    };
+    const subscriptions = await stripe.subscriptions.list(subscriptionListParams, requestOptions);
 
     if (subscriptions.data.length === 0) {
       return res.status(200).json({ 
@@ -337,17 +346,18 @@ async function getSubscriptions(req, res) {
 async function createOrGetPrice(tierData, requestOptions) {
   try {
     // Try to find existing price first
-    const prices = await stripe.prices.list({
+    const priceListParams = {
       lookup_keys: [`srh_${tierData.id}_yearly`],
       limit: 1,
-    }, requestOptions);
+    };
+    const prices = await stripe.prices.list(priceListParams, requestOptions);
 
     if (prices.data.length > 0) {
       return prices.data[0].id;
     }
 
     // Create new price if not found
-    const price = await stripe.prices.create({
+    const priceCreateParams = {
       unit_amount: tierData.price * 100, // Convert to cents
       currency: 'eur',
       recurring: {
@@ -364,7 +374,8 @@ async function createOrGetPrice(tierData, requestOptions) {
           tier: tierData.id,
         }
       }
-    }, requestOptions);
+    };
+    const price = await stripe.prices.create(priceCreateParams, requestOptions);
 
     return price.id;
   } catch (error) {
