@@ -15,6 +15,15 @@ import StripeCardInput from '../components/StripeCardInput';
 // Initialize Stripe - use test key for development
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51...');
 
+// Stable Elements options to prevent re-renders
+const elementsOptions = {
+  fonts: [
+    {
+      cssSrc: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap',
+    },
+  ],
+};
+
 const JadhereAuSrh: React.FC = () => {
   const navigate = useNavigate();
   const [selectedTier, setSelectedTier] = useState<string>('');
@@ -316,21 +325,7 @@ const JadhereAuSrh: React.FC = () => {
         throw new Error('Card element not found');
       }
 
-      // First create a payment method to validate the card
-      const { error: paymentMethodError } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-        billing_details: {
-          name: `${user.firstname} ${user.lastname}`,
-          email: user.email,
-        },
-      });
-
-      if (paymentMethodError) {
-        throw new Error(paymentMethodError.message || 'Informations de carte invalides');
-      }
-
-      // Create payment method or subscription on backend
+      // Create payment intent or subscription on backend first
       const response = await fetch('/api/stripe?action=create-payment', {
         method: 'POST',
         headers: {
@@ -357,31 +352,16 @@ const JadhereAuSrh: React.FC = () => {
 
       // Confirm the payment with Stripe using the clientSecret
       if (result.clientSecret) {
-        let confirmationResult;
-        
-        if (result.type === 'subscription') {
-          // For subscriptions, confirm the subscription's payment intent
-          confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
-            payment_method: {
-              card: cardElement,
-              billing_details: {
-                name: `${user.firstname} ${user.lastname}`,
-                email: user.email,
-              },
-            }
-          });
-        } else {
-          // For one-time payments, confirm the payment intent
-          confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
-            payment_method: {
-              card: cardElement,
-              billing_details: {
-                name: `${user.firstname} ${user.lastname}`,
-                email: user.email,
-              },
-            }
-          });
-        }
+        // Use the proper confirmCardPayment method as per Stripe docs
+        const confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              name: `${user.firstname} ${user.lastname}`,
+              email: user.email,
+            },
+          }
+        });
 
         if (confirmationResult.error) {
           throw new Error(confirmationResult.error.message || 'Payment confirmation failed');
@@ -506,7 +486,7 @@ const JadhereAuSrh: React.FC = () => {
   }
 
   return (
-    <Elements stripe={stripePromise}>
+    <Elements stripe={stripePromise} options={elementsOptions}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">J'adhère au SRH</h1>
