@@ -271,12 +271,15 @@ const JadhereAuSrh: React.FC = () => {
 
         // Process payment if needed
         if (selectedTierData.price > 0) {
+          console.log('=== DEBUG: Processing paid tier ===', selectedTierData);
           const paymentResult = await processStripePayment(selectedTierData, userResult.user, stripe, elements);
           if (!paymentResult.success) {
             alert(paymentResult.error || 'Erreur lors du paiement');
             setIsPaymentLoading(false);
             return;
           }
+        } else {
+          console.log('=== DEBUG: Free tier selected, skipping payment ===');
         }
 
         // Set success state and user data
@@ -316,14 +319,24 @@ const JadhereAuSrh: React.FC = () => {
 
   const processStripePayment = async (tierData: any, user: any, stripe: any, elements: any) => {
     try {
+      console.log('=== DEBUG: Starting payment process ===');
+      console.log('Stripe ready:', !!stripe);
+      console.log('Elements ready:', !!elements);
+      
       if (!stripe || !elements) {
         throw new Error('Stripe not ready');
       }
 
       const cardElement = elements.getElement(CardElement);
+      console.log('CardElement found:', !!cardElement);
+      
       if (!cardElement) {
-        throw new Error('Card element not found');
+        console.error('CardElement not found - this should not happen for paid tiers');
+        throw new Error('Card element not found. Please make sure you have selected a paid membership tier.');
       }
+
+      // Skip validation - let Stripe handle it during confirmCardPayment
+      console.log('=== DEBUG: Creating payment intent directly ===');
 
       // Create payment intent or subscription on backend first
       const response = await fetch('/api/stripe?action=create-payment', {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CardElement } from '@stripe/react-stripe-js';
+import React, { useState, useEffect } from 'react';
+import { CardElement, useElements } from '@stripe/react-stripe-js';
 
 interface StripeCardInputProps {
   className?: string;
@@ -31,10 +31,31 @@ const CARD_ELEMENT_OPTIONS = {
 
 const StripeCardInput: React.FC<StripeCardInputProps> = React.memo(({ className }) => {
   const [cardError, setCardError] = useState<string | null>(null);
+  const [cardReady, setCardReady] = useState(false);
+  const elements = useElements();
 
   const handleCardChange = (event: any) => {
+    console.log('=== DEBUG: Card change event ===', {
+      error: event.error,
+      complete: event.complete,
+      empty: event.empty,
+      brand: event.brand
+    });
     setCardError(event.error ? event.error.message : null);
   };
+
+  const handleCardReady = () => {
+    console.log('=== DEBUG: CardElement is ready ===');
+    setCardReady(true);
+  };
+
+  // Debug elements availability
+  useEffect(() => {
+    if (elements) {
+      const cardElement = elements.getElement(CardElement);
+      console.log('=== DEBUG: CardElement in component ===', !!cardElement);
+    }
+  }, [elements]);
 
   return (
     <div className={className}>
@@ -45,6 +66,7 @@ const StripeCardInput: React.FC<StripeCardInputProps> = React.memo(({ className 
         <CardElement
           options={CARD_ELEMENT_OPTIONS}
           onChange={handleCardChange}
+          onReady={handleCardReady}
         />
       </div>
       {cardError && (
@@ -52,6 +74,10 @@ const StripeCardInput: React.FC<StripeCardInputProps> = React.memo(({ className 
           {cardError}
         </div>
       )}
+      {/* Debug info */}
+      <div className="mt-2 text-xs text-gray-500">
+        Card ready: {cardReady ? '✅' : '❌'}
+      </div>
     </div>
   );
 });
