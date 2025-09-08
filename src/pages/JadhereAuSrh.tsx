@@ -12,10 +12,13 @@ import {
 import { createUser } from '../services/userService';
 import StripeCardInput from '../components/StripeCardInput';
 
-// Initialize Stripe - use test key for development
-const stripePublicKey = import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51...';
+// Force test key for development - TEMPORARY FIX
+const stripePublicKey = 'pk_test_51LCjr2ItI9ZLPw27C4Z3rXknTZy60kTLXtePhAal0IuErpyM5zXysw2TuIrNm44gUpzTrcW4pbSP0hUAk62vJGCL00FL8RsxfE';
 
 console.log('=== FRONTEND STRIPE DEBUG ===');
+console.log('VITE_STRIPE_TEST_PUBLIC_API_KEY:', import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY);
+console.log('VITE_STRIPE_PUBLISHABLE_KEY:', import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+console.log('Final stripePublicKey:', stripePublicKey);
 console.log('Using test key:', stripePublicKey?.startsWith('pk_test_'));
 console.log('Using live key:', stripePublicKey?.startsWith('pk_live_'));
 
