@@ -373,11 +373,7 @@ const JadhereAuSrh: React.FC = () => {
   };
 
   const PaymentForm: React.FC<{ selectedTier: any }> = ({ selectedTier }) => {
-    return (
-      <Elements stripe={stripePromise}>
-        <PaymentFormContent selectedTier={selectedTier} />
-      </Elements>
-    );
+    return <PaymentFormContent selectedTier={selectedTier} />;
   };
 
   // Welcome card component for successful registration
@@ -736,32 +732,32 @@ const JadhereAuSrh: React.FC = () => {
 
                   {/* Payment Tab */}
                   {activeTab === 'payment' && (
-                    <div className="space-y-6">
-                      <h3 className="text-xl font-semibold text-gray-900">Règlement</h3>
-                      
-                      <PaymentForm selectedTier={getSelectedTierData()} />
-
-                      <div className="flex justify-between items-center pt-6">
-                        <Button
-                          onClick={() => setActiveTab('professional')}
-                          variant="outline"
-                        >
-                          Précédent
-                        </Button>
+                    <Elements stripe={stripePromise}>
+                      <div className="space-y-6">
+                        <h3 className="text-xl font-semibold text-gray-900">Règlement</h3>
                         
-                        <Elements stripe={stripePromise}>
-                          <PaymentHandler />
-                        </Elements>
+                        <PaymentForm selectedTier={getSelectedTierData()} />
 
-                        <Button
-                          disabled={true}
-                          variant="outline"
-                          className="opacity-50 cursor-not-allowed"
-                        >
-                          Suivant
-                        </Button>
+                        <div className="flex justify-between items-center pt-6">
+                          <Button
+                            onClick={() => setActiveTab('professional')}
+                            variant="outline"
+                          >
+                            Précédent
+                          </Button>
+                          
+                          <PaymentHandler />
+
+                          <Button
+                            disabled={true}
+                            variant="outline"
+                            className="opacity-50 cursor-not-allowed"
+                          >
+                            Suivant
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    </Elements>
                   )}
                 </div>
               </div>
