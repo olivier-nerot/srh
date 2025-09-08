@@ -333,6 +333,12 @@ const JadhereAuSrh: React.FC = () => {
         throw new Error('Card element not found');
       }
 
+      // Validate card element before processing
+      const { error: cardError } = await cardElement.createToken();
+      if (cardError) {
+        throw new Error(cardError.message || 'Informations de carte invalides');
+      }
+
       // Create payment method or subscription on backend
       const response = await fetch('/api/stripe?action=create-payment', {
         method: 'POST',
@@ -509,7 +515,7 @@ const JadhereAuSrh: React.FC = () => {
   }
 
   return (
-    <>
+    <Elements stripe={stripePromise}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">J'adhère au SRH</h1>
@@ -583,7 +589,6 @@ const JadhereAuSrh: React.FC = () => {
 
             {/* Tabbed Membership Form */}
             {selectedTier && (
-              <Elements stripe={stripePromise}>
                 <div className="mt-8 bg-white border border-gray-200 rounded-lg p-6">
                   {/* Tab Navigation */}
                   <div className="border-b border-gray-200 mb-6">
@@ -792,7 +797,6 @@ const JadhereAuSrh: React.FC = () => {
                   )}
                   </div>
                 </div>
-              </Elements>
             )}
           </div>
 
@@ -842,7 +846,7 @@ const JadhereAuSrh: React.FC = () => {
           </div>
         </div>
       </div>
-    </>
+    </Elements>
   );
 };
 
