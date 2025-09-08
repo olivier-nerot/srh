@@ -130,8 +130,8 @@ async function createUser(req, res) {
       subscription: subscription || null,
       newsletter: newsletter || false,
       isadmin: isadmin || false,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }).returning();
 
     const newUser = result[0];
@@ -271,7 +271,7 @@ async function updateUser(req, res) {
         newsletter: newsletter,
         isadmin: isadmin,
         infopro: infopro,
-        updatedAt: Date.now(),
+        updatedAt: new Date(),
       })
       .where(eq(users.id, parseInt(id)))
       .returning();
@@ -425,15 +425,21 @@ async function loginUser(req, res) {
 
     // Generate OTP
     const otpCode = generateOTP();
-    const expiresAt = Date.now() + 10 * 60 * 1000; // OTP expires in 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
 
     // Store OTP in database
-    await db.insert(otps).values({
+    const otpData = {
       email: email,
       otp: otpCode,
       expiresAt: expiresAt,
-      createdAt: Date.now(),
-    });
+      createdAt: new Date(),
+    };
+    
+    console.log('=== OTP INSERT DEBUG ===');
+    console.log('expiresAt type:', typeof otpData.expiresAt, 'value:', otpData.expiresAt);
+    console.log('createdAt type:', typeof otpData.createdAt, 'value:', otpData.createdAt);
+    
+    await db.insert(otps).values(otpData);
 
     // Send OTP email
     try {
@@ -500,7 +506,7 @@ async function verifyOTP(req, res) {
         and(
           eq(otps.email, email),
           eq(otps.otp, otp),
-          gt(otps.expiresAt, Date.now())
+          gt(otps.expiresAt, new Date())
         )
       )
       .orderBy(desc(otps.createdAt))
@@ -645,7 +651,7 @@ async function updateProfile(req, res) {
         hospital: hospital,
         address: address,
         newsletter: newsletter,
-        updatedAt: Date.now(),
+        updatedAt: new Date(),
       })
       .where(eq(users.id, parseInt(id)))
       .returning();

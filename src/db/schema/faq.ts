@@ -5,6 +5,6 @@ export const faq = sqliteTable('faq', {
   question: text('question').notNull(),
   answer: text('answer').notNull(), // HTML content
   tags: text('tags', { mode: 'json' }).$type<string[]>().default([]),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => Date.now()),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => Date.now()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });
