@@ -128,91 +128,6 @@ const JadhereAuSrh: React.FC = () => {
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
 
-  const PaymentFormContent: React.FC<{ selectedTier: any }> = ({ selectedTier }) => {
-    return (
-      <div className="space-y-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <h4 className="font-medium text-gray-900 mb-2">Récapitulatif de votre adhésion</h4>
-          <div className="flex justify-between items-center">
-            <span>{selectedTier.title}</span>
-            <span className="font-bold">
-              {selectedTier.price === 0 ? 'Gratuit' : `${selectedTier.price} €${isRecurring ? '/an' : ''}`}
-            </span>
-          </div>
-          {selectedTier.price > 0 && (
-            <div className="text-sm text-green-600 mt-1">
-              Coût réel après déduction fiscale : {selectedTier.actualCost} €{isRecurring ? '/an' : ''}
-            </div>
-          )}
-          {isRecurring && (
-            <div className="text-sm text-blue-600 mt-2 font-medium">
-              🔄 Paiement automatique annuel activé
-            </div>
-          )}
-        </div>
-
-        {selectedTier.price > 0 && (
-          <>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 mb-3">Type de paiement</h4>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    id="one-time"
-                    name="paymentType"
-                    checked={!isRecurring}
-                    onChange={() => setIsRecurring(false)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <label htmlFor="one-time" className="ml-3 text-sm text-gray-700">
-                    <span className="font-medium">Paiement unique</span>
-                    <div className="text-gray-500">Adhésion pour l'année en cours uniquement</div>
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    id="recurring"
-                    name="paymentType"
-                    checked={isRecurring}
-                    onChange={() => setIsRecurring(true)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  />
-                  <label htmlFor="recurring" className="ml-3 text-sm text-gray-700">
-                    <span className="font-medium">Abonnement annuel automatique</span>
-                    <div className="text-gray-500">Renouvellement automatique chaque année (résiliable à tout moment)</div>
-                    <div className="text-green-600 text-xs mt-1">✨ Recommandé - Ne ratez jamais votre adhésion</div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <StripeCardInput />
-          </>
-        )}
-
-        <div className="flex items-center space-x-3">
-          <input
-            type="checkbox"
-            id="terms"
-            name="terms"
-            checked={formData.terms}
-            onChange={handleInputChange}
-            required
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-          <label htmlFor="terms" className="text-sm text-gray-700">
-            J'accepte les{' '}
-            <a href="/statuts" className="text-blue-600 hover:text-blue-700">
-              statuts du syndicat
-            </a>{' '}
-            et souhaite adhérer au SRH *
-          </label>
-        </div>
-      </div>
-    );
-  };
 
   const PaymentHandler = () => {
     const stripe = useStripe();
@@ -394,9 +309,6 @@ const JadhereAuSrh: React.FC = () => {
     }
   };
 
-  const PaymentForm: React.FC<{ selectedTier: any }> = ({ selectedTier }) => {
-    return <PaymentFormContent selectedTier={selectedTier} />;
-  };
 
   // Welcome card component for successful registration
   const WelcomeCard: React.FC = () => (
@@ -757,7 +669,88 @@ const JadhereAuSrh: React.FC = () => {
                     <div className="space-y-6">
                       <h3 className="text-xl font-semibold text-gray-900">Règlement</h3>
                       
-                      <PaymentForm selectedTier={getSelectedTierData()} />
+                      {/* Render payment form content directly to avoid re-render issues */}
+                      <div className="space-y-6">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                          <h4 className="font-medium text-gray-900 mb-2">Récapitulatif de votre adhésion</h4>
+                          <div className="flex justify-between items-center">
+                            <span>{getSelectedTierData()?.title}</span>
+                            <span className="font-bold">
+                              {getSelectedTierData()?.price === 0 ? 'Gratuit' : `${getSelectedTierData()?.price} €${isRecurring ? '/an' : ''}`}
+                            </span>
+                          </div>
+                          {(getSelectedTierData()?.price || 0) > 0 && (
+                            <div className="text-sm text-green-600 mt-1">
+                              Coût réel après déduction fiscale : {getSelectedTierData()?.actualCost} €{isRecurring ? '/an' : ''}
+                            </div>
+                          )}
+                          {isRecurring && (
+                            <div className="text-sm text-blue-600 mt-2 font-medium">
+                              🔄 Paiement automatique annuel activé
+                            </div>
+                          )}
+                        </div>
+
+                        {(getSelectedTierData()?.price || 0) > 0 && (
+                          <>
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                              <h4 className="font-medium text-gray-900 mb-3">Type de paiement</h4>
+                              <div className="space-y-3">
+                                <div className="flex items-center">
+                                  <input
+                                    type="radio"
+                                    id="one-time"
+                                    name="paymentType"
+                                    checked={!isRecurring}
+                                    onChange={() => setIsRecurring(false)}
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                  />
+                                  <label htmlFor="one-time" className="ml-3 text-sm text-gray-700">
+                                    <span className="font-medium">Paiement unique</span>
+                                    <div className="text-gray-500">Adhésion pour l'année en cours uniquement</div>
+                                  </label>
+                                </div>
+                                <div className="flex items-center">
+                                  <input
+                                    type="radio"
+                                    id="recurring"
+                                    name="paymentType"
+                                    checked={isRecurring}
+                                    onChange={() => setIsRecurring(true)}
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                                  />
+                                  <label htmlFor="recurring" className="ml-3 text-sm text-gray-700">
+                                    <span className="font-medium">Abonnement annuel automatique</span>
+                                    <div className="text-gray-500">Renouvellement automatique chaque année (résiliable à tout moment)</div>
+                                    <div className="text-green-600 text-xs mt-1">✨ Recommandé - Ne ratez jamais votre adhésion</div>
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+
+                            <StripeCardInput />
+                          </>
+                        )}
+
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            id="terms"
+                            name="terms"
+                            checked={formData.terms}
+                            onChange={handleInputChange}
+                            required
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="terms" className="text-sm text-gray-700">
+                            J'accepte les{' '}
+                            <a href="/statuts" className="text-blue-600 hover:text-blue-700">
+                              statuts du syndicat
+                            </a>{' '}
+                            et souhaite adhérer au SRH *
+                          </label>
+                        </div>
+                      </div>
 
                       <div className="flex justify-between items-center pt-6">
                         <Button
