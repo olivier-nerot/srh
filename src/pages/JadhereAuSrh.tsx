@@ -10,6 +10,7 @@ import {
   useElements
 } from '@stripe/react-stripe-js';
 import { createUser } from '../services/userService';
+import StripeCardInput from '../components/StripeCardInput';
 
 // Initialize Stripe - use test key for development
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51...');
@@ -117,29 +118,6 @@ const JadhereAuSrh: React.FC = () => {
 
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
-  // Separate CardElement component to prevent re-renders
-  const StripeCardSection: React.FC = React.memo(() => (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Informations de paiement
-      </label>
-      <div className="border border-gray-300 rounded-md p-3 bg-white">
-        <CardElement
-          options={{
-            style: {
-              base: {
-                fontSize: '16px',
-                color: '#424770',
-                '::placeholder': {
-                  color: '#aab7c4',
-                },
-              },
-            },
-          }}
-        />
-      </div>
-    </div>
-  ));
 
   const PaymentFormContent: React.FC<{ selectedTier: any }> = ({ selectedTier }) => {
     return (
@@ -201,7 +179,7 @@ const JadhereAuSrh: React.FC = () => {
               </div>
             </div>
 
-            <StripeCardSection />
+            <StripeCardInput />
           </>
         )}
 
@@ -338,7 +316,19 @@ const JadhereAuSrh: React.FC = () => {
         throw new Error('Card element not found');
       }
 
-      // We'll validate the card during payment confirmation
+      // First create a payment method to validate the card
+      const { error: paymentMethodError } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+        billing_details: {
+          name: `${user.firstname} ${user.lastname}`,
+          email: user.email,
+        },
+      });
+
+      if (paymentMethodError) {
+        throw new Error(paymentMethodError.message || 'Informations de carte invalides');
+      }
 
       // Create payment method or subscription on backend
       const response = await fetch('/api/stripe?action=create-payment', {
