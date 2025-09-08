@@ -20,7 +20,7 @@ const JadhereAuSrh: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'payment'>('personal');
   const [isRegistrationComplete, setIsRegistrationComplete] = useState(false);
   const [registeredUser, setRegisteredUser] = useState<any>(null);
-  const [isRecurring, setIsRecurring] = useState<boolean>(false);
+  const [isRecurring, setIsRecurring] = useState<boolean>(true);
   
   // Form data state
   const [formData, setFormData] = useState({

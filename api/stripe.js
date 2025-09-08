@@ -348,7 +348,6 @@ async function createOrGetPrice(tierData, requestOptions) {
       },
       product_data: {
         name: `Adhésion SRH - ${tierData.title}`,
-        description: tierData.description,
         metadata: {
           tier: tierData.id,
         }

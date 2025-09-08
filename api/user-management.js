@@ -18,8 +18,6 @@ const users = sqliteTable('users', {
   subscribedUntil: integer('subscribed_until', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-  created_at: text('created_at'),
-  updated_at: text('updated_at'),
 });
 
 // Define OTP table
@@ -211,7 +209,7 @@ async function getUser(req, res) {
         newsletter: user.newsletter,
         infopro: user.infopro,
         subscribedUntil: user.subscribedUntil,
-        created_at: user.createdAt || user.created_at
+        created_at: user.createdAt
       }
     });
 
@@ -367,8 +365,7 @@ async function listUsers(req, res) {
       isadmin: users.isadmin,
       newsletter: users.newsletter,
       subscribedUntil: users.subscribedUntil,
-      createdAt: users.createdAt,
-      created_at: users.created_at
+      createdAt: users.createdAt
     }).from(users).orderBy(asc(users.id));
 
     const formattedUsers = allUsers.map(user => ({
