@@ -1,9 +1,14 @@
 import Stripe from 'stripe';
 
-// Use test key for development, live key for production
-const stripeSecretKey = process.env.STRIPE_TEST_SECRET_API_KEY || process.env.STRIPE_SECRET_API_KEY;
+// Use VITE_STRIPE_TESTMODE to determine which Stripe keys to use
+const isTestMode = process.env.VITE_STRIPE_TESTMODE === 'true';
+const stripeSecretKey = isTestMode
+  ? (process.env.VITE_STRIPE_TEST_SECRET_API_KEY || process.env.STRIPE_TEST_SECRET_API_KEY)
+  : (process.env.VITE_STRIPE_SECRET_API_KEY || process.env.STRIPE_SECRET_API_KEY);
 
-console.log('=== STRIPE DEBUG ===');
+console.log('=== BACKEND STRIPE DEBUG ===');
+console.log('VITE_STRIPE_TESTMODE:', process.env.VITE_STRIPE_TESTMODE);
+console.log('Test mode enabled:', isTestMode);
 console.log('Using test key:', stripeSecretKey?.startsWith('sk_test_'));
 console.log('Using live key:', stripeSecretKey?.startsWith('sk_live_'));
 
