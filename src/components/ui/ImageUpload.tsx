@@ -40,7 +40,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           const base64 = e.target?.result as string;
           
           // Process through API for validation and optimization
-          const response = await fetch('/api/upload?uploadType=image', {
+          const response = await fetch('/api/files?action=upload&type=image', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

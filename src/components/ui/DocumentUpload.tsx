@@ -36,7 +36,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/documents?ids=${currentDocumentIds.join(',')}`);
+        const response = await fetch(`/api/files?action=list&ids=${currentDocumentIds.join(',')}`);
         const data = await response.json();
         
         if (data.success) {
@@ -92,7 +92,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
         const buffer = new Uint8Array(arrayBuffer);
 
         // Upload to API
-        const response = await fetch('/api/upload?uploadType=document', {
+        const response = await fetch('/api/files?action=upload&type=document', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

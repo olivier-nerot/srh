@@ -91,7 +91,7 @@ const Publications: React.FC = () => {
   const downloadAttachment = async (attachmentId: number) => {
     try {
       // For PDFs and documents, open in new window instead of downloading
-      window.open(`/api/download?id=${attachmentId}`, '_blank');
+      window.open(`/api/files?action=download&id=${attachmentId}`, '_blank');
     } catch (error) {
       console.error('Error opening document:', error);
       alert('Erreur lors de l\'ouverture du document');

@@ -14,7 +14,7 @@ const API_BASE = '';
 
 export async function createUser(userData: CreateUserData) {
   try {
-    const response = await fetch(`${API_BASE}/api/users`, {
+    const response = await fetch(`${API_BASE}/api/user-management?action=create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -35,7 +35,7 @@ export async function createUser(userData: CreateUserData) {
 
 export async function getUserByEmail(email: string) {
   try {
-    const response = await fetch(`${API_BASE}/api/users?email=${encodeURIComponent(email)}`);
+    const response = await fetch(`${API_BASE}/api/user-management?action=get&email=${encodeURIComponent(email)}`);
     const result = await response.json();
     return result.user || null;
   } catch (error) {
@@ -46,7 +46,7 @@ export async function getUserByEmail(email: string) {
 
 export async function getAllUsers() {
   try {
-    const response = await fetch(`${API_BASE}/api/users`);
+    const response = await fetch(`${API_BASE}/api/user-management?action=list&isAdmin=true`);
     const result = await response.json();
     return result;
   } catch (error) {
@@ -57,7 +57,7 @@ export async function getAllUsers() {
 
 export async function getUserById(id: string | number) {
   try {
-    const response = await fetch(`${API_BASE}/api/profile?id=${encodeURIComponent(id)}`);
+    const response = await fetch(`${API_BASE}/api/user-management?action=profile&id=${encodeURIComponent(id)}`);
     const result = await response.json();
     
     if (result.success) {
@@ -74,7 +74,7 @@ export async function getUserById(id: string | number) {
 
 export async function updateProfile(id: string | number, profileData: any) {
   try {
-    const response = await fetch(`${API_BASE}/api/profile?id=${encodeURIComponent(id)}`, {
+    const response = await fetch(`${API_BASE}/api/user-management?action=profile&id=${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -92,7 +92,7 @@ export async function updateProfile(id: string | number, profileData: any) {
 
 export async function updateExistingUsersSubscriptions() {
   try {
-    const response = await fetch(`${API_BASE}/api/users`, {
+    const response = await fetch(`${API_BASE}/api/user-management?action=update-subscriptions`, {
       method: 'PUT',
     });
     const result = await response.json();

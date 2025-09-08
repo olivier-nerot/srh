@@ -334,7 +334,7 @@ const JadhereAuSrh: React.FC = () => {
       }
 
       // Create payment method or subscription on backend
-      const response = await fetch('/api/create-payment', {
+      const response = await fetch('/api/stripe?action=create-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

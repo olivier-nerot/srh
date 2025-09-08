@@ -21,7 +21,7 @@ const Login: React.FC = () => {
     try {
       if (!isOtpSent) {
         // Step 1: Send OTP
-        const response = await fetch('/api/auth', {
+        const response = await fetch('/api/user-management?action=login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -38,7 +38,7 @@ const Login: React.FC = () => {
         }
       } else {
         // Step 2: Verify OTP
-        const response = await fetch('/api/verify-otp', {
+        const response = await fetch('/api/user-management?action=verify-otp', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -32,7 +32,7 @@ export async function createPaymentIntent(paymentData: {
   tierData: any;
 }): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE}/api/create-payment`, {
+    const response = await fetch(`${API_BASE}/api/stripe?action=create-payment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,7 +64,7 @@ export async function createPaymentIntent(paymentData: {
 
 export async function getUserSubscriptions(email: string): Promise<{ success: boolean; subscriptions: Subscription[] | null; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE}/api/subscriptions?email=${encodeURIComponent(email)}`);
+    const response = await fetch(`${API_BASE}/api/stripe?action=get-subscriptions&email=${encodeURIComponent(email)}`);
     
     if (!response.ok) {
       console.error('Subscriptions API response not OK:', response.status, response.statusText);
@@ -99,7 +99,7 @@ export async function getUserSubscriptions(email: string): Promise<{ success: bo
 
 export async function getUserLastPayment(email: string): Promise<{ success: boolean; lastPayment: Payment | null; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE}/api/payments?email=${encodeURIComponent(email)}`);
+    const response = await fetch(`${API_BASE}/api/stripe?action=get-payments&email=${encodeURIComponent(email)}`);
     
     if (!response.ok) {
       console.error('Payment API response not OK:', response.status, response.statusText);
