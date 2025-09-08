@@ -1,5 +1,5 @@
 const { getDb } = require('./lib/turso');
-const { eq, and, gt, isNull, asc } = require('drizzle-orm');
+const { eq, and, gt, isNull, asc, desc } = require('drizzle-orm');
 const { sqliteTable, text, integer } = require('drizzle-orm/sqlite-core');
 const { Resend } = require('resend');
 
@@ -503,7 +503,7 @@ async function verifyOTP(req, res) {
           gt(otps.expiresAt, Date.now())
         )
       )
-      .orderBy(eq(otps.createdAt, 'DESC'))
+      .orderBy(desc(otps.createdAt))
       .limit(1);
 
     if (validOtps.length === 0) {
