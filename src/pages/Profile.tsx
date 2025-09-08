@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   User, Mail, Building2, MapPin, Calendar, 
-  ArrowLeft, Shield, Briefcase, Bell, BellOff, Edit 
+  ArrowLeft, Shield, Briefcase, Bell, BellOff, Edit, CreditCard, Euro
 } from 'lucide-react';
 import { getUserById } from '../services/userService';
+import { getUserLastPayment, type Payment } from '../services/paymentService';
 import { useAuthStore } from '../stores/authStore';
 
 interface UserProfile {
@@ -30,6 +31,8 @@ const Profile: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   const userId = searchParams.get('id');
 
@@ -51,6 +54,8 @@ const Profile: React.FC = () => {
       const user = await getUserById(userId);
       if (user) {
         setUserProfile(user);
+        // Fetch payment data in background
+        fetchPaymentData(user.email);
       } else {
         setError('Utilisateur non trouvé');
       }
@@ -58,6 +63,20 @@ const Profile: React.FC = () => {
       setError('Erreur lors du chargement du profil');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPaymentData = async (email: string) => {
+    setPaymentLoading(true);
+    try {
+      const paymentResult = await getUserLastPayment(email);
+      if (paymentResult.success) {
+        setPayment(paymentResult.lastPayment);
+      }
+    } catch (error) {
+      console.error('Error fetching payment data:', error);
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -87,6 +106,31 @@ const Profile: React.FC = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const isValidRegistration = (): boolean => {
+    if (!payment || payment.status !== 'succeeded') {
+      return false;
+    }
+    
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    
+    return payment.created > oneYearAgo;
+  };
+
+  const getPaymentStatus = () => {
+    if (!payment) return { label: 'Aucun paiement', color: 'bg-gray-100 text-gray-800' };
+    
+    if (payment.status !== 'succeeded') {
+      return { label: 'Paiement échoué', color: 'bg-red-100 text-red-800' };
+    }
+    
+    if (isValidRegistration()) {
+      return { label: 'Adhésion valide', color: 'bg-green-100 text-green-800' };
+    } else {
+      return { label: 'Adhésion expirée', color: 'bg-orange-100 text-orange-800' };
+    }
   };
 
   const parseProfessionalInfo = (infopro: string | null) => {
@@ -321,6 +365,55 @@ const Profile: React.FC = () => {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Payment Information */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Informations de paiement</h3>
+                  {paymentLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-srh-blue"></div>
+                      <span className="ml-2 text-sm text-gray-600">Chargement des paiements...</span>
+                    </div>
+                  ) : payment ? (
+                    <div className="space-y-4">
+                      {/* Payment Status */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Statut de l'adhésion:</span>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatus().color}`}>
+                          {getPaymentStatus().label}
+                        </span>
+                      </div>
+                      
+                      {/* Payment Details */}
+                      <div className="border-t border-gray-200 pt-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Montant:</span>
+                          <span className="text-sm font-medium text-green-600 flex items-center">
+                            <Euro className="h-3 w-3 mr-1" />
+                            {payment.amount} €
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Date de paiement:</span>
+                          <span className="text-sm text-gray-900">
+                            {formatDate(payment.created)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">ID de transaction:</span>
+                          <span className="text-xs text-gray-500 font-mono">
+                            {payment.id}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">Aucun paiement trouvé</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Account Information */}
