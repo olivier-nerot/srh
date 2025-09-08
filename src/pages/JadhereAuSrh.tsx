@@ -5,7 +5,9 @@ import Button from '../components/ui/Button';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
-  CardElement
+  CardElement,
+  useStripe,
+  useElements
 } from '@stripe/react-stripe-js';
 import { createUser } from '../services/userService';
 
@@ -18,6 +20,7 @@ const JadhereAuSrh: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'payment'>('personal');
   const [isRegistrationComplete, setIsRegistrationComplete] = useState(false);
   const [registeredUser, setRegisteredUser] = useState<any>(null);
+  const [isRecurring, setIsRecurring] = useState<boolean>(false);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -73,6 +76,10 @@ const JadhereAuSrh: React.FC = () => {
     }
   ];
 
+  const getSelectedTierData = () => {
+    return membershipTiers.find(tier => tier.id === selectedTier);
+  };
+
   const benefits = [
     'Soutien d\'Alliance-Hôpital',
     'Participation à l\'assemblée générale annuelle',
@@ -108,10 +115,9 @@ const JadhereAuSrh: React.FC = () => {
     }
   };
 
-
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
-  const PaymentForm: React.FC<{ selectedTier: any }> = ({ selectedTier }) => {
+  const PaymentFormContent: React.FC<{ selectedTier: any }> = ({ selectedTier }) => {
     return (
       <div className="space-y-6">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -119,37 +125,79 @@ const JadhereAuSrh: React.FC = () => {
           <div className="flex justify-between items-center">
             <span>{selectedTier.title}</span>
             <span className="font-bold">
-              {selectedTier.price === 0 ? 'Gratuit' : `${selectedTier.price} €`}
+              {selectedTier.price === 0 ? 'Gratuit' : `${selectedTier.price} €${isRecurring ? '/an' : ''}`}
             </span>
           </div>
           {selectedTier.price > 0 && (
             <div className="text-sm text-green-600 mt-1">
-              Coût réel après déduction fiscale : {selectedTier.actualCost} €
+              Coût réel après déduction fiscale : {selectedTier.actualCost} €{isRecurring ? '/an' : ''}
+            </div>
+          )}
+          {isRecurring && (
+            <div className="text-sm text-blue-600 mt-2 font-medium">
+              🔄 Paiement automatique annuel activé
             </div>
           )}
         </div>
 
         {selectedTier.price > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Informations de paiement
-            </label>
-            <div className="border border-gray-300 rounded-md p-3 bg-white">
-              <CardElement
-                options={{
-                  style: {
-                    base: {
-                      fontSize: '16px',
-                      color: '#424770',
-                      '::placeholder': {
-                        color: '#aab7c4',
+          <>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 mb-3">Type de paiement</h4>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input
+                    type="radio"
+                    id="one-time"
+                    name="paymentType"
+                    checked={!isRecurring}
+                    onChange={() => setIsRecurring(false)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label htmlFor="one-time" className="ml-3 text-sm text-gray-700">
+                    <span className="font-medium">Paiement unique</span>
+                    <div className="text-gray-500">Adhésion pour l'année en cours uniquement</div>
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="radio"
+                    id="recurring"
+                    name="paymentType"
+                    checked={isRecurring}
+                    onChange={() => setIsRecurring(true)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label htmlFor="recurring" className="ml-3 text-sm text-gray-700">
+                    <span className="font-medium">Abonnement annuel automatique</span>
+                    <div className="text-gray-500">Renouvellement automatique chaque année (résiliable à tout moment)</div>
+                    <div className="text-green-600 text-xs mt-1">✨ Recommandé - Ne ratez jamais votre adhésion</div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Informations de paiement
+              </label>
+              <div className="border border-gray-300 rounded-md p-3 bg-white">
+                <CardElement
+                  options={{
+                    style: {
+                      base: {
+                        fontSize: '16px',
+                        color: '#424770',
+                        '::placeholder': {
+                          color: '#aab7c4',
+                        },
                       },
                     },
-                  },
-                }}
-              />
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         <div className="flex items-center space-x-3">
@@ -174,76 +222,162 @@ const JadhereAuSrh: React.FC = () => {
     );
   };
 
-  const handlePayment = async () => {
-    setIsPaymentLoading(true);
+  const PaymentHandler = () => {
+    const stripe = useStripe();
+    const elements = useElements();
 
+    const handlePaymentClick = async () => {
+      setIsPaymentLoading(true);
+
+      try {
+        // First validate required fields
+        if (!formData.firstName || !formData.lastName || !formData.email || !formData.hospital) {
+          alert('Veuillez remplir tous les champs obligatoires.');
+          setIsPaymentLoading(false);
+          return;
+        }
+
+        // Get selected tier details
+        const selectedTierData = getSelectedTierData();
+        if (!selectedTierData) {
+          alert('Veuillez sélectionner un type d\'adhésion.');
+          setIsPaymentLoading(false);
+          return;
+        }
+
+        // Prepare professional info as JSON
+        const professionalInfo = {
+          huTitulaire: formData.huTitulaire,
+          phLiberal: formData.phLiberal,
+          hospitaloUniversitaireTitulaire: formData.hospitaloUniversitaireTitulaire,
+          adhesionCollegiale: formData.adhesionCollegiale,
+          huLiberal: formData.huLiberal,
+          hospitaloUniversitaireCCA: formData.hospitaloUniversitaireCCA,
+          adhesionAlliance: formData.adhesionAlliance,
+          assistantSpecialiste: formData.assistantSpecialiste,
+          assistantTempsPartage: formData.assistantTempsPartage,
+        };
+
+        // Create user in database
+        const userResult = await createUser({
+          email: formData.email,
+          firstname: formData.firstName,
+          lastname: formData.lastName,
+          hospital: formData.hospital,
+          address: formData.address,
+          subscription: selectedTierData.id,
+          infopro: JSON.stringify(professionalInfo),
+          newsletter: true, // Default to true
+          isadmin: false,
+        });
+
+        if (!userResult.success) {
+          alert(userResult.error || 'Erreur lors de la création du compte utilisateur');
+          setIsPaymentLoading(false);
+          return;
+        }
+
+        // Process payment if needed
+        if (selectedTierData.price > 0) {
+          const paymentResult = await processStripePayment(selectedTierData, userResult.user, stripe, elements);
+          if (!paymentResult.success) {
+            alert(paymentResult.error || 'Erreur lors du paiement');
+            setIsPaymentLoading(false);
+            return;
+          }
+        }
+
+        // Set success state and user data
+        setRegisteredUser({
+          ...userResult.user,
+          selectedTier: selectedTierData,
+          isRecurring: isRecurring,
+        });
+        setIsRegistrationComplete(true);
+
+      } catch (error) {
+        console.error('Registration error:', error);
+        alert('Erreur lors de l\'inscription. Veuillez réessayer.');
+      } finally {
+        setIsPaymentLoading(false);
+      }
+    };
+
+    return (
+      <Button 
+        onClick={handlePaymentClick}
+        size="lg" 
+        className="bg-blue-600 hover:bg-blue-700"
+        disabled={!formData.terms || isPaymentLoading || (!stripe && (getSelectedTierData()?.price ?? 0) > 0)}
+      >
+        {isPaymentLoading 
+          ? 'Traitement en cours...' 
+          : getSelectedTierData()?.price === 0 
+            ? 'Finaliser mon adhésion gratuite' 
+            : isRecurring
+              ? 'Finaliser mon abonnement annuel'
+              : 'Finaliser mon adhésion et payer'
+        }
+      </Button>
+    );
+  };
+
+  const processStripePayment = async (tierData: any, user: any, stripe: any, elements: any) => {
     try {
-      // First validate required fields
-      if (!formData.firstName || !formData.lastName || !formData.email || !formData.hospital) {
-        alert('Veuillez remplir tous les champs obligatoires.');
-        setIsPaymentLoading(false);
-        return;
+      if (!stripe || !elements) {
+        throw new Error('Stripe not ready');
       }
 
-      // Get selected tier details
-      const selectedTierData = membershipTiers.find(tier => tier.id === selectedTier);
-      if (!selectedTierData) {
-        alert('Veuillez sélectionner un type d\'adhésion.');
-        setIsPaymentLoading(false);
-        return;
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) {
+        throw new Error('Card element not found');
       }
 
-      // Prepare professional info as JSON
-      const professionalInfo = {
-        huTitulaire: formData.huTitulaire,
-        phLiberal: formData.phLiberal,
-        hospitaloUniversitaireTitulaire: formData.hospitaloUniversitaireTitulaire,
-        adhesionCollegiale: formData.adhesionCollegiale,
-        huLiberal: formData.huLiberal,
-        hospitaloUniversitaireCCA: formData.hospitaloUniversitaireCCA,
-        adhesionAlliance: formData.adhesionAlliance,
-        assistantSpecialiste: formData.assistantSpecialiste,
-        assistantTempsPartage: formData.assistantTempsPartage,
-      };
-
-      // Create user in database
-      const userResult = await createUser({
-        email: formData.email,
-        firstname: formData.firstName,
-        lastname: formData.lastName,
-        hospital: formData.hospital,
-        address: formData.address,
-        subscription: selectedTierData.id,
-        infopro: JSON.stringify(professionalInfo),
-        newsletter: true, // Default to true
-        isadmin: false,
+      // Create payment method or subscription on backend
+      const response = await fetch('/api/create-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: tierData.price * 100, // Convert to cents
+          currency: 'eur',
+          customer: {
+            email: user.email,
+            name: `${user.firstname} ${user.lastname}`,
+            hospital: user.hospital,
+          },
+          recurring: isRecurring,
+          tierData: tierData,
+        }),
       });
 
-      if (!userResult.success) {
-        alert(userResult.error || 'Erreur lors de la création du compte utilisateur');
-        setIsPaymentLoading(false);
-        return;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Payment processing failed');
       }
 
-      // Simulate payment processing if needed
-      if (selectedTierData.price > 0) {
-        // Here you would typically create a payment intent on your backend
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
+      // For now, we'll just return success
+      // TODO: Implement proper Stripe payment confirmation
+      console.log('Payment result:', result);
 
-      // Set success state and user data
-      setRegisteredUser({
-        ...userResult.user,
-        selectedTier: selectedTierData,
-      });
-      setIsRegistrationComplete(true);
-
+      return { success: true, data: result };
     } catch (error) {
-      console.error('Registration error:', error);
-      alert('Erreur lors de l\'inscription. Veuillez réessayer.');
-    } finally {
-      setIsPaymentLoading(false);
+      console.error('Payment processing error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Erreur de paiement' 
+      };
     }
+  };
+
+  const PaymentForm: React.FC<{ selectedTier: any }> = ({ selectedTier }) => {
+    return (
+      <Elements stripe={stripePromise}>
+        <PaymentFormContent selectedTier={selectedTier} />
+      </Elements>
+    );
   };
 
   // Welcome card component for successful registration
@@ -284,12 +418,19 @@ const JadhereAuSrh: React.FC = () => {
                 <p className="font-medium text-blue-600">{registeredUser?.selectedTier?.title}</p>
                 <p className="text-gray-600">{registeredUser?.selectedTier?.description}</p>
                 <p className="text-lg font-bold text-gray-900">
-                  {registeredUser?.selectedTier?.price === 0 ? 'Gratuit' : `${registeredUser?.selectedTier?.price} €`}
+                  {registeredUser?.selectedTier?.price === 0 ? 'Gratuit' : `${registeredUser?.selectedTier?.price} €${registeredUser?.isRecurring ? '/an' : ''}`}
                 </p>
                 {registeredUser?.selectedTier?.price > 0 && (
-                  <p className="text-sm text-green-600">
-                    Coût réel après déduction fiscale : {registeredUser?.selectedTier?.actualCost} €
-                  </p>
+                  <>
+                    <p className="text-sm text-green-600">
+                      Coût réel après déduction fiscale : {registeredUser?.selectedTier?.actualCost} €{registeredUser?.isRecurring ? '/an' : ''}
+                    </p>
+                    {registeredUser?.isRecurring && (
+                      <p className="text-sm text-blue-600 font-medium">
+                        🔄 Abonnement annuel automatique activé
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -302,6 +443,9 @@ const JadhereAuSrh: React.FC = () => {
             <li>• Vous recevrez un email de confirmation à l'adresse indiquée</li>
             <li>• Connectez-vous à votre espace membre pour accéder aux services</li>
             <li>• Vous recevrez bientôt notre newsletter avec les dernières actualités</li>
+            {registeredUser?.isRecurring && (
+              <li>• Votre abonnement se renouvellera automatiquement chaque année</li>
+            )}
           </ul>
         </div>
 
@@ -592,44 +736,32 @@ const JadhereAuSrh: React.FC = () => {
 
                   {/* Payment Tab */}
                   {activeTab === 'payment' && (
-                    <Elements stripe={stripePromise}>
-                      <div className="space-y-6">
-                        <h3 className="text-xl font-semibold text-gray-900">Règlement</h3>
+                    <div className="space-y-6">
+                      <h3 className="text-xl font-semibold text-gray-900">Règlement</h3>
+                      
+                      <PaymentForm selectedTier={getSelectedTierData()} />
+
+                      <div className="flex justify-between items-center pt-6">
+                        <Button
+                          onClick={() => setActiveTab('professional')}
+                          variant="outline"
+                        >
+                          Précédent
+                        </Button>
                         
-                        <PaymentForm selectedTier={membershipTiers.find(tier => tier.id === selectedTier)} />
+                        <Elements stripe={stripePromise}>
+                          <PaymentHandler />
+                        </Elements>
 
-                        <div className="flex justify-between items-center pt-6">
-                          <Button
-                            onClick={() => setActiveTab('professional')}
-                            variant="outline"
-                          >
-                            Précédent
-                          </Button>
-                          
-                          <Button 
-                            onClick={handlePayment}
-                            size="lg" 
-                            className="bg-blue-600 hover:bg-blue-700"
-                            disabled={!formData.terms || isPaymentLoading}
-                          >
-                            {isPaymentLoading 
-                              ? 'Traitement en cours...' 
-                              : membershipTiers.find(tier => tier.id === selectedTier)?.price === 0 
-                                ? 'Finaliser mon adhésion gratuite' 
-                                : 'Finaliser mon adhésion et payer'
-                            }
-                          </Button>
-
-                          <Button
-                            disabled={true}
-                            variant="outline"
-                            className="opacity-50 cursor-not-allowed"
-                          >
-                            Suivant
-                          </Button>
-                        </div>
+                        <Button
+                          disabled={true}
+                          variant="outline"
+                          className="opacity-50 cursor-not-allowed"
+                        >
+                          Suivant
+                        </Button>
                       </div>
-                    </Elements>
+                    </div>
                   )}
                 </div>
               </div>
