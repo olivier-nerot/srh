@@ -117,6 +117,30 @@ const JadhereAuSrh: React.FC = () => {
 
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
+  // Separate CardElement component to prevent re-renders
+  const StripeCardSection: React.FC = React.memo(() => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Informations de paiement
+      </label>
+      <div className="border border-gray-300 rounded-md p-3 bg-white">
+        <CardElement
+          options={{
+            style: {
+              base: {
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                  color: '#aab7c4',
+                },
+              },
+            },
+          }}
+        />
+      </div>
+    </div>
+  ));
+
   const PaymentFormContent: React.FC<{ selectedTier: any }> = ({ selectedTier }) => {
     return (
       <div className="space-y-6">
@@ -177,26 +201,7 @@ const JadhereAuSrh: React.FC = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Informations de paiement
-              </label>
-              <div className="border border-gray-300 rounded-md p-3 bg-white">
-                <CardElement
-                  options={{
-                    style: {
-                      base: {
-                        fontSize: '16px',
-                        color: '#424770',
-                        '::placeholder': {
-                          color: '#aab7c4',
-                        },
-                      },
-                    },
-                  }}
-                />
-              </div>
-            </div>
+            <StripeCardSection />
           </>
         )}
 
@@ -333,11 +338,7 @@ const JadhereAuSrh: React.FC = () => {
         throw new Error('Card element not found');
       }
 
-      // Validate card element before processing
-      const { error: cardError } = await cardElement.createToken();
-      if (cardError) {
-        throw new Error(cardError.message || 'Informations de carte invalides');
-      }
+      // We'll validate the card during payment confirmation
 
       // Create payment method or subscription on backend
       const response = await fetch('/api/stripe?action=create-payment', {
