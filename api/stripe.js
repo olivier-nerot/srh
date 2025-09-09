@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   
   if (!action) {
     return res.status(400).json({ 
-      error: 'Action is required (get-payments, create-payment, get-subscriptions)' 
+      error: 'Action is required (get-payments, create-payment, get-subscriptions, cancel-subscription, update-payment-method)' 
     });
   }
 
@@ -43,6 +43,12 @@ export default async function handler(req, res) {
         return await createPayment(req, res);
       case 'get-subscriptions':
         return await getSubscriptions(req, res);
+      case 'cancel-subscription':
+        return await cancelSubscription(req, res);
+      case 'update-payment-method':
+        return await updatePaymentMethod(req, res);
+      case 'create-recurring-subscription':
+        return await createRecurringSubscription(req, res);
       default:
         return res.status(400).json({ error: 'Invalid action' });
     }
@@ -381,5 +387,173 @@ async function createOrGetPrice(tierData, requestOptions) {
   } catch (error) {
     console.error('Error creating/getting price:', error);
     throw error;
+  }
+}
+
+// Cancel subscription functionality
+async function cancelSubscription(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { email, subscriptionId } = req.body;
+
+    if (!email || !subscriptionId) {
+      return res.status(400).json({ error: 'Email and subscriptionId are required' });
+    }
+
+    // Use the connected account ID for API calls
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID
+    };
+
+    // Cancel the subscription at the end of the current period
+    const subscription = await stripe.subscriptions.update(
+      subscriptionId,
+      {
+        cancel_at_period_end: true,
+        metadata: {
+          canceled_by: 'customer',
+          canceled_at: new Date().toISOString(),
+        }
+      },
+      requestOptions
+    );
+
+    return res.status(200).json({
+      success: true,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        current_period_end: new Date(subscription.current_period_end * 1000),
+      },
+      message: 'Subscription will be canceled at the end of the current period'
+    });
+
+  } catch (error) {
+    console.error('Error canceling subscription:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error canceling subscription',
+      details: error.message
+    });
+  }
+}
+
+// Update payment method functionality
+async function updatePaymentMethod(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { email, subscriptionId } = req.body;
+
+    if (!email || !subscriptionId) {
+      return res.status(400).json({ error: 'Email and subscriptionId are required' });
+    }
+
+    // Use the connected account ID for API calls
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID
+    };
+
+    // Get the subscription to check current payment method
+    const subscription = await stripe.subscriptions.retrieve(
+      subscriptionId,
+      { expand: ['default_payment_method'] },
+      requestOptions
+    );
+
+    if (!subscription) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    // For now, we'll return instructions for the user
+    // In a full implementation, you'd create a setup intent for the new payment method
+    return res.status(200).json({
+      success: true,
+      message: 'Payment method update initiated',
+      instructions: 'Please provide new payment method details',
+      subscription_id: subscriptionId
+    });
+
+  } catch (error) {
+    console.error('Error updating payment method:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error updating payment method',
+      details: error.message
+    });
+  }
+}
+
+// Create recurring subscription from one-time payment
+async function createRecurringSubscription(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { email, tierData } = req.body;
+
+    if (!email || !tierData) {
+      return res.status(400).json({ error: 'Email and tierData are required' });
+    }
+
+    // Use the connected account ID for API calls
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID
+    };
+
+    // Find existing customer
+    const existingCustomerParams = {
+      email: email,
+      limit: 1,
+    };
+    const existingCustomers = await stripe.customers.list(existingCustomerParams, requestOptions);
+
+    if (existingCustomers.data.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    const stripeCustomer = existingCustomers.data[0];
+
+    // Create a price object for this tier if it doesn't exist
+    const priceId = await createOrGetPrice(tierData, requestOptions);
+    
+    // Create the subscription
+    const subscriptionParams = {
+      customer: stripeCustomer.id,
+      items: [{
+        price: priceId,
+      }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      expand: ['latest_invoice.payment_intent'],
+      metadata: {
+        tier: tierData.id,
+        converted_from_onetime: 'true',
+      }
+    };
+    const subscription = await stripe.subscriptions.create(subscriptionParams, requestOptions);
+
+    return res.status(200).json({
+      success: true,
+      type: 'subscription',
+      subscriptionId: subscription.id,
+      clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+      customer: stripeCustomer,
+    });
+
+  } catch (error) {
+    console.error('Error creating recurring subscription:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error creating recurring subscription',
+      details: error.message
+    });
   }
 }

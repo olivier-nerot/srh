@@ -423,6 +423,51 @@ const ProfileEdit: React.FC = () => {
     }
   };
 
+  const handleMakeRecurring = async () => {
+    if (!userProfile || !getSelectedTierData()) return;
+    
+    const confirmed = window.confirm(
+      'Voulez-vous activer le renouvellement automatique de votre adhésion ? Votre carte sera débitée automatiquement chaque année.'
+    );
+    
+    if (!confirmed) return;
+    
+    setIsPaymentLoading(true);
+    
+    try {
+      const selectedTierData = getSelectedTierData();
+      
+      const response = await fetch('/api/stripe?action=create-recurring-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userProfile.email,
+          tierData: selectedTierData || {
+            id: formData.subscription,
+            title: membershipTiers.find(t => t.id === formData.subscription)?.title,
+            price: membershipTiers.find(t => t.id === formData.subscription)?.price || 0
+          }
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('Abonnement automatique activé avec succès ! Votre adhésion se renouvellera automatiquement chaque année.');
+        // Refresh payment data
+        fetchPaymentData(userProfile.email);
+      } else {
+        alert('Erreur lors de l\'activation: ' + (result.error || 'Erreur inconnue'));
+      }
+    } catch (error) {
+      alert('Erreur lors de l\'activation de l\'abonnement automatique.');
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
@@ -996,10 +1041,41 @@ const ProfileEdit: React.FC = () => {
                   )}
                 </div>
                 
-                {/* Separator */}
-                <div className="border-t border-gray-200 pt-6">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Renouveler ou modifier l'adhésion</h4>
-                </div>
+                {/* Make Payment Recurrent for Valid One-time Payments */}
+                {!currentSubscription && isValidRegistration() && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Activer l'abonnement automatique</h4>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start">
+                        <CreditCard className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
+                        <div className="flex-1">
+                          <h5 className="text-sm font-medium text-blue-900 mb-2">
+                            Convertir en abonnement automatique
+                          </h5>
+                          <p className="text-sm text-blue-800 mb-4">
+                            Activez le renouvellement automatique pour ne jamais oublier votre adhésion.
+                            Votre carte sera débitée automatiquement chaque année.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleMakeRecurring()}
+                            disabled={isPaymentLoading}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                          >
+                            {isPaymentLoading ? 'Activation en cours...' : 'Activer l\'abonnement automatique'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Renewal Section - Only show if payment is expired or no payment */}
+                {(!isValidRegistration() || !currentPayment) && (
+                  <>
+                    <div className="border-t border-gray-200 pt-6">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Renouveler ou modifier l'adhésion</h4>
+                    </div>
                 
                 {/* Subscription Selection */}
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -1077,6 +1153,8 @@ const ProfileEdit: React.FC = () => {
 
                     <StripeCardInput />
                   </>
+                )}
+                </>
                 )}
               </div>
             )}
