@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
-  User, ArrowLeft, Save, Briefcase, AlertCircle, CreditCard 
+  User, ArrowLeft, Save, Briefcase, AlertCircle, CreditCard, Euro, Calendar 
 } from 'lucide-react';
 import { getUserById } from '../services/userService';
+import { getUserLastPayment, getUserSubscriptions, type Payment, type Subscription } from '../services/paymentService';
 import { useAuthStore } from '../stores/authStore';
 import { loadStripe } from '@stripe/stripe-js';
 import {
@@ -79,6 +80,10 @@ const ProfileEdit: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'payment'>('personal');
   const [isRecurring, setIsRecurring] = useState<boolean>(true);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [currentPayment, setCurrentPayment] = useState<Payment | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [showCardUpdate, setShowCardUpdate] = useState(false);
 
   const getSelectedTierData = () => {
     return membershipTiers.find(tier => tier.id === formData.subscription);
@@ -239,6 +244,9 @@ const ProfileEdit: React.FC = () => {
       if (user) {
         setUserProfile(user);
         
+        // Fetch payment data
+        fetchPaymentData(user.email);
+        
         // Parse professional info
         let professionalInfo: any = {};
         if (user.infopro) {
@@ -277,6 +285,141 @@ const ProfileEdit: React.FC = () => {
       setError('Erreur lors du chargement du profil');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPaymentData = async (email: string) => {
+    setPaymentLoading(true);
+    try {
+      const [paymentResult, subscriptionResult] = await Promise.all([
+        getUserLastPayment(email),
+        getUserSubscriptions(email)
+      ]);
+      
+      if (paymentResult.success) {
+        setCurrentPayment(paymentResult.lastPayment);
+      }
+      
+      if (subscriptionResult.success && subscriptionResult.subscriptions && subscriptionResult.subscriptions.length > 0) {
+        // Get the most recent active subscription
+        const activeSubscription = subscriptionResult.subscriptions.find(sub => sub.status === 'active') ||
+                                 subscriptionResult.subscriptions[0];
+        setCurrentSubscription(activeSubscription);
+      }
+    } catch (error) {
+      console.error('Error fetching payment data:', error);
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const isValidRegistration = (): boolean => {
+    if (!currentPayment || currentPayment.status !== 'succeeded') {
+      return false;
+    }
+    
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    
+    return currentPayment.created > oneYearAgo;
+  };
+
+  const getPaymentStatus = () => {
+    if (!currentPayment) return { label: 'Aucun paiement', color: 'bg-gray-100 text-gray-800' };
+    
+    if (currentPayment.status !== 'succeeded') {
+      return { label: 'Paiement échoué', color: 'bg-red-100 text-red-800' };
+    }
+    
+    if (isValidRegistration()) {
+      return { label: 'Adhésion valide', color: 'bg-green-100 text-green-800' };
+    } else {
+      return { label: 'Adhésion expirée', color: 'bg-orange-100 text-orange-800' };
+    }
+  };
+
+  const formatDate = (dateInput: string | number | Date) => {
+    try {
+      const date = new Date(dateInput);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('fr-FR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+      return 'Date invalide';
+    } catch (error) {
+      return 'Date invalide';
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!currentSubscription || !userProfile) return;
+    
+    const confirmed = window.confirm(
+      'Êtes-vous sûr de vouloir annuler votre abonnement automatique ? Votre adhésion restera active jusqu\'à la fin de la période déjà payée.'
+    );
+    
+    if (confirmed) {
+      try {
+        const response = await fetch('/api/stripe?action=cancel-subscription', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: userProfile.email,
+            subscriptionId: currentSubscription.id
+          }),
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('Votre abonnement automatique a été annulé. Votre adhésion reste active jusqu\'à la fin de la période payée.');
+          // Refresh payment data
+          fetchPaymentData(userProfile.email);
+        } else {
+          alert('Erreur lors de l\'annulation: ' + (result.error || 'Erreur inconnue'));
+        }
+      } catch (error) {
+        alert('Erreur lors de l\'annulation de l\'abonnement.');
+      }
+    }
+  };
+
+  const handleCardUpdate = async () => {
+    if (!currentSubscription || !userProfile) return;
+    
+    setIsPaymentLoading(true);
+    
+    try {
+      const response = await fetch('/api/stripe?action=update-payment-method', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userProfile.email,
+          subscriptionId: currentSubscription.id
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('Votre carte bancaire a été mise à jour avec succès.');
+        setShowCardUpdate(false);
+        // Refresh payment data
+        fetchPaymentData(userProfile.email);
+      } else {
+        alert('Erreur lors de la mise à jour: ' + (result.error || 'Erreur inconnue'));
+      }
+    } catch (error) {
+      alert('Erreur lors de la mise à jour de la carte bancaire.');
+    } finally {
+      setIsPaymentLoading(false);
     }
   };
 
@@ -709,8 +852,154 @@ const ProfileEdit: React.FC = () => {
             {/* Payment Tab */}
             {activeTab === 'payment' && (
               <div className="space-y-6">
-                <h3 className="text-xl font-semibold text-gray-900">Renouveler l'adhésion</h3>
-                <p className="text-gray-600">Renouvelez votre cotisation annuelle</p>
+                <h3 className="text-xl font-semibold text-gray-900">Gestion des paiements</h3>
+                <p className="text-gray-600">Consultez et gérez vos informations de paiement</p>
+                
+                {/* Current Payment Status */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Statut actuel de l'adhésion</h4>
+                  {paymentLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-srh-blue" />
+                      <span className="ml-2 text-sm text-gray-600">Chargement des informations...</span>
+                    </div>
+                  ) : currentPayment ? (
+                    <div className="space-y-4">
+                      {/* Payment Status */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Statut de l'adhésion:</span>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatus().color}`}>
+                          {getPaymentStatus().label}
+                        </span>
+                      </div>
+                      
+                      {/* Payment Details */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-sm text-gray-600">Montant payé:</span>
+                          <div className="text-lg font-semibold text-green-600 flex items-center">
+                            <Euro className="h-4 w-4 mr-1" />
+                            {currentPayment.amount} €
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-600">Date de paiement:</span>
+                          <div className="text-sm text-gray-900 flex items-center">
+                            <Calendar className="h-4 w-4 mr-1 text-gray-400" />
+                            {formatDate(currentPayment.created)}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-600">Type d'abonnement:</span>
+                          <div className="text-sm text-gray-900">
+                            {currentSubscription ? 'Abonnement automatique' : 'Paiement unique'}
+                            {currentSubscription && (
+                              <span className={`ml-2 ${
+                                currentSubscription.status === 'active' 
+                                  ? 'text-green-600' 
+                                  : currentSubscription.status === 'canceled' 
+                                    ? 'text-orange-600' 
+                                    : 'text-red-600'
+                              }`}>
+                                ✓ {currentSubscription.status === 'active' ? 'Actif' : 
+                                   currentSubscription.status === 'canceled' ? 'Annulé' : 
+                                   'Inactif'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-600">Fin d'adhésion:</span>
+                          <div className="text-sm text-gray-900 flex items-center">
+                            <Calendar className="h-4 w-4 mr-1 text-gray-400" />
+                            {currentSubscription ? 
+                              formatDate(currentSubscription.current_period_end) :
+                              (() => {
+                                const endDate = new Date(currentPayment.created);
+                                endDate.setFullYear(endDate.getFullYear() + 1);
+                                return formatDate(endDate);
+                              })()
+                            }
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Recurring Payment Advice */}
+                      {!currentSubscription && isValidRegistration() && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                          <div className="flex items-start">
+                            <CreditCard className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
+                            <div>
+                              <h5 className="text-sm font-medium text-blue-900">Conseil : Activez l'abonnement automatique</h5>
+                              <p className="text-sm text-blue-800 mt-1">
+                                Pour ne jamais oublier de renouveler votre adhésion, activez l'abonnement automatique.
+                                Votre carte sera débitée automatiquement chaque année à la même date.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Payment Management Actions */}
+                      {currentSubscription && currentSubscription.status === 'active' && (
+                        <div className="border-t border-gray-200 pt-4 space-y-3">
+                          <h5 className="font-medium text-gray-900">Gestion de l'abonnement</h5>
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setShowCardUpdate(!showCardUpdate)}
+                              className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition-colors"
+                            >
+                              {showCardUpdate ? 'Annuler' : 'Modifier la carte bancaire'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelSubscription}
+                              className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-colors"
+                            >
+                              Annuler l'abonnement automatique
+                            </button>
+                          </div>
+                          
+                          {/* Card Update Form */}
+                          {showCardUpdate && (
+                            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                              <h6 className="font-medium text-gray-900 mb-3">Mettre à jour la carte bancaire</h6>
+                              <StripeCardInput />
+                              <div className="flex gap-3 mt-4">
+                                <button
+                                  type="button"
+                                  onClick={handleCardUpdate}
+                                  disabled={isPaymentLoading}
+                                  className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50"
+                                >
+                                  {isPaymentLoading ? 'Mise à jour...' : 'Mettre à jour'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCardUpdate(false)}
+                                  className="text-sm bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors"
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">Aucun paiement trouvé</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Separator */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Renouveler ou modifier l'adhésion</h4>
+                </div>
                 
                 {/* Subscription Selection */}
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
