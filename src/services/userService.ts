@@ -63,9 +63,12 @@ export async function getUserById(id: string | number) {
     if (result.success) {
       // Convert date strings back to Date objects
       const user = result.user;
+      
+      // Handle createdAt - convert from timestamp to Date
       if (user.createdAt) {
         user.createdAt = new Date(user.createdAt);
       }
+      
       if (user.updatedAt) {
         user.updatedAt = new Date(user.updatedAt);
       }
