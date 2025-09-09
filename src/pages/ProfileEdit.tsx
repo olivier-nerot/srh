@@ -1,10 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
-  User, ArrowLeft, Save, Briefcase, AlertCircle 
+  User, ArrowLeft, Save, Briefcase, AlertCircle, CreditCard 
 } from 'lucide-react';
 import { getUserById } from '../services/userService';
 import { useAuthStore } from '../stores/authStore';
+import { loadStripe } from '@stripe/stripe-js';
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements
+} from '@stripe/react-stripe-js';
+import StripeCardInput from '../components/StripeCardInput';
+
+// Use VITE_STRIPE_TESTMODE to determine which Stripe keys to use
+const isTestMode = import.meta.env.VITE_STRIPE_TESTMODE === 'true';
+const stripePublicKey = isTestMode
+  ? import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY // Test key
+  : import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY; // Live key
+
+const stripePromise = loadStripe(stripePublicKey);
+
+// Stable Elements options to prevent re-renders
+const elementsOptions = {
+  fonts: [
+    {
+      cssSrc: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap',
+    },
+  ],
+};
 
 interface UserProfile {
   id: number;
@@ -51,7 +76,78 @@ const ProfileEdit: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'personal' | 'professional'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'payment'>('personal');
+  const [isRecurring, setIsRecurring] = useState<boolean>(true);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+
+  const getSelectedTierData = () => {
+    return membershipTiers.find(tier => tier.id === formData.subscription);
+  };
+
+  const processStripePayment = async (tierData: any, user: any, stripe: any, elements: any) => {
+    try {
+      if (!stripe || !elements) {
+        throw new Error('Stripe not ready');
+      }
+
+      const cardElement = elements.getElement(CardElement);
+      
+      if (!cardElement) {
+        throw new Error('Card element not found. Please make sure you have selected a paid membership tier.');
+      }
+
+      // Create payment intent on backend first
+      const response = await fetch('/api/stripe?action=create-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: tierData.price * 100, // Convert to cents
+          currency: 'eur',
+          customer: {
+            email: user.email,
+            name: `${user.firstname} ${user.lastname}`,
+            hospital: user.hospital,
+          },
+          recurring: isRecurring,
+          tierData: tierData,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Payment processing failed');
+      }
+
+      // Confirm the payment with Stripe using the clientSecret
+      if (result.clientSecret) {
+        const confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              name: `${user.firstname} ${user.lastname}`,
+              email: user.email,
+            },
+          }
+        });
+
+        if (confirmationResult.error) {
+          throw new Error(confirmationResult.error.message || 'Payment confirmation failed');
+        }
+
+        return { success: true, data: { ...result, confirmation: confirmationResult } };
+      }
+
+      return { success: true, data: result };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Erreur de paiement' 
+      };
+    }
+  };
 
   const userId = searchParams.get('id');
 
@@ -80,18 +176,30 @@ const ProfileEdit: React.FC = () => {
     {
       id: 'practicing',
       title: 'Médecin hospitalier en exercice, Professeur des Universités',
+      price: 120,
+      actualCost: 40,
+      description: 'Pour les radiologues hospitaliers et universitaires en activité'
     },
     {
       id: 'retired',
       title: 'Radiologue hospitalier/universitaire retraité',
+      price: 60,
+      actualCost: 20,
+      description: 'Tarif préférentiel pour nos confrères retraités'
     },
     {
       id: 'assistant',
       title: 'Radiologue assistant spécialiste',
+      price: 30,
+      actualCost: 10,
+      description: 'Tarif adapté aux assistants spécialistes'
     },
     {
       id: 'first-time',
       title: 'Première adhésion (dans l\'année de nomination)',
+      price: 0,
+      actualCost: 0,
+      description: 'Gratuit pour votre première année d\'adhésion'
     }
   ];
 
@@ -115,6 +223,11 @@ const ProfileEdit: React.FC = () => {
     }
 
     fetchUserProfile();
+    
+    // Check if we should navigate to payment tab from URL hash
+    if (window.location.hash === '#payment') {
+      setActiveTab('payment');
+    }
   }, [userId]);
 
   const fetchUserProfile = async () => {
@@ -270,7 +383,78 @@ const ProfileEdit: React.FC = () => {
     );
   }
 
+  // PaymentHandler component for processing payments
+  const PaymentHandler = () => {
+    const stripe = useStripe();
+    const elements = useElements();
+
+    const handlePaymentClick = async () => {
+      setIsPaymentLoading(true);
+
+      try {
+        const selectedTierData = getSelectedTierData();
+        if (!selectedTierData) {
+          alert('Veuillez sélectionner un type d\'adhésion.');
+          setIsPaymentLoading(false);
+          return;
+        }
+
+        // Process payment if needed
+        if (selectedTierData.price > 0) {
+          const paymentResult = await processStripePayment(
+            selectedTierData, 
+            {
+              email: formData.email,
+              firstname: formData.firstname,
+              lastname: formData.lastname,
+              hospital: formData.hospital
+            }, 
+            stripe, 
+            elements
+          );
+          if (!paymentResult.success) {
+            alert(paymentResult.error || 'Erreur lors du paiement');
+            setIsPaymentLoading(false);
+            return;
+          }
+          
+          // Update user subscription
+          await handleSave();
+          alert('Paiement effectué avec succès ! Votre adhésion a été renouvelée.');
+        } else {
+          // Free tier, just update subscription
+          await handleSave();
+          alert('Adhésion mise à jour avec succès !');
+        }
+
+      } catch (error) {
+        console.error('Payment error:', error);
+        alert('Erreur lors du paiement. Veuillez réessayer.');
+      } finally {
+        setIsPaymentLoading(false);
+      }
+    };
+
+    return (
+      <button
+        onClick={handlePaymentClick}
+        disabled={!formData.subscription || isPaymentLoading || (!stripe && (getSelectedTierData()?.price ?? 0) > 0)}
+        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+      >
+        {isPaymentLoading 
+          ? 'Traitement en cours...' 
+          : getSelectedTierData()?.price === 0 
+            ? 'Mettre à jour l\'adhésion' 
+            : isRecurring
+              ? 'Renouveler l\'abonnement annuel'
+              : 'Effectuer le paiement'
+        }
+      </button>
+    );
+  };
+
   return (
+    <Elements stripe={stripePromise} options={elementsOptions}>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
@@ -347,6 +531,17 @@ const ProfileEdit: React.FC = () => {
                 >
                   <Briefcase className="h-5 w-5 mr-2 inline" />
                   Informations Professionnelles
+                </button>
+                <button
+                  onClick={() => setActiveTab('payment')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'payment'
+                      ? 'border-srh-blue text-srh-blue'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <CreditCard className="h-5 w-5 mr-2 inline" />
+                  Règlement
                 </button>
               </nav>
             </div>
@@ -510,10 +705,108 @@ const ProfileEdit: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Payment Tab */}
+            {activeTab === 'payment' && (
+              <div className="space-y-6">
+                <h3 className="text-xl font-semibold text-gray-900">Renouveler l'adhésion</h3>
+                <p className="text-gray-600">Renouvelez votre cotisation annuelle</p>
+                
+                {/* Subscription Selection */}
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium text-gray-900 mb-4">Type d'adhésion</h4>
+                  <select
+                    id="subscription"
+                    name="subscription"
+                    value={formData.subscription}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-srh-blue focus:border-transparent"
+                  >
+                    <option value="">Sélectionner un type d'adhésion</option>
+                    {membershipTiers.map((tier) => (
+                      <option key={tier.id} value={tier.id}>
+                        {tier.title} - {tier.price === 0 ? 'Gratuit' : `${tier.price} €`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Payment Summary */}
+                {getSelectedTierData() && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h4 className="font-medium text-gray-900 mb-2">Récapitulatif de votre adhésion</h4>
+                    <div className="flex justify-between items-center">
+                      <span>{getSelectedTierData()?.title}</span>
+                      <span className="font-bold">
+                        {getSelectedTierData()?.price === 0 ? 'Gratuit' : `${getSelectedTierData()?.price} €${isRecurring ? '/an' : ''}`}
+                      </span>
+                    </div>
+                    {(getSelectedTierData()?.price || 0) > 0 && (
+                      <div className="text-sm text-green-600 mt-1">
+                        Coût réel après déduction fiscale : {getSelectedTierData()?.actualCost} €{isRecurring ? '/an' : ''}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Payment Type */}
+                {getSelectedTierData() && (getSelectedTierData()?.price || 0) > 0 && (
+                  <>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-3">Type de paiement</h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center">
+                          <input
+                            type="radio"
+                            id="one-time"
+                            name="paymentType"
+                            checked={!isRecurring}
+                            onChange={() => setIsRecurring(false)}
+                            className="h-4 w-4 text-srh-blue focus:ring-srh-blue border-gray-300"
+                          />
+                          <label htmlFor="one-time" className="ml-3 text-sm text-gray-700">
+                            <span className="font-medium">Paiement unique</span>
+                            <div className="text-gray-500">Adhésion pour l'année en cours uniquement</div>
+                          </label>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="radio"
+                            id="recurring"
+                            name="paymentType"
+                            checked={isRecurring}
+                            onChange={() => setIsRecurring(true)}
+                            className="h-4 w-4 text-srh-blue focus:ring-srh-blue border-gray-300"
+                          />
+                          <label htmlFor="recurring" className="ml-3 text-sm text-gray-700">
+                            <span className="font-medium">Abonnement annuel automatique</span>
+                            <div className="text-gray-500">Renouvellement automatique chaque année (résiliable à tout moment)</div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <StripeCardInput />
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
+      
+      {/* Payment Button for Payment Tab */}
+      {activeTab === 'payment' && getSelectedTierData() && (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex justify-center">
+              <PaymentHandler />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    </Elements>
   );
 };
 

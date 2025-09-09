@@ -610,7 +610,9 @@ async function getUserProfile(req, res) {
         isadmin: user.isadmin,
         newsletter: user.newsletter,
         infopro: user.infopro,
-        subscribedUntil: user.subscribedUntil
+        subscribedUntil: user.subscribedUntil,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
       }
     });
 

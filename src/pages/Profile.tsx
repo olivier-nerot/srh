@@ -7,6 +7,7 @@ import {
 import { getUserById } from '../services/userService';
 import { getUserLastPayment, type Payment } from '../services/paymentService';
 import { useAuthStore } from '../stores/authStore';
+import { formatDateToDDMMYYYY } from '../utils/dateUtils';
 
 interface UserProfile {
   id: number;
@@ -83,7 +84,7 @@ const Profile: React.FC = () => {
   const getSubscriptionLabel = (subscription: string) => {
     const subscriptions: { [key: string]: string } = {
       'practicing': 'Médecin hospitalier en exercice',
-      'retired': 'Radiologue retraité',
+      'retired': 'Radiologue hospitalier/universitaire retraité',
       'assistant': 'Assistant spécialiste',
       'first-time': 'Première adhésion'
     };
@@ -100,12 +101,28 @@ const Profile: React.FC = () => {
     return colors[subscription] || 'bg-gray-100 text-gray-800';
   };
 
-  const formatDate = (dateString: string | Date) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const formatDate = (dateInput: string | number | Date) => {
+    try {
+      // Use the utility function that handles all timestamp formats
+      const formattedDate = formatDateToDDMMYYYY(dateInput);
+      if (formattedDate === 'Date invalide') {
+        return 'Date invalide';
+      }
+      
+      // Convert DD/MM/YYYY to a more readable format
+      const date = new Date(dateInput);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('fr-FR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+      return 'Date invalide';
+    } catch (error) {
+      console.error('Error formatting date:', dateInput, error);
+      return 'Date invalide';
+    }
   };
 
   const isValidRegistration = (): boolean => {
@@ -186,7 +203,7 @@ const Profile: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-srh-blue mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-srh-blue mx-auto mb-4" />
           <p className="text-gray-600">Chargement du profil...</p>
         </div>
       </div>
@@ -208,6 +225,7 @@ const Profile: React.FC = () => {
           </p>
 
           <button
+            type="button"
             onClick={handleBack}
             className="w-full bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
           >
@@ -227,6 +245,7 @@ const Profile: React.FC = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <button
+              type="button"
               onClick={handleBack}
               className="flex items-center text-gray-600 hover:text-srh-blue transition-colors"
             >
@@ -247,6 +266,7 @@ const Profile: React.FC = () => {
             <div className="flex items-center">
               {canEdit && (
                 <button
+                  type="button"
                   onClick={handleEdit}
                   className="bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2"
                 >
@@ -309,9 +329,9 @@ const Profile: React.FC = () => {
                       <h3 className="text-lg font-semibold text-gray-900">Informations professionnelles</h3>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {professionalLabels.map((label, index) => (
+                      {professionalLabels.map((label) => (
                         <span
-                          key={index}
+                          key={label}
                           className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-indigo-100 text-indigo-800"
                         >
                           {label}
@@ -412,6 +432,23 @@ const Profile: React.FC = () => {
                     <div className="text-center py-4">
                       <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                       <p className="text-sm text-gray-500">Aucun paiement trouvé</p>
+                    </div>
+                  )}
+                  
+                  {/* Payment Action Button */}
+                  {isOwnProfile && !isValidRegistration() && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/profile/edit?id=${userId}#payment`)}
+                        className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Renouveler mon adhésion
+                      </button>
+                      <p className="text-xs text-gray-500 mt-2 text-center">
+                        Votre adhésion a expiré ou n'est pas valide. Cliquez pour la renouveler.
+                      </p>
                     </div>
                   )}
                 </div>
