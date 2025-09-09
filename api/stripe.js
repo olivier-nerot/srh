@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   
   if (!action) {
     return res.status(400).json({ 
-      error: 'Action is required (get-payments, create-payment, get-subscriptions, cancel-subscription, update-payment-method)' 
+      error: 'Action is required (get-payments, create-payment, get-subscriptions, cancel-subscription, reactivate-subscription, update-payment-method)' 
     });
   }
 
@@ -45,6 +45,8 @@ export default async function handler(req, res) {
         return await getSubscriptions(req, res);
       case 'cancel-subscription':
         return await cancelSubscription(req, res);
+      case 'reactivate-subscription':
+        return await reactivateSubscription(req, res);
       case 'update-payment-method':
         return await updatePaymentMethod(req, res);
       case 'create-recurring-subscription':
@@ -553,6 +555,58 @@ async function createRecurringSubscription(req, res) {
     return res.status(500).json({
       success: false,
       error: 'Error creating recurring subscription',
+      details: error.message
+    });
+  }
+}
+
+// Reactivate subscription functionality
+async function reactivateSubscription(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { email, subscriptionId } = req.body;
+
+    if (!email || !subscriptionId) {
+      return res.status(400).json({ error: 'Email and subscriptionId are required' });
+    }
+
+    // Use the connected account ID for API calls
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID
+    };
+
+    // Reactivate the subscription by removing the cancel_at_period_end flag
+    const subscription = await stripe.subscriptions.update(
+      subscriptionId,
+      {
+        cancel_at_period_end: false,
+        metadata: {
+          reactivated_by: 'customer',
+          reactivated_at: new Date().toISOString(),
+        }
+      },
+      requestOptions
+    );
+
+    return res.status(200).json({
+      success: true,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        current_period_end: new Date(subscription.current_period_end * 1000),
+      },
+      message: 'Subscription has been reactivated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error reactivating subscription:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error reactivating subscription',
       details: error.message
     });
   }

@@ -468,6 +468,45 @@ const ProfileEdit: React.FC = () => {
     }
   };
 
+  const handleReactivateSubscription = async () => {
+    if (!currentSubscription || !userProfile) return;
+    
+    const confirmed = window.confirm(
+      'Voulez-vous réactiver votre abonnement automatique ? Le renouvellement automatique reprendra à la fin de la période actuelle.'
+    );
+    
+    if (!confirmed) return;
+    
+    setIsPaymentLoading(true);
+    
+    try {
+      const response = await fetch('/api/stripe?action=reactivate-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userProfile.email,
+          subscriptionId: currentSubscription.id
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('Votre abonnement automatique a été réactivé avec succès ! Le renouvellement reprendra à la fin de la période actuelle.');
+        // Refresh payment data
+        fetchPaymentData(userProfile.email);
+      } else {
+        alert('Erreur lors de la réactivation: ' + (result.error || 'Erreur inconnue'));
+      }
+    } catch (error) {
+      alert('Erreur lors de la réactivation de l\'abonnement.');
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
@@ -986,24 +1025,42 @@ const ProfileEdit: React.FC = () => {
                       )}
                       
                       {/* Payment Management Actions */}
-                      {currentSubscription && currentSubscription.status === 'active' && (
+                      {currentSubscription && (
                         <div className="border-t border-gray-200 pt-4 space-y-3">
                           <h5 className="font-medium text-gray-900">Gestion de l'abonnement</h5>
                           <div className="flex flex-wrap gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setShowCardUpdate(!showCardUpdate)}
-                              className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition-colors"
-                            >
-                              {showCardUpdate ? 'Annuler' : 'Modifier la carte bancaire'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleCancelSubscription}
-                              className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-colors"
-                            >
-                              Annuler l'abonnement automatique
-                            </button>
+                            {/* Show different buttons based on subscription status */}
+                            {currentSubscription.status === 'active' && !currentSubscription.cancel_at_period_end && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCardUpdate(!showCardUpdate)}
+                                  className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition-colors"
+                                >
+                                  {showCardUpdate ? 'Annuler' : 'Modifier la carte bancaire'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelSubscription}
+                                  className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-colors"
+                                >
+                                  Annuler l'abonnement automatique
+                                </button>
+                              </>
+                            )}
+                            
+                            {/* Show reactivate button if subscription was canceled */}
+                            {(currentSubscription.status === 'active' && currentSubscription.cancel_at_period_end) || 
+                             currentSubscription.status === 'canceled' && (
+                              <button
+                                type="button"
+                                onClick={handleReactivateSubscription}
+                                disabled={isPaymentLoading}
+                                className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md transition-colors disabled:opacity-50"
+                              >
+                                {isPaymentLoading ? 'Activation...' : 'Réactiver l\'abonnement automatique'}
+                              </button>
+                            )}
                           </div>
                           
                           {/* Card Update Form */}
@@ -1041,8 +1098,11 @@ const ProfileEdit: React.FC = () => {
                   )}
                 </div>
                 
-                {/* Make Payment Recurrent for Valid One-time Payments */}
-                {!currentSubscription && isValidRegistration() && (
+                {/* Make Payment Recurrent for Valid One-time Payments or No Active Subscription */}
+                {(!currentSubscription || 
+                  (currentSubscription && currentSubscription.status === 'canceled') || 
+                  (currentSubscription && currentSubscription.cancel_at_period_end)) && 
+                 isValidRegistration() && (
                   <div className="border-t border-gray-200 pt-6">
                     <h4 className="text-lg font-semibold text-gray-900 mb-4">Activer l'abonnement automatique</h4>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -1050,19 +1110,26 @@ const ProfileEdit: React.FC = () => {
                         <CreditCard className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
                         <div className="flex-1">
                           <h5 className="text-sm font-medium text-blue-900 mb-2">
-                            Convertir en abonnement automatique
+                            {currentSubscription ? 'Réactiver l\'abonnement automatique' : 'Convertir en abonnement automatique'}
                           </h5>
                           <p className="text-sm text-blue-800 mb-4">
-                            Activez le renouvellement automatique pour ne jamais oublier votre adhésion.
-                            Votre carte sera débitée automatiquement chaque année.
+                            {currentSubscription 
+                              ? 'Votre abonnement a été annulé mais reste actif jusqu\'à la fin de la période. Réactivez-le pour continuer le renouvellement automatique.'
+                              : 'Activez le renouvellement automatique pour ne jamais oublier votre adhésion. Votre carte sera débitée automatiquement chaque année.'
+                            }
                           </p>
                           <button
                             type="button"
-                            onClick={() => handleMakeRecurring()}
+                            onClick={() => currentSubscription ? handleReactivateSubscription() : handleMakeRecurring()}
                             disabled={isPaymentLoading}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
                           >
-                            {isPaymentLoading ? 'Activation en cours...' : 'Activer l\'abonnement automatique'}
+                            {isPaymentLoading 
+                              ? 'Activation en cours...' 
+                              : currentSubscription 
+                                ? 'Réactiver l\'abonnement automatique'
+                                : 'Activer l\'abonnement automatique'
+                            }
                           </button>
                         </div>
                       </div>

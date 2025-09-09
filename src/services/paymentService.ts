@@ -16,6 +16,8 @@ export interface Subscription {
   currency: string;
   tier: string;
   customer_email: string;
+  cancel_at_period_end: boolean;
+  canceled_at: Date | null;
 }
 
 const API_BASE = '';
