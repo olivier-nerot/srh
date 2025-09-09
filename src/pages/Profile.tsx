@@ -105,11 +105,8 @@ const Profile: React.FC = () => {
     try {
       let date: Date;
       
-      console.log('formatDate called with:', dateInput, 'type:', typeof dateInput);
-      
       // Handle different input types
       if (!dateInput) {
-        console.log('dateInput is falsy, returning Date invalide');
         return 'Date invalide';
       }
       
@@ -133,25 +130,17 @@ const Profile: React.FC = () => {
       }
       
       
-      console.log('Created date object:', date);
-      
       // Validate the date
       if (!date || Number.isNaN(date.getTime())) {
-        console.log('Date validation failed - invalid date object');
         return 'Date invalide';
       }
       
       // Check if the year is reasonable
       const year = date.getFullYear();
-      console.log('Year extracted:', year, 'Current year:', new Date().getFullYear());
-      
       // Be more permissive with future dates since system dates can be set ahead
       if (year < 1990 || year > 2030) {
-        console.log('Year validation failed:', year, 'not between 1990 and 2030');
         return 'Date invalide';
       }
-      
-      console.log('All validations passed, formatting date...');
       
       // Return formatted date
       return date.toLocaleDateString('fr-FR', {

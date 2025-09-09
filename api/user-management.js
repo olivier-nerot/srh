@@ -130,8 +130,8 @@ async function createUser(req, res) {
       subscription: subscription || null,
       newsletter: newsletter || false,
       isadmin: isadmin || false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     }).returning();
 
     const newUser = result[0];
@@ -271,7 +271,7 @@ async function updateUser(req, res) {
         newsletter: newsletter,
         isadmin: isadmin,
         infopro: infopro,
-        updatedAt: new Date(),
+        updatedAt: Date.now(),
       })
       .where(eq(users.id, parseInt(id)))
       .returning();
@@ -432,7 +432,7 @@ async function loginUser(req, res) {
       email: email,
       otp: otpCode,
       expiresAt: expiresAt,
-      createdAt: new Date(),
+      createdAt: Date.now(),
     };
     
     console.log('=== OTP INSERT DEBUG ===');
@@ -597,28 +597,9 @@ async function getUserProfile(req, res) {
 
     const user = result[0];
     
-    console.log('=== API DEBUG ===');
-    console.log('Raw user.createdAt from DB:', user.createdAt, 'type:', typeof user.createdAt);
-    console.log('Raw user.updatedAt from DB:', user.updatedAt, 'type:', typeof user.updatedAt);
-    
-    // Handle timestamp conversion more robustly
-    let createdAtConverted = null;
-    let updatedAtConverted = null;
-    
-    if (user.createdAt) {
-      // Ensure the timestamp is treated as a number and is in milliseconds
-      const timestamp = Number(user.createdAt);
-      // If timestamp appears to be in seconds, convert to milliseconds
-      createdAtConverted = new Date(timestamp < 10000000000 ? timestamp * 1000 : timestamp);
-    }
-    
-    if (user.updatedAt) {
-      const timestamp = Number(user.updatedAt);
-      updatedAtConverted = new Date(timestamp < 10000000000 ? timestamp * 1000 : timestamp);
-    }
-    
-    console.log('Converted createdAt:', createdAtConverted);
-    console.log('Converted updatedAt:', updatedAtConverted);
+    // Convert integer timestamps to Date objects
+    const createdAtConverted = user.createdAt ? new Date(user.createdAt) : null;
+    const updatedAtConverted = user.updatedAt ? new Date(user.updatedAt) : null;
 
     return res.status(200).json({
       success: true,
@@ -707,7 +688,7 @@ async function updateProfile(req, res) {
         newsletter: newsletter,
         isadmin: isadmin,
         infopro: JSON.stringify(professionalInfo),
-        updatedAt: new Date(),
+        updatedAt: Date.now(),
       })
       .where(eq(users.id, parseInt(id)))
       .returning();

@@ -64,14 +64,9 @@ export async function getUserById(id: string | number) {
       // Convert date strings back to Date objects
       const user = result.user;
       
-      // Handle createdAt - convert from timestamp to Date
-      if (user.createdAt) {
-        console.log('userService: Converting createdAt:', user.createdAt, 'type:', typeof user.createdAt);
-        // Only convert if it's not already a Date object
-        if (!(user.createdAt instanceof Date)) {
-          user.createdAt = new Date(user.createdAt);
-        }
-        console.log('userService: Final createdAt:', user.createdAt, 'year:', user.createdAt.getFullYear());
+      // Handle createdAt - should already be properly converted by API
+      if (user.createdAt && typeof user.createdAt === 'string') {
+        user.createdAt = new Date(user.createdAt);
       }
       
       if (user.updatedAt) {
