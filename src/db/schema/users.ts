@@ -11,7 +11,7 @@ export const users = sqliteTable('users', {
   hospital: text('hospital'),
   address: text('address'),
   subscription: text('subscription'),
-  subscribedUntil: integer('subscribed_until'),
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
+  subscribedUntil: integer('subscribed_until', { mode: 'timestamp_ms' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });

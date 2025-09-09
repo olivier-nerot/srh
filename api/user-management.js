@@ -15,9 +15,9 @@ const users = sqliteTable('users', {
   hospital: text('hospital'),
   address: text('address'),
   subscription: text('subscription'),
-  subscribedUntil: integer('subscribed_until', { mode: 'timestamp' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  subscribedUntil: integer('subscribed_until', { mode: 'timestamp_ms' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // Define OTP table
@@ -596,10 +596,6 @@ async function getUserProfile(req, res) {
     }
 
     const user = result[0];
-    
-    // Convert integer timestamps to Date objects
-    const createdAtConverted = user.createdAt ? new Date(user.createdAt) : null;
-    const updatedAtConverted = user.updatedAt ? new Date(user.updatedAt) : null;
 
     return res.status(200).json({
       success: true,
@@ -615,9 +611,8 @@ async function getUserProfile(req, res) {
         newsletter: user.newsletter,
         infopro: user.infopro,
         subscribedUntil: user.subscribedUntil,
-        // Convert timestamp to Date object for proper client-side handling
-        createdAt: createdAtConverted,
-        updatedAt: updatedAtConverted
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
       }
     });
 
