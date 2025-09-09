@@ -66,7 +66,12 @@ export async function getUserById(id: string | number) {
       
       // Handle createdAt - convert from timestamp to Date
       if (user.createdAt) {
-        user.createdAt = new Date(user.createdAt);
+        console.log('userService: Converting createdAt:', user.createdAt, 'type:', typeof user.createdAt);
+        // Only convert if it's not already a Date object
+        if (!(user.createdAt instanceof Date)) {
+          user.createdAt = new Date(user.createdAt);
+        }
+        console.log('userService: Final createdAt:', user.createdAt, 'year:', user.createdAt.getFullYear());
       }
       
       if (user.updatedAt) {
