@@ -7,7 +7,7 @@ import {
 import { getUserById } from '../services/userService';
 import { getUserLastPayment, type Payment } from '../services/paymentService';
 import { useAuthStore } from '../stores/authStore';
-import { formatDateToDDMMYYYY } from '../utils/dateUtils';
+// Date formatting is now handled inline
 
 interface UserProfile {
   id: number;
@@ -103,24 +103,53 @@ const Profile: React.FC = () => {
 
   const formatDate = (dateInput: string | number | Date) => {
     try {
-      // Use the utility function that handles all timestamp formats
-      const formattedDate = formatDateToDDMMYYYY(dateInput);
-      if (formattedDate === 'Date invalide') {
+      let date: Date;
+      
+      
+      // Handle different input types
+      if (!dateInput) {
         return 'Date invalide';
       }
       
-      // Convert DD/MM/YYYY to a more readable format
-      const date = new Date(dateInput);
-      if (!isNaN(date.getTime())) {
-        return date.toLocaleDateString('fr-FR', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
+      if (typeof dateInput === 'string') {
+        // Handle ISO string format
+        date = new Date(dateInput);
+      } else if (typeof dateInput === 'number') {
+        // Handle Unix timestamp - could be in seconds or milliseconds
+        // If the number is less than a reasonable year 2000 timestamp in milliseconds,
+        // assume it's in seconds and convert to milliseconds
+        if (dateInput < 946684800000) { // Jan 1, 2000 in milliseconds
+          date = new Date(dateInput * 1000); // Convert seconds to milliseconds
+        } else {
+          date = new Date(dateInput); // Already in milliseconds
+        }
+      } else if (dateInput instanceof Date) {
+        date = dateInput;
+      } else {
+        // Handle object with timestamp or other formats
+        date = new Date(dateInput);
       }
-      return 'Date invalide';
+      
+      
+      // Validate the date
+      if (!date || Number.isNaN(date.getTime())) {
+        return 'Date invalide';
+      }
+      
+      // Check if the year is reasonable
+      const year = date.getFullYear();
+      if (year < 1990 || year > new Date().getFullYear() + 10) {
+        return 'Date invalide';
+      }
+      
+      // Return formatted date
+      return date.toLocaleDateString('fr-FR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      
     } catch (error) {
-      console.error('Error formatting date:', dateInput, error);
       return 'Date invalide';
     }
   };

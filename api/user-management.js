@@ -611,8 +611,9 @@ async function getUserProfile(req, res) {
         newsletter: user.newsletter,
         infopro: user.infopro,
         subscribedUntil: user.subscribedUntil,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+        // Convert timestamp to Date object for proper client-side handling
+        createdAt: user.createdAt ? new Date(user.createdAt) : null,
+        updatedAt: user.updatedAt ? new Date(user.updatedAt) : null
       }
     });
 
@@ -639,20 +640,50 @@ async function updateProfile(req, res) {
     const { 
       firstname, 
       lastname, 
+      email,
       hospital, 
       address,
-      newsletter 
+      subscription,
+      newsletter,
+      isadmin,
+      // Professional information fields
+      huTitulaire,
+      phLiberal,
+      hospitaloUniversitaireTitulaire,
+      adhesionCollegiale,
+      huLiberal,
+      hospitaloUniversitaireCCA,
+      adhesionAlliance,
+      assistantSpecialiste,
+      assistantTempsPartage
     } = req.body;
 
     const db = await getDb();
+    
+    // Prepare professional information as JSON
+    const professionalInfo = {
+      huTitulaire: huTitulaire || false,
+      phLiberal: phLiberal || false,
+      hospitaloUniversitaireTitulaire: hospitaloUniversitaireTitulaire || false,
+      adhesionCollegiale: adhesionCollegiale || false,
+      huLiberal: huLiberal || false,
+      hospitaloUniversitaireCCA: hospitaloUniversitaireCCA || false,
+      adhesionAlliance: adhesionAlliance || false,
+      assistantSpecialiste: assistantSpecialiste || false,
+      assistantTempsPartage: assistantTempsPartage || false,
+    };
     
     const result = await db.update(users)
       .set({
         firstname: firstname,
         lastname: lastname,
+        email: email,
         hospital: hospital,
         address: address,
+        subscription: subscription,
         newsletter: newsletter,
+        isadmin: isadmin,
+        infopro: JSON.stringify(professionalInfo),
         updatedAt: new Date(),
       })
       .where(eq(users.id, parseInt(id)))

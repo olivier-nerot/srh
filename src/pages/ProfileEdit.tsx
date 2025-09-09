@@ -515,6 +515,34 @@ const ProfileEdit: React.FC = () => {
     }));
   };
 
+  const updateSubscriptionOnly = async () => {
+    if (!userId) return;
+
+    try {
+      // Only update the subscription field
+      const response = await fetch(`/api/user-management?action=profile&id=${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscription: formData.subscription,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la mise à jour de l\'adhésion');
+      }
+
+      // Refresh user profile data
+      await fetchUserProfile();
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      throw error;
+    }
+  };
+
   const handleSave = async () => {
     if (!userId) return;
 
@@ -522,8 +550,8 @@ const ProfileEdit: React.FC = () => {
     setError('');
 
     try {
-      // Call update API
-      const response = await fetch(`/api/profile?id=${userId}`, {
+      // Call update API using the correct endpoint
+      const response = await fetch(`/api/user-management?action=profile&id=${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -659,12 +687,12 @@ const ProfileEdit: React.FC = () => {
             return;
           }
           
-          // Update user subscription
-          await handleSave();
+          // Payment successful, just refresh payment data
+          await fetchPaymentData(formData.email);
           alert('Paiement effectué avec succès ! Votre adhésion a été renouvelée.');
         } else {
-          // Free tier, just update subscription
-          await handleSave();
+          // Free tier, only update subscription field
+          await updateSubscriptionOnly();
           alert('Adhésion mise à jour avec succès !');
         }
 
