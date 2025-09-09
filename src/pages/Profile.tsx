@@ -490,7 +490,15 @@ const Profile: React.FC = () => {
                       <Calendar className="h-5 w-5 text-gray-400 mr-3" />
                       <div>
                         <p className="text-sm text-gray-600">Membre depuis</p>
-                        <p className="text-gray-900">{formatDate(userProfile.createdAt)}</p>
+                        <p className="text-gray-900">{(() => {
+                          console.log('=== PROFILE DEBUG ===');
+                          console.log('userProfile.createdAt:', userProfile.createdAt);
+                          console.log('type:', typeof userProfile.createdAt);
+                          console.log('toString:', userProfile.createdAt?.toString());
+                          const result = formatDate(userProfile.createdAt);
+                          console.log('formatDate result:', result);
+                          return result;
+                        })()}</p>
                       </div>
                     </div>
                     
