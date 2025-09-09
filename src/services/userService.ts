@@ -61,7 +61,18 @@ export async function getUserById(id: string | number) {
     const result = await response.json();
     
     if (result.success) {
-      return result.user;
+      // Convert date strings back to Date objects
+      const user = result.user;
+      if (user.createdAt) {
+        user.createdAt = new Date(user.createdAt);
+      }
+      if (user.updatedAt) {
+        user.updatedAt = new Date(user.updatedAt);
+      }
+      if (user.subscribedUntil) {
+        user.subscribedUntil = new Date(user.subscribedUntil);
+      }
+      return user;
     } else {
       console.error('Error fetching user by ID:', result.error);
       return null;
