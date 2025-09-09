@@ -11,8 +11,8 @@ const liens = sqliteTable('liens', {
   category: text('category').notNull(),
   url: text('url').notNull(),
   logo: text('logo'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // Liens data extracted from NosLiens.tsx

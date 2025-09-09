@@ -6,14 +6,14 @@ export const publications = sqliteTable('publications', {
   title: text('title').notNull(),
   content: text('content').notNull(),
   tags: text('tags', { mode: 'json' }),
-  pubdate: integer('pubdate', { mode: 'timestamp' }).notNull(),
+  pubdate: integer('pubdate', { mode: 'timestamp_ms' }).notNull(),
   subscribersonly: integer('subscribersonly', { mode: 'boolean' }).notNull(),
   homepage: integer('homepage', { mode: 'boolean' }).notNull(),
   picture: text('picture'),
   attachmentIds: text('attachment_ids', { mode: 'json' }),
   type: text('type').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // JO Textes table
@@ -23,8 +23,8 @@ export const jotextes = sqliteTable('jotextes', {
   content: text('content').notNull(),
   year: text('year'),
   document: integer('document'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // FAQ table
@@ -33,8 +33,8 @@ export const faq = sqliteTable('faq', {
   question: text('question').notNull(),
   answer: text('answer').notNull(),
   tags: text('tags', { mode: 'json' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // Rapports table
@@ -44,8 +44,8 @@ export const rapports = sqliteTable('rapports', {
   content: text('content').notNull(),
   year: text('year'),
   document: integer('document'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // Users table (from the initial migration)
@@ -55,8 +55,8 @@ export const users = sqliteTable('users', {
   name: text('name'),
   role: text('role').default('guest'),
   isadmin: integer('isadmin', { mode: 'boolean' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // Documents table (from the initial migration)
@@ -71,8 +71,8 @@ export const documents = sqliteTable('documents', {
   category: text('category').notNull(),
   isPublic: integer('is_public', { mode: 'boolean' }).default(true),
   uploadedBy: integer('uploaded_by'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // Articles table (from the initial migration)
@@ -85,9 +85,9 @@ export const articles = sqliteTable('articles', {
   category: text('category').notNull(),
   status: text('status').default('draft'),
   authorId: integer('author_id'),
-  publishedAt: integer('published_at', { mode: 'timestamp' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  publishedAt: integer('published_at', { mode: 'timestamp_ms' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // Liens table - NEW
@@ -100,6 +100,6 @@ export const liens = sqliteTable('liens', {
   url: text('url').notNull(), // Link URL
   logo: text('logo'), // Logo image URL/path (nullable - for backward compatibility)
   picture: text('picture'), // Base64 encoded logo image (nullable)
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });

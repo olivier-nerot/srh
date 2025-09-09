@@ -13,8 +13,8 @@ export const documents = sqliteTable('documents', {
   }).notNull(),
   isPublic: integer('is_public', { mode: 'boolean' }).default(true),
   uploadedBy: integer('uploaded_by').references(() => users.id),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 });
 
 import { users } from './users';

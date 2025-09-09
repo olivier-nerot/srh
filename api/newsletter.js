@@ -15,9 +15,9 @@ const users = sqliteTable('users', {
   hospital: text('hospital'),
   address: text('address'),
   subscription: text('subscription'),
-  subscribedUntil: integer('subscribed_until', { mode: 'timestamp' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  subscribedUntil: integer('subscribed_until', { mode: 'timestamp_ms' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 const publications = sqliteTable('publications', {
@@ -25,14 +25,14 @@ const publications = sqliteTable('publications', {
   title: text('title').notNull(),
   content: text('content'),
   tags: text('tags', { mode: 'json' }).$type(),
-  pubdate: integer('pubdate', { mode: 'timestamp' }).notNull(),
+  pubdate: integer('pubdate', { mode: 'timestamp_ms' }).notNull(),
   subscribersonly: integer('subscribersonly', { mode: 'boolean' }).notNull().default(false),
   homepage: integer('homepage', { mode: 'boolean' }).notNull().default(true),
   picture: text('picture'),
   attachmentIds: text('attachment_ids', { mode: 'json' }).$type(),
   type: text('type', { enum: ['publication', 'communique', 'jo', 'rapport'] }).notNull().default('publication'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 const resend = new Resend(process.env.RESEND_API_KEY);

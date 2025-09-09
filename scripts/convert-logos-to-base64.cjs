@@ -17,8 +17,8 @@ const liens = sqliteTable('liens', {
   url: text('url').notNull(),
   logo: text('logo'),
   picture: text('picture'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 // Function to convert file to base64

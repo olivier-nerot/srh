@@ -25,8 +25,8 @@ const otps = sqliteTable('otps', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   email: text('email').notNull(),
   otp: text('otp').notNull(),
-  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 const resend = new Resend(process.env.RESEND_API_KEY);

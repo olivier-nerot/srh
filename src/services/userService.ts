@@ -64,17 +64,7 @@ export async function getUserById(id: string | number) {
       // Convert date strings back to Date objects
       const user = result.user;
       
-      // Handle createdAt - should already be properly converted by API
-      if (user.createdAt && typeof user.createdAt === 'string') {
-        user.createdAt = new Date(user.createdAt);
-      }
-      
-      if (user.updatedAt) {
-        user.updatedAt = new Date(user.updatedAt);
-      }
-      if (user.subscribedUntil) {
-        user.subscribedUntil = new Date(user.subscribedUntil);
-      }
+      // Dates are already properly converted by API with timestamp_ms mode
       return user;
     } else {
       console.error('Error fetching user by ID:', result.error);

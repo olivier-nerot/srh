@@ -7,14 +7,14 @@ const publications = sqliteTable('publications', {
   title: text('title').notNull(),
   content: text('content').notNull(),
   tags: text('tags', { mode: 'json' }),
-  pubdate: integer('pubdate', { mode: 'timestamp' }).notNull(),
+  pubdate: integer('pubdate', { mode: 'timestamp_ms' }).notNull(),
   subscribersonly: integer('subscribers_only', { mode: 'boolean' }).default(false),
   homepage: integer('homepage', { mode: 'boolean' }).default(true),
   picture: text('picture'),
   attachmentIds: text('attachment_ids', { mode: 'json' }),
   type: text('type').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 const documents = sqliteTable('documents', {
@@ -28,8 +28,8 @@ const documents = sqliteTable('documents', {
   category: text('category').notNull(),
   isPublic: integer('is_public', { mode: 'boolean' }).default(true),
   uploadedBy: integer('uploaded_by'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 async function inspectAttachments() {
