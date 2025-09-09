@@ -626,8 +626,22 @@ const ProfileEdit: React.FC = () => {
           return;
         }
 
+        // Check if user already has a valid subscription
+        if (isValidRegistration() && currentSubscription && currentSubscription.status === 'active') {
+          alert('Vous avez déjà une adhésion active. Aucun paiement supplémentaire n\'est nécessaire.');
+          setIsPaymentLoading(false);
+          return;
+        }
+
         // Process payment if needed
         if (selectedTierData.price > 0) {
+          // Ensure Stripe and elements are ready for paid tiers
+          if (!stripe || !elements) {
+            alert('Le système de paiement n\'est pas encore prêt. Veuillez réessayer dans quelques instants.');
+            setIsPaymentLoading(false);
+            return;
+          }
+
           const paymentResult = await processStripePayment(
             selectedTierData, 
             {
@@ -665,16 +679,20 @@ const ProfileEdit: React.FC = () => {
     return (
       <button
         onClick={handlePaymentClick}
-        disabled={!formData.subscription || isPaymentLoading || (!stripe && (getSelectedTierData()?.price ?? 0) > 0)}
+        disabled={!formData.subscription || isPaymentLoading || 
+                  (!stripe && (getSelectedTierData()?.price ?? 0) > 0) ||
+                  Boolean(isValidRegistration() && currentSubscription && currentSubscription.status === 'active')}
         className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
       >
         {isPaymentLoading 
           ? 'Traitement en cours...' 
-          : getSelectedTierData()?.price === 0 
-            ? 'Mettre à jour l\'adhésion' 
-            : isRecurring
-              ? 'Renouveler l\'abonnement annuel'
-              : 'Effectuer le paiement'
+          : (isValidRegistration() && currentSubscription && currentSubscription.status === 'active')
+            ? 'Adhésion déjà active'
+            : getSelectedTierData()?.price === 0 
+              ? 'Mettre à jour l\'adhésion' 
+              : isRecurring
+                ? 'Souscrire l\'abonnement annuel'
+                : 'Effectuer le paiement'
         }
       </button>
     );
@@ -1030,7 +1048,7 @@ const ProfileEdit: React.FC = () => {
                           <h5 className="font-medium text-gray-900">Gestion de l'abonnement</h5>
                           <div className="flex flex-wrap gap-3">
                             {/* Show different buttons based on subscription status */}
-                            {currentSubscription.status === 'active' && !currentSubscription.cancel_at_period_end && (
+                            {currentSubscription.status === 'active' && !(currentSubscription.cancel_at_period_end ?? false) && (
                               <>
                                 <button
                                   type="button"
@@ -1050,7 +1068,7 @@ const ProfileEdit: React.FC = () => {
                             )}
                             
                             {/* Show reactivate button if subscription was canceled */}
-                            {(currentSubscription.status === 'active' && currentSubscription.cancel_at_period_end) || 
+                            {(currentSubscription.status === 'active' && (currentSubscription.cancel_at_period_end ?? false)) || 
                              currentSubscription.status === 'canceled' && (
                               <button
                                 type="button"
@@ -1137,8 +1155,32 @@ const ProfileEdit: React.FC = () => {
                   </div>
                 )}
                 
-                {/* Renewal Section - Only show if payment is expired or no payment */}
-                {(!isValidRegistration() || !currentPayment) && (
+                {/* Message for users with valid subscriptions */}
+                {(isValidRegistration() && currentPayment) && 
+                 (currentSubscription && currentSubscription.status === 'active' && !(currentSubscription.cancel_at_period_end ?? false)) && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-start">
+                        <CreditCard className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
+                        <div>
+                          <h5 className="text-sm font-medium text-green-900 mb-2">
+                            Votre adhésion est active
+                          </h5>
+                          <p className="text-sm text-green-800">
+                            Votre abonnement automatique est actif et se renouvellera automatiquement le{' '}
+                            {currentSubscription ? formatDate(currentSubscription.current_period_end) : 'à la date prévue'}.
+                            Aucune action n'est requise de votre part.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Renewal Section - Only show if payment is expired or no payment AND no active subscription */}
+                {(!isValidRegistration() || !currentPayment) && 
+                 (!currentSubscription || 
+                  (currentSubscription && currentSubscription.status === 'canceled' && !(currentSubscription.cancel_at_period_end ?? false))) && (
                   <>
                     <div className="border-t border-gray-200 pt-6">
                       <h4 className="text-lg font-semibold text-gray-900 mb-4">Renouveler ou modifier l'adhésion</h4>
@@ -1229,8 +1271,11 @@ const ProfileEdit: React.FC = () => {
         </div>
       </div>
       
-      {/* Payment Button for Payment Tab */}
-      {activeTab === 'payment' && getSelectedTierData() && (
+      {/* Payment Button for Payment Tab - Only show if renewal section is visible */}
+      {activeTab === 'payment' && getSelectedTierData() && 
+       (!isValidRegistration() || !currentPayment) && 
+       (!currentSubscription || 
+        (currentSubscription && currentSubscription.status === 'canceled' && !(currentSubscription.cancel_at_period_end ?? false))) && (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex justify-center">
