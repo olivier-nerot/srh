@@ -18,12 +18,7 @@ const stripePublicKey = isTestMode
   ? import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY // Test key
   : import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY; // Live key
 
-// Debug logging
-console.log('=== FRONTEND STRIPE DEBUG ===');
-console.log('VITE_STRIPE_TESTMODE:', import.meta.env.VITE_STRIPE_TESTMODE);
-console.log('Test mode enabled:', isTestMode);
-console.log('Using test key:', stripePublicKey?.startsWith('pk_test_'));
-console.log('Using live key:', stripePublicKey?.startsWith('pk_live_'));
+// Stripe configuration loaded
 
 if (!stripePublicKey) {
   console.error('No Stripe public key found!');
@@ -202,15 +197,12 @@ const JadhereAuSrh: React.FC = () => {
 
         // Process payment if needed
         if (selectedTierData.price > 0) {
-          console.log('=== DEBUG: Processing paid tier ===', selectedTierData);
           const paymentResult = await processStripePayment(selectedTierData, userResult.user, stripe, elements);
           if (!paymentResult.success) {
             alert(paymentResult.error || 'Erreur lors du paiement');
             setIsPaymentLoading(false);
             return;
           }
-        } else {
-          console.log('=== DEBUG: Free tier selected, skipping payment ===');
         }
 
         // Set success state and user data
@@ -250,16 +242,12 @@ const JadhereAuSrh: React.FC = () => {
 
   const processStripePayment = async (tierData: any, user: any, stripe: any, elements: any) => {
     try {
-      console.log('=== DEBUG: Starting payment process ===');
-      console.log('Stripe ready:', !!stripe);
-      console.log('Elements ready:', !!elements);
       
       if (!stripe || !elements) {
         throw new Error('Stripe not ready');
       }
 
       const cardElement = elements.getElement(CardElement);
-      console.log('CardElement found:', !!cardElement);
       
       if (!cardElement) {
         console.error('CardElement not found - this should not happen for paid tiers');
@@ -267,7 +255,6 @@ const JadhereAuSrh: React.FC = () => {
       }
 
       // Skip validation - let Stripe handle it during confirmCardPayment
-      console.log('=== DEBUG: Creating payment intent directly ===');
 
       // Create payment intent or subscription on backend first
       const response = await fetch('/api/stripe?action=create-payment', {
@@ -311,7 +298,6 @@ const JadhereAuSrh: React.FC = () => {
           throw new Error(confirmationResult.error.message || 'Payment confirmation failed');
         }
 
-        console.log('Payment confirmed successfully:', confirmationResult);
         return { success: true, data: { ...result, confirmation: confirmationResult } };
       }
 

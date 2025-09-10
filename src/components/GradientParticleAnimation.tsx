@@ -22,7 +22,6 @@ const GradientParticleAnimation: React.FC<GradientParticleAnimationProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | undefined>(undefined);
   const particlesRef = useRef<Particle[]>([]);
-  // const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   // Initialize particles
   const initializeParticles = (width: number, height: number) => {

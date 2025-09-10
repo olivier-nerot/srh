@@ -511,7 +511,7 @@ const FAQ: React.FC = () => {
                           
                           const text = quill.getText().trim();
                           setHasEditorContent(text.length > 0);
-                        } catch (error) {
+                        } catch {
                           // If parsing fails, treat as HTML and set it in the editor
                           quill.root.innerHTML = editing.answer;
                           

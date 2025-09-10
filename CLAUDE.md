@@ -17,10 +17,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - API routes are automatically proxied from frontend server to API server
 - Install Vercel CLI globally: `npm install -g vercel`
 
+**Environment Setup:**
+1. Copy environment variables: `cp .env.example .env`
+2. Configure required services (see .env.example for details):
+   - Turso database (database operations)
+   - Stripe payments (membership subscriptions)
+   - Resend email service (newsletters)
+   - Vercel Blob storage (file uploads)
+3. Set `VITE_STRIPE_TESTMODE=true` for development
+
 **Development Workflow:**
-1. Start API server: `vercel dev --listen 3002 --yes`
-2. Start frontend server: `npm run dev`
-3. Access application at: http://localhost:5173
+1. Setup environment variables (see above)
+2. Start API server: `vercel dev --listen 3002 --yes`
+3. Start frontend server: `npm run dev`
+4. Access application at: http://localhost:5173
 
 **Database Operations:**
 - `npm run db:generate` - Generate Drizzle migrations

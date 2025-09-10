@@ -43,12 +43,6 @@ const Footer: React.FC = () => {
             </p>
             <div className="flex space-x-6 mt-4 sm:mt-0">
               <Link
-                to="/legal"
-                className="text-gray-400 hover:text-gray-300 text-sm transition-colors"
-              >
-                Mentions légales
-              </Link>
-              <Link
                 to="/privacy"
                 className="text-gray-400 hover:text-gray-300 text-sm transition-colors"
               >
