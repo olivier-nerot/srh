@@ -41,5 +41,7 @@ bouton nous découvrir
 config stripe
 changer CB membre (recurrence annuelle ?)
 
+supprimer offre gratuite : tout abonnement démarre l'année suivante
+
 
 

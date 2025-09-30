@@ -129,7 +129,7 @@ function generateEmailTemplate(title, content, selectedPublications, userEmail, 
           </a>
           <h1 style="color: white; margin: 10px 0 0 0; font-size: 24px; font-weight: bold;">
             <a href="${baseUrl}" style="color: white; text-decoration: none;">
-              Syndicat des Radiologues Hospitalo-universitaires
+              Syndicat des Radiologues Hospitaliers
             </a>
           </h1>
         </div>
@@ -163,7 +163,7 @@ function generateEmailTemplate(title, content, selectedPublications, userEmail, 
         <!-- Footer -->
         <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
           <p style="color: #6b7280; margin: 0 0 10px 0; font-size: 14px;">
-            <strong>Syndicat des Radiologues Hospitalo-universitaires</strong><br>
+            <strong>Syndicat des Radiologues Hospitaliers</strong><br>
             Email envoyé depuis <a href="${baseUrl}" style="color: #1e40af;">srh-info.org</a>
           </p>
           <p style="color: #9ca3af; margin: 0; font-size: 12px;">
