@@ -1,19 +1,28 @@
-import React, { useState } from 'react';
-import { Users, Euro, FileText, CheckCircle, User, Briefcase, CreditCard, LogIn } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import Button from '../components/ui/Button';
-import { loadStripe } from '@stripe/stripe-js';
+import React, { useState } from "react";
+import {
+  Users,
+  Euro,
+  FileText,
+  CheckCircle,
+  User,
+  Briefcase,
+  CreditCard,
+  LogIn,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import Button from "../components/ui/Button";
+import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
   CardElement,
   useStripe,
-  useElements
-} from '@stripe/react-stripe-js';
-import { createUser } from '../services/userService';
-import StripeCardInput from '../components/StripeCardInput';
+  useElements,
+} from "@stripe/react-stripe-js";
+import { createUser } from "../services/userService";
+import StripeCardInput from "../components/StripeCardInput";
 
 // Use VITE_STRIPE_TESTMODE to determine which Stripe keys to use
-const isTestMode = import.meta.env.VITE_STRIPE_TESTMODE === 'true';
+const isTestMode = import.meta.env.VITE_STRIPE_TESTMODE === "true";
 const stripePublicKey = isTestMode
   ? import.meta.env.VITE_STRIPE_TEST_PUBLIC_API_KEY // Test key
   : import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY; // Live key
@@ -21,7 +30,7 @@ const stripePublicKey = isTestMode
 // Stripe configuration loaded
 
 if (!stripePublicKey) {
-  console.error('No Stripe public key found!');
+  console.error("No Stripe public key found!");
 }
 
 const stripePromise = loadStripe(stripePublicKey);
@@ -30,28 +39,31 @@ const stripePromise = loadStripe(stripePublicKey);
 const elementsOptions = {
   fonts: [
     {
-      cssSrc: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap',
+      cssSrc:
+        "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap",
     },
   ],
 };
 
 const JadhereAuSrh: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedTier, setSelectedTier] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'payment'>('personal');
+  const [selectedTier, setSelectedTier] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<
+    "personal" | "professional" | "payment"
+  >("personal");
   const [isRegistrationComplete, setIsRegistrationComplete] = useState(false);
   const [registeredUser, setRegisteredUser] = useState<any>(null);
   const [isRecurring, setIsRecurring] = useState<boolean>(true);
-  
+
   // Form data state
   const [formData, setFormData] = useState({
     // Personal information
-    firstName: '',
-    lastName: '',
-    email: '',
-    hospital: '',
-    address: '',
-    
+    firstName: "",
+    lastName: "",
+    email: "",
+    hospital: "",
+    address: "",
+
     // Professional information
     huTitulaire: false,
     phLiberal: false,
@@ -62,74 +74,80 @@ const JadhereAuSrh: React.FC = () => {
     adhesionAlliance: false,
     assistantSpecialiste: false,
     assistantTempsPartage: false,
-    
-    terms: false
+
+    terms: false,
   });
 
   const membershipTiers = [
     {
-      id: 'practicing',
-      title: 'Médecin hospitalier en exercice, Professeur des Universités',
+      id: "practicing",
+      title: "Médecin hospitalier en exercice, Professeur des Universités",
       price: 120,
       actualCost: 40,
-      description: 'Pour les radiologues hospitaliers et universitaires en activité'
+      description:
+        "Pour les radiologues hospitaliers et universitaires en activité",
     },
     {
-      id: 'retired',
-      title: 'Radiologue hospitalier/universitaire retraité',
+      id: "retired",
+      title: "Radiologue hospitalier/universitaire retraité",
       price: 60,
       actualCost: 20,
-      description: 'Tarif préférentiel pour nos confrères retraités'
+      description: "Tarif préférentiel pour nos confrères retraités",
     },
     {
-      id: 'assistant',
-      title: 'Radiologue assistant spécialiste',
+      id: "assistant",
+      title: "Radiologue assistant spécialiste",
       price: 30,
       actualCost: 10,
-      description: 'Tarif adapté aux assistants spécialistes'
+      description: "Tarif adapté aux assistants spécialistes",
     },
-    {
-      id: 'first-time',
-      title: 'Première adhésion (dans l\'année de nomination)',
-      price: 0,
-      actualCost: 0,
-      description: 'Gratuit pour votre première année d\'adhésion'
-    }
   ];
 
   const getSelectedTierData = () => {
-    return membershipTiers.find(tier => tier.id === selectedTier);
+    return membershipTiers.find((tier) => tier.id === selectedTier);
   };
 
   const benefits = [
-    'Soutien d\'Alliance-Hôpital',
-    'Participation à l\'assemblée générale annuelle',
-    'Amélioration de la représentation de l\'exercice hospitalier',
-    'Réception de la newsletter du syndicat',
-    'Conseils professionnels et soutien juridique'
+    "Soutien d'Alliance-Hôpital",
+    "Participation à l'assemblée générale annuelle",
+    "Amélioration de la représentation de l'exercice hospitalier",
+    "Réception de la newsletter du syndicat",
+    "Conseils professionnels et soutien juridique",
   ];
 
   const tabs = [
-    { id: 'personal', label: 'Informations Personnelles', icon: User },
-    { id: 'professional', label: 'Informations Professionnelles', icon: Briefcase },
-    { id: 'payment', label: 'Règlement', icon: CreditCard }
+    { id: "personal", label: "Informations Personnelles", icon: User },
+    {
+      id: "professional",
+      label: "Informations Professionnelles",
+      icon: Briefcase,
+    },
+    { id: "payment", label: "Règlement", icon: CreditCard },
   ];
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [name]:
+        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
   };
 
   const isTabValid = (tabId: string) => {
     switch (tabId) {
-      case 'personal':
-        return formData.firstName && formData.lastName && formData.email && formData.hospital;
-      case 'professional':
+      case "personal":
+        return (
+          formData.firstName &&
+          formData.lastName &&
+          formData.email &&
+          formData.hospital
+        );
+      case "professional":
         return true; // Professional info is optional
-      case 'payment':
+      case "payment":
         return formData.terms;
       default:
         return false;
@@ -137,8 +155,6 @@ const JadhereAuSrh: React.FC = () => {
   };
 
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
-
-
 
   const PaymentHandler = () => {
     const stripe = useStripe();
@@ -149,8 +165,13 @@ const JadhereAuSrh: React.FC = () => {
 
       try {
         // First validate required fields
-        if (!formData.firstName || !formData.lastName || !formData.email || !formData.hospital) {
-          alert('Veuillez remplir tous les champs obligatoires.');
+        if (
+          !formData.firstName ||
+          !formData.lastName ||
+          !formData.email ||
+          !formData.hospital
+        ) {
+          alert("Veuillez remplir tous les champs obligatoires.");
           setIsPaymentLoading(false);
           return;
         }
@@ -158,7 +179,7 @@ const JadhereAuSrh: React.FC = () => {
         // Get selected tier details
         const selectedTierData = getSelectedTierData();
         if (!selectedTierData) {
-          alert('Veuillez sélectionner un type d\'adhésion.');
+          alert("Veuillez sélectionner un type d'adhésion.");
           setIsPaymentLoading(false);
           return;
         }
@@ -167,7 +188,8 @@ const JadhereAuSrh: React.FC = () => {
         const professionalInfo = {
           huTitulaire: formData.huTitulaire,
           phLiberal: formData.phLiberal,
-          hospitaloUniversitaireTitulaire: formData.hospitaloUniversitaireTitulaire,
+          hospitaloUniversitaireTitulaire:
+            formData.hospitaloUniversitaireTitulaire,
           adhesionCollegiale: formData.adhesionCollegiale,
           huLiberal: formData.huLiberal,
           hospitaloUniversitaireCCA: formData.hospitaloUniversitaireCCA,
@@ -190,16 +212,24 @@ const JadhereAuSrh: React.FC = () => {
         });
 
         if (!userResult.success) {
-          alert(userResult.error || 'Erreur lors de la création du compte utilisateur');
+          alert(
+            userResult.error ||
+              "Erreur lors de la création du compte utilisateur",
+          );
           setIsPaymentLoading(false);
           return;
         }
 
         // Process payment if needed
         if (selectedTierData.price > 0) {
-          const paymentResult = await processStripePayment(selectedTierData, userResult.user, stripe, elements);
+          const paymentResult = await processStripePayment(
+            selectedTierData,
+            userResult.user,
+            stripe,
+            elements,
+          );
           if (!paymentResult.success) {
-            alert(paymentResult.error || 'Erreur lors du paiement');
+            alert(paymentResult.error || "Erreur lors du paiement");
             setIsPaymentLoading(false);
             return;
           }
@@ -212,59 +242,69 @@ const JadhereAuSrh: React.FC = () => {
           isRecurring: isRecurring,
         });
         setIsRegistrationComplete(true);
-
       } catch (error) {
-        console.error('Registration error:', error);
-        alert('Erreur lors de l\'inscription. Veuillez réessayer.');
+        console.error("Registration error:", error);
+        alert("Erreur lors de l'inscription. Veuillez réessayer.");
       } finally {
         setIsPaymentLoading(false);
       }
     };
 
     return (
-      <Button 
+      <Button
         onClick={handlePaymentClick}
-        size="lg" 
+        size="lg"
         className="bg-blue-600 hover:bg-blue-700"
-        disabled={!formData.terms || isPaymentLoading || (!stripe && (getSelectedTierData()?.price ?? 0) > 0)}
-      >
-        {isPaymentLoading 
-          ? 'Traitement en cours...' 
-          : getSelectedTierData()?.price === 0 
-            ? 'Finaliser mon adhésion gratuite' 
-            : isRecurring
-              ? 'Finaliser mon abonnement annuel'
-              : 'Finaliser mon adhésion et payer'
+        disabled={
+          !formData.terms ||
+          isPaymentLoading ||
+          (!stripe && (getSelectedTierData()?.price ?? 0) > 0)
         }
+      >
+        {isPaymentLoading
+          ? "Traitement en cours..."
+          : getSelectedTierData()?.price === 0
+            ? "Finaliser mon adhésion gratuite"
+            : isRecurring
+              ? "Finaliser mon abonnement (première année gratuite)"
+              : "Finaliser mon adhésion (première année gratuite)"}
       </Button>
     );
   };
 
-  const processStripePayment = async (tierData: any, user: any, stripe: any, elements: any) => {
+  const processStripePayment = async (
+    tierData: any,
+    user: any,
+    stripe: any,
+    elements: any,
+  ) => {
     try {
-      
       if (!stripe || !elements) {
-        throw new Error('Stripe not ready');
+        throw new Error("Stripe not ready");
       }
 
       const cardElement = elements.getElement(CardElement);
-      
+
       if (!cardElement) {
-        console.error('CardElement not found - this should not happen for paid tiers');
-        throw new Error('Card element not found. Please make sure you have selected a paid membership tier.');
+        console.error(
+          "CardElement not found - this should not happen for paid tiers",
+        );
+        throw new Error(
+          "Card element not found. Please make sure you have selected a paid membership tier.",
+        );
       }
 
       // Skip validation - let Stripe handle it during confirmCardPayment
 
       // Create payment intent or subscription on backend first
-      const response = await fetch('/api/stripe?action=create-payment', {
-        method: 'POST',
+      const response = await fetch("/api/stripe?action=create-payment", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           amount: tierData.price * 100, // Convert to cents
-          currency: 'eur',
+          currency: "eur",
           customer: {
             email: user.email,
             name: `${user.firstname} ${user.lastname}`,
@@ -272,45 +312,53 @@ const JadhereAuSrh: React.FC = () => {
           },
           recurring: isRecurring,
           tierData: tierData,
+          trial_period_days: 365, // Add 1 year free trial
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Payment processing failed');
+        throw new Error(result.error || "Payment processing failed");
       }
 
       // Confirm the payment with Stripe using the clientSecret
       if (result.clientSecret) {
         // Use the proper confirmCardPayment method as per Stripe docs
-        const confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              name: `${user.firstname} ${user.lastname}`,
-              email: user.email,
+        const confirmationResult = await stripe.confirmCardPayment(
+          result.clientSecret,
+          {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: `${user.firstname} ${user.lastname}`,
+                email: user.email,
+              },
             },
-          }
-        });
+          },
+        );
 
         if (confirmationResult.error) {
-          throw new Error(confirmationResult.error.message || 'Payment confirmation failed');
+          throw new Error(
+            confirmationResult.error.message || "Payment confirmation failed",
+          );
         }
 
-        return { success: true, data: { ...result, confirmation: confirmationResult } };
+        return {
+          success: true,
+          data: { ...result, confirmation: confirmationResult },
+        };
       }
 
       return { success: true, data: result };
     } catch (error) {
-      console.error('Payment processing error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Erreur de paiement' 
+      console.error("Payment processing error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur de paiement",
       };
     }
   };
-
 
   // Welcome card component for successful registration
   const WelcomeCard: React.FC = () => (
@@ -329,33 +377,59 @@ const JadhereAuSrh: React.FC = () => {
         </div>
 
         <div className="bg-gray-50 rounded-lg p-6 mb-8">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Récapitulatif de votre inscription</h3>
-          
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">
+            Récapitulatif de votre inscription
+          </h3>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="font-medium text-gray-700 mb-3">Informations personnelles</h4>
+              <h4 className="font-medium text-gray-700 mb-3">
+                Informations personnelles
+              </h4>
               <div className="space-y-2 text-sm">
-                <p><span className="font-medium">Nom :</span> {registeredUser?.firstname} {registeredUser?.lastname}</p>
-                <p><span className="font-medium">Email :</span> {registeredUser?.email}</p>
-                <p><span className="font-medium">Établissement :</span> {registeredUser?.hospital}</p>
+                <p>
+                  <span className="font-medium">Nom :</span>{" "}
+                  {registeredUser?.firstname} {registeredUser?.lastname}
+                </p>
+                <p>
+                  <span className="font-medium">Email :</span>{" "}
+                  {registeredUser?.email}
+                </p>
+                <p>
+                  <span className="font-medium">Établissement :</span>{" "}
+                  {registeredUser?.hospital}
+                </p>
                 {registeredUser?.address && (
-                  <p><span className="font-medium">Adresse :</span> {registeredUser?.address}</p>
+                  <p>
+                    <span className="font-medium">Adresse :</span>{" "}
+                    {registeredUser?.address}
+                  </p>
                 )}
               </div>
             </div>
-            
+
             <div>
-              <h4 className="font-medium text-gray-700 mb-3">Type d'adhésion</h4>
+              <h4 className="font-medium text-gray-700 mb-3">
+                Type d'adhésion
+              </h4>
               <div className="space-y-2 text-sm">
-                <p className="font-medium text-blue-600">{registeredUser?.selectedTier?.title}</p>
-                <p className="text-gray-600">{registeredUser?.selectedTier?.description}</p>
+                <p className="font-medium text-blue-600">
+                  {registeredUser?.selectedTier?.title}
+                </p>
+                <p className="text-gray-600">
+                  {registeredUser?.selectedTier?.description}
+                </p>
                 <p className="text-lg font-bold text-gray-900">
-                  {registeredUser?.selectedTier?.price === 0 ? 'Gratuit' : `${registeredUser?.selectedTier?.price} €${registeredUser?.isRecurring ? '/an' : ''}`}
+                  {registeredUser?.selectedTier?.price === 0
+                    ? "Gratuit"
+                    : `${registeredUser?.selectedTier?.price} €${registeredUser?.isRecurring ? "/an" : ""}`}
                 </p>
                 {registeredUser?.selectedTier?.price > 0 && (
                   <>
                     <p className="text-sm text-green-600">
-                      Coût réel après déduction fiscale : {registeredUser?.selectedTier?.actualCost} €{registeredUser?.isRecurring ? '/an' : ''}
+                      Première année gratuite, puis coût réel après déduction
+                      fiscale : {registeredUser?.selectedTier?.actualCost} €
+                      {registeredUser?.isRecurring ? "/an" : ""}
                     </p>
                     {registeredUser?.isRecurring && (
                       <p className="text-sm text-blue-600 font-medium">
@@ -372,30 +446,35 @@ const JadhereAuSrh: React.FC = () => {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
           <h4 className="font-medium text-blue-900 mb-2">Prochaines étapes</h4>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Vous recevrez un email de confirmation à l'adresse indiquée</li>
-            <li>• Connectez-vous à votre espace membre pour accéder aux services</li>
-            <li>• Vous recevrez bientôt notre newsletter avec les dernières actualités</li>
+            <li>
+              • Vous recevrez un email de confirmation à l'adresse indiquée
+            </li>
+            <li>
+              • Connectez-vous à votre espace membre pour accéder aux services
+            </li>
+            <li>
+              • Vous recevrez bientôt notre newsletter avec les dernières
+              actualités
+            </li>
             {registeredUser?.isRecurring && (
-              <li>• Votre abonnement se renouvellera automatiquement chaque année</li>
+              <li>
+                • Votre abonnement se renouvellera automatiquement chaque année
+              </li>
             )}
           </ul>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate("/login")}
             size="lg"
             className="bg-blue-600 hover:bg-blue-700 flex items-center justify-center"
           >
             <LogIn className="mr-2 h-5 w-5" />
             Se connecter à mon espace
           </Button>
-          
-          <Button
-            onClick={() => navigate('/')}
-            variant="outline"
-            size="lg"
-          >
+
+          <Button onClick={() => navigate("/")} variant="outline" size="lg">
             Retour à l'accueil
           </Button>
         </div>
@@ -416,10 +495,13 @@ const JadhereAuSrh: React.FC = () => {
     <Elements stripe={stripePromise} options={elementsOptions}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">J'adhère au SRH</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            J'adhère au SRH
+          </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Rejoignez le Syndicat des Radiologues Hospitaliers et bénéficiez d'un soutien professionnel 
-            et d'une représentation forte dans le milieu hospitalier.
+            Rejoignez le Syndicat des Radiologues Hospitaliers et bénéficiez
+            d'un soutien professionnel et d'une représentation forte dans le
+            milieu hospitalier.
           </p>
         </div>
 
@@ -428,10 +510,35 @@ const JadhereAuSrh: React.FC = () => {
           <div className="flex items-center">
             <Euro className="h-6 w-6 text-green-600 mr-3" />
             <div>
-              <h3 className="text-lg font-semibold text-green-900 mb-2">Avantage fiscal</h3>
+              <h3 className="text-lg font-semibold text-green-900 mb-2">
+                Première année gratuite
+              </h3>
               <p className="text-green-800">
-                <strong>66% de votre cotisation est déductible de vos impôts.</strong> 
-                Le coût réel après déduction fiscale est considérablement réduit.
+                <strong>
+                  Votre adhésion est entièrement gratuite la première année,
+                  quel que soit le tarif choisi.
+                </strong>
+                <br />
+                Le prélèvement ne sera effectué qu'un an après votre
+                inscription.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
+          <div className="flex items-center">
+            <Euro className="h-6 w-6 text-green-600 mr-3" />
+            <div>
+              <h3 className="text-lg font-semibold text-green-900 mb-2">
+                Avantage fiscal
+              </h3>
+              <p className="text-green-800">
+                <strong>
+                  66% de votre cotisation est déductible de vos impôts.
+                </strong>
+                Le coût réel après déduction fiscale est considérablement
+                réduit.
               </p>
             </div>
           </div>
@@ -440,16 +547,18 @@ const JadhereAuSrh: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Membership Tiers */}
           <div className="lg:col-span-2">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Choisissez votre type d'adhésion</h2>
-            
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Choisissez votre type d'adhésion
+            </h2>
+
             <div className="space-y-4">
               {membershipTiers.map((tier) => (
                 <div
                   key={tier.id}
                   className={`border rounded-lg p-6 cursor-pointer transition-all ${
                     selectedTier === tier.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
                   }`}
                   onClick={() => setSelectedTier(tier.id)}
                 >
@@ -465,17 +574,20 @@ const JadhereAuSrh: React.FC = () => {
                           onChange={() => setSelectedTier(tier.id)}
                           className="mr-3 text-blue-600 focus:ring-blue-500"
                         />
-                        <h3 className="text-lg font-semibold text-gray-900">{tier.title}</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {tier.title}
+                        </h3>
                       </div>
                       <p className="text-gray-600 mb-3">{tier.description}</p>
                     </div>
                     <div className="text-right ml-4">
                       <div className="text-2xl font-bold text-gray-900">
-                        {tier.price === 0 ? 'Gratuit' : `${tier.price} €`}
+                        {tier.price === 0 ? "Gratuit" : `${tier.price} €`}
                       </div>
                       {tier.price > 0 && (
                         <div className="text-sm text-green-600 font-medium">
-                          Coût réel: {tier.actualCost} € (après déduction fiscale)
+                          Coût réel: {tier.actualCost} € (après déduction
+                          fiscale)
                         </div>
                       )}
                       <div className="text-sm text-gray-500">par an</div>
@@ -487,43 +599,50 @@ const JadhereAuSrh: React.FC = () => {
 
             {/* Tabbed Membership Form */}
             {selectedTier && (
-                <div className="mt-8 bg-white border border-gray-200 rounded-lg p-6">
-                  {/* Tab Navigation */}
-                  <div className="border-b border-gray-200 mb-6">
-                    <nav className="-mb-px flex w-full">
-                      {tabs.map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-                        isTabValid(tab.id);
-                        
-                        return (
-                          <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={`group inline-flex items-center justify-center py-2 px-1 border-b-2 font-medium text-sm flex-1 ${
-                              isActive
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                          >
-                            <Icon className={`mr-2 h-5 w-5 ${isActive ? 'text-blue-500' : 'text-gray-400'}`} />
-                            {tab.label}
-                          </button>
-                        );
-                      })}
-                    </nav>
-                  </div>
+              <div className="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+                {/* Tab Navigation */}
+                <div className="border-b border-gray-200 mb-6">
+                  <nav className="-mb-px flex w-full">
+                    {tabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      isTabValid(tab.id);
 
-                  {/* Tab Content */}
-                  <div className="space-y-6">
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id as any)}
+                          className={`group inline-flex items-center justify-center py-2 px-1 border-b-2 font-medium text-sm flex-1 ${
+                            isActive
+                              ? "border-blue-500 text-blue-600"
+                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          <Icon
+                            className={`mr-2 h-5 w-5 ${isActive ? "text-blue-500" : "text-gray-400"}`}
+                          />
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </nav>
+                </div>
+
+                {/* Tab Content */}
+                <div className="space-y-6">
                   {/* Personal Information Tab */}
-                  {activeTab === 'personal' && (
+                  {activeTab === "personal" && (
                     <div className="space-y-6">
-                      <h3 className="text-xl font-semibold text-gray-900">Informations Personnelles</h3>
-                      
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        Informations Personnelles
+                      </h3>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                          <label
+                            htmlFor="firstName"
+                            className="block text-sm font-medium text-gray-700 mb-2"
+                          >
                             Prénom *
                           </label>
                           <input
@@ -536,9 +655,12 @@ const JadhereAuSrh: React.FC = () => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
-                        
+
                         <div>
-                          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                          <label
+                            htmlFor="lastName"
+                            className="block text-sm font-medium text-gray-700 mb-2"
+                          >
                             Nom *
                           </label>
                           <input
@@ -554,7 +676,10 @@ const JadhereAuSrh: React.FC = () => {
                       </div>
 
                       <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label
+                          htmlFor="email"
+                          className="block text-sm font-medium text-gray-700 mb-2"
+                        >
                           Email *
                         </label>
                         <input
@@ -569,7 +694,10 @@ const JadhereAuSrh: React.FC = () => {
                       </div>
 
                       <div>
-                        <label htmlFor="hospital" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label
+                          htmlFor="hospital"
+                          className="block text-sm font-medium text-gray-700 mb-2"
+                        >
                           Établissement hospitalier *
                         </label>
                         <input
@@ -584,7 +712,10 @@ const JadhereAuSrh: React.FC = () => {
                       </div>
 
                       <div>
-                        <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label
+                          htmlFor="address"
+                          className="block text-sm font-medium text-gray-700 mb-2"
+                        >
                           Adresse
                         </label>
                         <textarea
@@ -606,7 +737,7 @@ const JadhereAuSrh: React.FC = () => {
                           Précédent
                         </Button>
                         <Button
-                          onClick={() => setActiveTab('professional')}
+                          onClick={() => setActiveTab("professional")}
                           className="bg-blue-600 hover:bg-blue-700"
                         >
                           Suivant
@@ -616,33 +747,67 @@ const JadhereAuSrh: React.FC = () => {
                   )}
 
                   {/* Professional Information Tab */}
-                  {activeTab === 'professional' && (
+                  {activeTab === "professional" && (
                     <div className="space-y-6">
-                      <h3 className="text-xl font-semibold text-gray-900">Informations Professionnelles</h3>
-                      <p className="text-gray-600">Cochez les cases correspondant à votre situation professionnelle :</p>
-                      
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        Informations Professionnelles
+                      </h3>
+                      <p className="text-gray-600">
+                        Cochez les cases correspondant à votre situation
+                        professionnelle :
+                      </p>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
-                          { key: 'huTitulaire', label: 'HU titulaire' },
-                          { key: 'phLiberal', label: 'PH Libéral' },
-                          { key: 'hospitaloUniversitaireTitulaire', label: 'Hospitalo-Universitaire titulaire' },
-                          { key: 'adhesionCollegiale', label: 'Adhésion conjointe à la collégiale de l\'AP-HP' },
-                          { key: 'huLiberal', label: 'HU Libéral' },
-                          { key: 'hospitaloUniversitaireCCA', label: 'Hospitalo-Universitaire (CCA, AHU, PHU)' },
-                          { key: 'adhesionAlliance', label: 'Adhésion conjointe à Alliance Hôpital' },
-                          { key: 'assistantSpecialiste', label: 'Assistant spécialiste hospitalier' },
-                          { key: 'assistantTempsPartage', label: 'Assistant temps partagé' }
+                          { key: "huTitulaire", label: "HU titulaire" },
+                          { key: "phLiberal", label: "PH Libéral" },
+                          {
+                            key: "hospitaloUniversitaireTitulaire",
+                            label: "Hospitalo-Universitaire titulaire",
+                          },
+                          {
+                            key: "adhesionCollegiale",
+                            label:
+                              "Adhésion conjointe à la collégiale de l'AP-HP",
+                          },
+                          { key: "huLiberal", label: "HU Libéral" },
+                          {
+                            key: "hospitaloUniversitaireCCA",
+                            label: "Hospitalo-Universitaire (CCA, AHU, PHU)",
+                          },
+                          {
+                            key: "adhesionAlliance",
+                            label: "Adhésion conjointe à Alliance Hôpital",
+                          },
+                          {
+                            key: "assistantSpecialiste",
+                            label: "Assistant spécialiste hospitalier",
+                          },
+                          {
+                            key: "assistantTempsPartage",
+                            label: "Assistant temps partagé",
+                          },
                         ].map((item) => (
-                          <div key={item.key} className="flex items-center space-x-3">
+                          <div
+                            key={item.key}
+                            className="flex items-center space-x-3"
+                          >
                             <input
                               type="checkbox"
                               id={item.key}
                               name={item.key}
-                              checked={formData[item.key as keyof typeof formData] as boolean}
+                              checked={
+                                formData[
+                                  item.key as keyof typeof formData
+                                ] as boolean
+                              }
                               onChange={handleInputChange}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                             />
-                            <label htmlFor={item.key} className="text-sm text-gray-700">
+                            <label
+                              htmlFor={item.key}
+                              className="text-sm text-gray-700"
+                            >
                               {item.label}
                             </label>
                           </div>
@@ -651,13 +816,13 @@ const JadhereAuSrh: React.FC = () => {
 
                       <div className="flex justify-between pt-6">
                         <Button
-                          onClick={() => setActiveTab('personal')}
+                          onClick={() => setActiveTab("personal")}
                           variant="outline"
                         >
                           Précédent
                         </Button>
                         <Button
-                          onClick={() => setActiveTab('payment')}
+                          onClick={() => setActiveTab("payment")}
                           className="bg-blue-600 hover:bg-blue-700"
                         >
                           Suivant
@@ -667,28 +832,37 @@ const JadhereAuSrh: React.FC = () => {
                   )}
 
                   {/* Payment Tab */}
-                  {activeTab === 'payment' && (
+                  {activeTab === "payment" && (
                     <div className="space-y-6">
-                      <h3 className="text-xl font-semibold text-gray-900">Règlement</h3>
-                      
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        Règlement
+                      </h3>
+
                       {/* Render payment form content directly to avoid re-render issues */}
                       <div className="space-y-6">
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                          <h4 className="font-medium text-gray-900 mb-2">Récapitulatif de votre adhésion</h4>
+                          <h4 className="font-medium text-gray-900 mb-2">
+                            Récapitulatif de votre adhésion
+                          </h4>
                           <div className="flex justify-between items-center">
                             <span>{getSelectedTierData()?.title}</span>
                             <span className="font-bold">
-                              {getSelectedTierData()?.price === 0 ? 'Gratuit' : `${getSelectedTierData()?.price} €${isRecurring ? '/an' : ''}`}
+                              {getSelectedTierData()?.price === 0
+                                ? "Gratuit"
+                                : `${getSelectedTierData()?.price} €${isRecurring ? "/an" : ""}`}
                             </span>
                           </div>
                           {(getSelectedTierData()?.price || 0) > 0 && (
                             <div className="text-sm text-green-600 mt-1">
-                              Coût réel après déduction fiscale : {getSelectedTierData()?.actualCost} €{isRecurring ? '/an' : ''}
+                              Coût réel après déduction fiscale :{" "}
+                              {getSelectedTierData()?.actualCost} €
+                              {isRecurring ? "/an" : ""}
                             </div>
                           )}
                           {isRecurring && (
                             <div className="text-sm text-blue-600 mt-2 font-medium">
-                              🔄 Paiement automatique annuel activé
+                              🔄 Paiement automatique annuel activé (premier
+                              paiement dans un an)
                             </div>
                           )}
                         </div>
@@ -696,7 +870,9 @@ const JadhereAuSrh: React.FC = () => {
                         {(getSelectedTierData()?.price || 0) > 0 && (
                           <>
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                              <h4 className="font-medium text-gray-900 mb-3">Type de paiement</h4>
+                              <h4 className="font-medium text-gray-900 mb-3">
+                                Type de paiement
+                              </h4>
                               <div className="space-y-3">
                                 <div className="flex items-center">
                                   <input
@@ -707,9 +883,17 @@ const JadhereAuSrh: React.FC = () => {
                                     onChange={() => setIsRecurring(false)}
                                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                                   />
-                                  <label htmlFor="one-time" className="ml-3 text-sm text-gray-700">
-                                    <span className="font-medium">Paiement unique</span>
-                                    <div className="text-gray-500">Adhésion pour l'année en cours uniquement</div>
+                                  <label
+                                    htmlFor="one-time"
+                                    className="ml-3 text-sm text-gray-700"
+                                  >
+                                    <span className="font-medium">
+                                      Paiement unique
+                                    </span>
+                                    <div className="text-gray-500">
+                                      Premier paiement dans 1 an, puis adhésion
+                                      pour l'année suivante uniquement
+                                    </div>
                                   </label>
                                 </div>
                                 <div className="flex items-center">
@@ -721,10 +905,22 @@ const JadhereAuSrh: React.FC = () => {
                                     onChange={() => setIsRecurring(true)}
                                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                                   />
-                                  <label htmlFor="recurring" className="ml-3 text-sm text-gray-700">
-                                    <span className="font-medium">Abonnement annuel automatique</span>
-                                    <div className="text-gray-500">Renouvellement automatique chaque année (résiliable à tout moment)</div>
-                                    <div className="text-green-600 text-xs mt-1">✨ Recommandé - Ne ratez jamais votre adhésion</div>
+                                  <label
+                                    htmlFor="recurring"
+                                    className="ml-3 text-sm text-gray-700"
+                                  >
+                                    <span className="font-medium">
+                                      Abonnement annuel automatique
+                                    </span>
+                                    <div className="text-gray-500">
+                                      Premier paiement dans 1 an, puis
+                                      renouvellement automatique chaque année
+                                      (résiliable à tout moment)
+                                    </div>
+                                    <div className="text-green-600 text-xs mt-1">
+                                      ✨ Recommandé - Ne ratez jamais votre
+                                      adhésion
+                                    </div>
                                   </label>
                                 </div>
                               </div>
@@ -744,11 +940,17 @@ const JadhereAuSrh: React.FC = () => {
                             required
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
-                          <label htmlFor="terms" className="text-sm text-gray-700">
-                            J'accepte les{' '}
-                            <a href="/statuts" className="text-blue-600 hover:text-blue-700">
+                          <label
+                            htmlFor="terms"
+                            className="text-sm text-gray-700"
+                          >
+                            J'accepte les{" "}
+                            <a
+                              href="/statuts"
+                              className="text-blue-600 hover:text-blue-700"
+                            >
                               statuts du syndicat
-                            </a>{' '}
+                            </a>{" "}
                             et souhaite adhérer au SRH *
                           </label>
                         </div>
@@ -756,12 +958,12 @@ const JadhereAuSrh: React.FC = () => {
 
                       <div className="flex justify-between items-center pt-6">
                         <Button
-                          onClick={() => setActiveTab('professional')}
+                          onClick={() => setActiveTab("professional")}
                           variant="outline"
                         >
                           Précédent
                         </Button>
-                        
+
                         <PaymentHandler />
 
                         <Button
@@ -774,8 +976,8 @@ const JadhereAuSrh: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  </div>
                 </div>
+              </div>
             )}
           </div>
 
@@ -785,9 +987,11 @@ const JadhereAuSrh: React.FC = () => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
                 <div className="flex items-center mb-4">
                   <Users className="h-6 w-6 text-blue-600 mr-3" />
-                  <h3 className="text-lg font-semibold text-gray-900">Avantages de l'adhésion</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Avantages de l'adhésion
+                  </h3>
                 </div>
-                
+
                 <ul className="space-y-3">
                   {benefits.map((benefit, index) => (
                     <li key={index} className="flex items-start">
@@ -801,16 +1005,21 @@ const JadhereAuSrh: React.FC = () => {
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                 <div className="flex items-center mb-4">
                   <FileText className="h-6 w-6 text-gray-600 mr-3" />
-                  <h3 className="text-lg font-semibold text-gray-900">Contact</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Contact
+                  </h3>
                 </div>
-                
+
                 <div className="text-sm text-gray-700 space-y-2">
-                  <p><strong>Adresse :</strong></p>
                   <p>
-                    15 rue Ferdinand Duval<br />
+                    <strong>Adresse :</strong>
+                  </p>
+                  <p>
+                    15 rue Ferdinand Duval
+                    <br />
                     75004 PARIS
                   </p>
-                  
+
                   <div className="pt-4">
                     <a
                       href="/contactez-nous"
