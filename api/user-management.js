@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
   if (!action) {
     return res.status(400).json({
       error:
-        "Action is required (create, get, update, delete, list, login, verify-otp, profile)",
+        "Action requise (create, get, update, delete, list, login, verify-otp, profile)",
     });
   }
 
@@ -78,18 +78,18 @@ module.exports = async function handler(req, res) {
       case "profile":
         return await handleProfile(req, res);
       default:
-        return res.status(400).json({ error: "Invalid action" });
+        return res.status(400).json({ error: "Action invalide" });
     }
   } catch (error) {
     console.error(`User Management API Error (${action}):`, error);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Erreur interne du serveur" });
   }
 };
 
 // Create user functionality (from users.js)
 async function createUser(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
   try {
@@ -108,7 +108,7 @@ async function createUser(req, res) {
     if (!email) {
       return res.status(400).json({
         success: false,
-        error: "Email is required",
+        error: "L'email est requis",
       });
     }
 
@@ -124,7 +124,7 @@ async function createUser(req, res) {
     if (existingUser.length > 0) {
       return res.status(409).json({
         success: false,
-        error: "User with this email already exists",
+        error: "Un utilisateur avec cet email existe déjà",
       });
     }
 
@@ -166,7 +166,7 @@ async function createUser(req, res) {
     console.error("Error creating user:", error);
     return res.status(500).json({
       success: false,
-      error: "Error creating user: " + error.message,
+      error: "Erreur lors de la création de l'utilisateur: " + error.message,
     });
   }
 }
@@ -174,7 +174,7 @@ async function createUser(req, res) {
 // Get user functionality (from users.js)
 async function getUser(req, res) {
   if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
   try {
@@ -183,7 +183,7 @@ async function getUser(req, res) {
     if (!email && !id) {
       return res.status(400).json({
         success: false,
-        error: "Either email or id is required",
+        error: "L'email ou l'id est requis",
       });
     }
 
@@ -209,7 +209,7 @@ async function getUser(req, res) {
     if (!user) {
       return res.status(404).json({
         success: false,
-        error: "User not found",
+        error: "Utilisateur non trouvé",
       });
     }
 
@@ -234,7 +234,7 @@ async function getUser(req, res) {
     console.error("Error fetching user:", error);
     return res.status(500).json({
       success: false,
-      error: "Error fetching user: " + error.message,
+      error: "Erreur lors de la récupération de l'utilisateur: " + error.message,
     });
   }
 }
@@ -242,7 +242,7 @@ async function getUser(req, res) {
 // Update user functionality (from users.js and profile.js)
 async function updateUser(req, res) {
   if (req.method !== "PUT") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
   try {
@@ -251,7 +251,7 @@ async function updateUser(req, res) {
     if (!id) {
       return res.status(400).json({
         success: false,
-        error: "User ID is required",
+        error: "L'ID utilisateur est requis",
       });
     }
 
@@ -278,7 +278,7 @@ async function updateUser(req, res) {
     if (existingUser.length === 0) {
       return res.status(404).json({
         success: false,
-        error: "User not found",
+        error: "Utilisateur non trouvé",
       });
     }
 
@@ -319,7 +319,7 @@ async function updateUser(req, res) {
     console.error("Error updating user:", error);
     return res.status(500).json({
       success: false,
-      error: "Error updating user: " + error.message,
+      error: "Erreur lors de la mise à jour de l'utilisateur: " + error.message,
     });
   }
 }
@@ -327,7 +327,7 @@ async function updateUser(req, res) {
 // Delete user functionality (from users.js)
 async function deleteUser(req, res) {
   if (req.method !== "DELETE") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
   try {
@@ -336,7 +336,7 @@ async function deleteUser(req, res) {
     if (!id) {
       return res.status(400).json({
         success: false,
-        error: "User ID is required",
+        error: "L'ID utilisateur est requis",
       });
     }
 
@@ -346,13 +346,13 @@ async function deleteUser(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: "User deleted successfully",
+      message: "Utilisateur supprimé avec succès",
     });
   } catch (error) {
     console.error("Error deleting user:", error);
     return res.status(500).json({
       success: false,
-      error: "Error deleting user: " + error.message,
+      error: "Erreur lors de la suppression de l'utilisateur: " + error.message,
     });
   }
 }
@@ -360,7 +360,7 @@ async function deleteUser(req, res) {
 // List users functionality (from users.js)
 async function listUsers(req, res) {
   if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
   try {
@@ -369,7 +369,7 @@ async function listUsers(req, res) {
     if (isAdmin !== "true") {
       return res.status(403).json({
         success: false,
-        error: "Access denied. Admin privileges required.",
+        error: "Accès refusé. Privilèges administrateur requis.",
       });
     }
 
@@ -404,7 +404,7 @@ async function listUsers(req, res) {
     console.error("Error listing users:", error);
     return res.status(500).json({
       success: false,
-      error: "Error listing users: " + error.message,
+      error: "Erreur lors de la récupération de la liste des utilisateurs: " + error.message,
     });
   }
 }
@@ -412,7 +412,7 @@ async function listUsers(req, res) {
 // Login user functionality (from auth.js)
 async function loginUser(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
   try {
@@ -421,7 +421,7 @@ async function loginUser(req, res) {
     if (!email || typeof email !== "string") {
       return res.status(400).json({
         success: false,
-        error: "Email is required and must be a string",
+        error: "L'email est requis et doit être une chaîne de caractères",
       });
     }
 
@@ -430,7 +430,7 @@ async function loginUser(req, res) {
     if (!emailRegex.test(email)) {
       return res.status(400).json({
         success: false,
-        error: "Invalid email format",
+        error: "Format d'email invalide",
       });
     }
 
@@ -518,7 +518,7 @@ async function loginUser(req, res) {
 // Verify OTP functionality (from verify-otp.js)
 async function verifyOTP(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
   try {
@@ -533,7 +533,7 @@ async function verifyOTP(req, res) {
       return res.status(400).json({
         success: false,
         error:
-          "Email et OTP sont requis et doivent être des chaînes de caractères",
+          "L'email et le code OTP sont requis et doivent être des chaînes de caractères",
       });
     }
 
@@ -610,11 +610,11 @@ async function handleProfile(req, res) {
     } else if (req.method === "PUT") {
       return await updateProfile(req, res);
     } else {
-      return res.status(405).json({ error: "Method not allowed" });
+      return res.status(405).json({ error: "Méthode non autorisée" });
     }
   } catch (error) {
     console.error("Profile API Error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Erreur interne du serveur" });
   }
 }
 
@@ -624,7 +624,7 @@ async function getUserProfile(req, res) {
   if (!id) {
     return res.status(400).json({
       success: false,
-      error: "User ID is required",
+      error: "L'ID utilisateur est requis",
     });
   }
 
@@ -639,7 +639,7 @@ async function getUserProfile(req, res) {
     if (result.length === 0) {
       return res.status(404).json({
         success: false,
-        error: "User not found",
+        error: "Utilisateur non trouvé",
       });
     }
 
@@ -667,7 +667,7 @@ async function getUserProfile(req, res) {
     console.error("Error fetching user profile:", error);
     return res.status(500).json({
       success: false,
-      error: "Error fetching user profile: " + error.message,
+      error: "Erreur lors de la récupération du profil utilisateur: " + error.message,
     });
   }
 }
@@ -678,7 +678,7 @@ async function updateProfile(req, res) {
   if (!id) {
     return res.status(400).json({
       success: false,
-      error: "User ID is required",
+      error: "L'ID utilisateur est requis",
     });
   }
 
@@ -739,7 +739,7 @@ async function updateProfile(req, res) {
     if (result.length === 0) {
       return res.status(404).json({
         success: false,
-        error: "User not found",
+        error: "Utilisateur non trouvé",
       });
     }
 
@@ -764,7 +764,7 @@ async function updateProfile(req, res) {
     console.error("Error updating profile:", error);
     return res.status(500).json({
       success: false,
-      error: "Error updating profile: " + error.message,
+      error: "Erreur lors de la mise à jour du profil: " + error.message,
     });
   }
 }

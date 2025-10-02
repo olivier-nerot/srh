@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Users,
   Euro,
@@ -20,6 +20,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { createUser } from "../services/userService";
 import StripeCardInput from "../components/StripeCardInput";
+import { useAuthStore } from "../stores/authStore";
 
 // Use VITE_STRIPE_TESTMODE to determine which Stripe keys to use
 const isTestMode = import.meta.env.VITE_STRIPE_TESTMODE === "true";
@@ -47,6 +48,7 @@ const elementsOptions = {
 
 const JadhereAuSrh: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [activeTab, setActiveTab] = useState<
     "personal" | "professional" | "payment"
@@ -54,6 +56,13 @@ const JadhereAuSrh: React.FC = () => {
   const [isRegistrationComplete, setIsRegistrationComplete] = useState(false);
   const [registeredUser, setRegisteredUser] = useState<any>(null);
   const [isRecurring, setIsRecurring] = useState<boolean>(true);
+
+  // Redirect logged-in users to profile edit payment tab
+  useEffect(() => {
+    if (user) {
+      navigate(`/profile/edit?id=${user.id}#payment`);
+    }
+  }, [user, navigate]);
 
   // Form data state
   const [formData, setFormData] = useState({
@@ -505,6 +514,22 @@ const JadhereAuSrh: React.FC = () => {
           </p>
         </div>
 
+        {/* Already Registered Notice */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+          <div className="flex items-center justify-center">
+            <LogIn className="h-6 w-6 text-blue-600 mr-3" />
+            <p className="text-blue-800">
+              Si vous êtes déjà enregistré, renouvelez votre abonnement dans votre{" "}
+              <a
+                href="/login"
+                className="font-medium text-blue-600 hover:text-blue-700 underline"
+              >
+                espace profil après vous être logué
+              </a>
+            </p>
+          </div>
+        </div>
+
         {/* Tax Deduction Notice */}
         <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
           <div className="flex items-center">
@@ -691,6 +716,11 @@ const JadhereAuSrh: React.FC = () => {
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
+                        <p className="mt-2 text-sm text-gray-600">
+                          Indiquez un email garantissant la réception des messages depuis{" "}
+                          <span className="font-medium">no-reply@srh-info.org</span>. Il sera utile pour vous loguer.
+                          Si besoin utilisez votre email personnel plutôt que professionnel.
+                        </p>
                       </div>
 
                       <div>

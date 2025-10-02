@@ -493,13 +493,36 @@ const Profile: React.FC = () => {
                         <p className="text-gray-900">{formatDate(userProfile.createdAt)}</p>
                       </div>
                     </div>
-                    
-                    {userProfile.subscribedUntil && (
+
+                    {payment && payment.status === 'succeeded' && (
                       <div className="flex items-center">
                         <Calendar className="h-5 w-5 text-gray-400 mr-3" />
-                        <div>
+                        <div className="flex-1">
                           <p className="text-sm text-gray-600">Abonnement jusqu'au</p>
-                          <p className="text-gray-900">{formatDate(userProfile.subscribedUntil)}</p>
+                          <p className="text-gray-900">
+                            {(() => {
+                              const subscriptionEnd = new Date(payment.created);
+                              subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1);
+                              return formatDate(subscriptionEnd);
+                            })()}
+                          </p>
+                          {(() => {
+                            const subscriptionEnd = new Date(payment.created);
+                            subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1);
+                            const now = new Date();
+                            if (now > subscriptionEnd) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/profile/edit?id=${userId}#payment`)}
+                                  className="mt-2 text-sm text-orange-600 hover:text-orange-700 underline"
+                                >
+                                  Renouvelez votre abonnement
+                                </button>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                     )}
