@@ -39,21 +39,25 @@ const CONTENT_TYPES = {
   publication: {
     title: 'Publications',
     singular: 'publication',
+    newButtonText: 'Nouvelle publication',
     icon: FileText
   },
   communique: {
     title: 'Communiqués',
     singular: 'communiqué',
+    newButtonText: 'Nouveau communiqué',
     icon: FileText
   },
   jo: {
     title: 'Journal Officiel',
     singular: 'texte du Journal Officiel',
+    newButtonText: 'Nouveau texte du Journal Officiel',
     icon: FileText
   },
   rapport: {
     title: 'Rapports institutionnels',
     singular: 'rapport',
+    newButtonText: 'Nouveau rapport',
     icon: FileText
   }
 };
@@ -342,7 +346,7 @@ const AdminPublications: React.FC = () => {
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
               >
                 <Plus className="h-4 w-4" />
-                <span>Nouveau {config.singular}</span>
+                <span>{config.newButtonText}</span>
               </button>
             )}
           </div>
