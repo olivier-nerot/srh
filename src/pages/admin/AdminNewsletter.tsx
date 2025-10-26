@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import QuillEditor from 'quill-next-react';
 import 'quill-next/dist/quill.snow.css';
-import { Mail, Send, Eye, FileText, Calendar, Users, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, Send, Eye, FileText, Calendar, Users, AlertCircle, CheckCircle, Clock, Loader } from 'lucide-react';
 
 interface Publication {
   id: number;
@@ -18,6 +18,17 @@ interface SendProgress {
   errors?: { email: string; error: string }[];
 }
 
+interface QueueStatus {
+  id: number;
+  title: string;
+  status: 'pending' | 'sending' | 'completed' | 'failed';
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 const AdminNewsletter: React.FC = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -29,29 +40,37 @@ const AdminNewsletter: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
 
-  // Load recent publications on component mount
+  // Load recent publications and queue status on component mount
   useEffect(() => {
-    loadRecentPublications();
+    loadNewsletterData();
+    // Poll for queue status updates every 30 seconds
+    const interval = setInterval(loadNewsletterData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const loadRecentPublications = async () => {
+  const loadNewsletterData = async () => {
     try {
-      const response = await fetch('/api/newsletter');
+      const response = await fetch('/api/newsletter-v2');
       const data = await response.json();
-      
+
       if (data.success) {
         setPublications(data.publications);
-        // Select all publications by default
-        const allPublicationIds = data.publications.map((pub: Publication) => pub.id);
-        setSelectedPublications(allPublicationIds);
+        setQueueStatus(data.queueStatus);
+
+        // Select all publications by default if none selected
+        if (selectedPublications.length === 0) {
+          const allPublicationIds = data.publications.map((pub: Publication) => pub.id);
+          setSelectedPublications(allPublicationIds);
+        }
       } else {
-        setMessage({ type: 'error', text: data.error || 'Erreur lors du chargement des publications' });
+        setMessage({ type: 'error', text: data.error || 'Erreur lors du chargement des données' });
       }
     } catch (error) {
-      console.error('Error loading publications:', error);
-      setMessage({ type: 'error', text: 'Erreur lors du chargement des publications' });
+      console.error('Error loading newsletter data:', error);
+      setMessage({ type: 'error', text: 'Erreur lors du chargement des données' });
     }
   };
 
@@ -87,7 +106,7 @@ const AdminNewsletter: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/newsletter', {
+      const response = await fetch('/api/newsletter-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -99,7 +118,7 @@ const AdminNewsletter: React.FC = () => {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setPreviewHtml(data.previewHtml);
         setShowPreview(true);
@@ -121,7 +140,7 @@ const AdminNewsletter: React.FC = () => {
     }
 
     const confirmSend = window.confirm(
-      `Êtes-vous sûr de vouloir envoyer cette newsletter ? Cette action est irréversible.`
+      `Êtes-vous sûr de vouloir envoyer cette newsletter ?\n\nLes 100 premiers emails seront envoyés immédiatement.\nLes emails restants seront envoyés automatiquement chaque jour à 9h00 UTC.`
     );
 
     if (!confirmSend) return;
@@ -131,11 +150,11 @@ const AdminNewsletter: React.FC = () => {
     setMessage(null);
 
     try {
-      const response = await fetch('/api/newsletter', {
+      const response = await fetch('/api/newsletter-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'send',
+          action: 'queue',
           title,
           content,
           selectedPublicationIds: selectedPublications
@@ -143,19 +162,26 @@ const AdminNewsletter: React.FC = () => {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setSendProgress({
-          sent: data.sent,
-          total: data.total,
-          isComplete: true,
-          errors: data.errors
+          sent: data.sentImmediately,
+          total: data.totalRecipients,
+          isComplete: data.remainingToSend === 0,
         });
-        setMessage({ 
-          type: 'success', 
-          text: `Newsletter envoyée avec succès à ${data.sent}/${data.total} abonnés` 
+
+        const messageText = data.remainingToSend > 0
+          ? `Newsletter mise en file d'attente ! ${data.sentImmediately} emails envoyés immédiatement, ${data.remainingToSend} restants seront envoyés automatiquement (estimation : ${data.estimatedDays} jour${data.estimatedDays > 1 ? 's' : ''}).`
+          : `Newsletter envoyée avec succès à ${data.totalRecipients} abonné${data.totalRecipients > 1 ? 's' : ''} !`;
+
+        setMessage({
+          type: 'success',
+          text: messageText
         });
-        
+
+        // Reload queue status
+        loadNewsletterData();
+
         // Reset form after successful send
         setTitle('');
         setContent('');
@@ -164,12 +190,12 @@ const AdminNewsletter: React.FC = () => {
           quillRef.setContents([{ insert: '\n' }], 'api');
         }
       } else {
-        setMessage({ type: 'error', text: data.error || 'Erreur lors de l\'envoi de la newsletter' });
+        setMessage({ type: 'error', text: data.error || 'Erreur lors de la mise en file d\'attente' });
         setSendProgress(null);
       }
     } catch (error) {
-      console.error('Error sending newsletter:', error);
-      setMessage({ type: 'error', text: 'Erreur lors de l\'envoi de la newsletter' });
+      console.error('Error queueing newsletter:', error);
+      setMessage({ type: 'error', text: 'Erreur lors de la mise en file d\'attente' });
       setSendProgress(null);
     } finally {
       setIsSending(false);
@@ -214,19 +240,68 @@ const AdminNewsletter: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Queue Status Banner */}
+        {queueStatus && queueStatus.status === 'sending' && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-md p-4">
+            <div className="flex items-start">
+              <Loader className="h-5 w-5 text-blue-400 mt-0.5 mr-3 flex-shrink-0 animate-spin" />
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-blue-900 mb-2">
+                  Newsletter en cours d'envoi
+                </h4>
+                <p className="text-sm text-blue-800 mb-3">
+                  <strong>{queueStatus.title}</strong>
+                </p>
+                <div className="w-full bg-blue-200 rounded-full h-2.5 mb-2">
+                  <div
+                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${queueStatus.totalRecipients > 0 ? (queueStatus.sentCount / queueStatus.totalRecipients) * 100 : 0}%`
+                    }}
+                  ></div>
+                </div>
+                <div className="flex items-center justify-between text-xs text-blue-700">
+                  <span>
+                    {queueStatus.sentCount} / {queueStatus.totalRecipients} emails envoyés
+                    {queueStatus.failedCount > 0 && (
+                      <span className="text-red-600 ml-2">
+                        ({queueStatus.failedCount} échecs)
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex items-center">
+                    <Clock className="h-3 w-3 mr-1" />
+                    Envoi automatique quotidien à 9h00 UTC
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Status Messages */}
         {message && (
           <div className={`mb-6 p-4 rounded-md flex items-start ${
-            message.type === 'success' 
-              ? 'bg-green-50 border border-green-200' 
+            message.type === 'success'
+              ? 'bg-green-50 border border-green-200'
+              : message.type === 'info'
+              ? 'bg-blue-50 border border-blue-200'
               : 'bg-red-50 border border-red-200'
           }`}>
             {message.type === 'success' ? (
               <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 mr-3 flex-shrink-0" />
+            ) : message.type === 'info' ? (
+              <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
             ) : (
               <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
             )}
-            <div className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+            <div className={
+              message.type === 'success'
+                ? 'text-green-800'
+                : message.type === 'info'
+                ? 'text-blue-800'
+                : 'text-red-800'
+            }>
               {message.text}
             </div>
           </div>
