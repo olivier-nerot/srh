@@ -207,7 +207,34 @@ const JadhereAuSrh: React.FC = () => {
           assistantTempsPartage: formData.assistantTempsPartage,
         };
 
-        // Create user in database
+        // IMPORTANT: Validate payment BEFORE creating user in database
+        // This prevents orphaned user records if payment fails
+        let paymentResult = null;
+        if (selectedTierData.price > 0) {
+          // Create temporary user object for payment processing
+          const tempUser = {
+            email: formData.email,
+            firstname: formData.firstName,
+            lastname: formData.lastName,
+            hospital: formData.hospital,
+            address: formData.address,
+          };
+
+          paymentResult = await processStripePayment(
+            selectedTierData,
+            tempUser,
+            stripe,
+            elements,
+          );
+
+          if (!paymentResult.success) {
+            alert(paymentResult.error || "Erreur lors du paiement");
+            setIsPaymentLoading(false);
+            return;
+          }
+        }
+
+        // Only create user in database AFTER payment is validated
         const userResult = await createUser({
           email: formData.email,
           firstname: formData.firstName,
@@ -227,21 +254,6 @@ const JadhereAuSrh: React.FC = () => {
           );
           setIsPaymentLoading(false);
           return;
-        }
-
-        // Process payment if needed
-        if (selectedTierData.price > 0) {
-          const paymentResult = await processStripePayment(
-            selectedTierData,
-            userResult.user,
-            stripe,
-            elements,
-          );
-          if (!paymentResult.success) {
-            alert(paymentResult.error || "Erreur lors du paiement");
-            setIsPaymentLoading(false);
-            return;
-          }
         }
 
         // Set success state and user data
