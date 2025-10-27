@@ -345,7 +345,7 @@ async function queueNewsletter(req, res) {
       });
     }
 
-    const now = Date.now();
+    const now = new Date();
 
     // Create newsletter queue entry
     const [newsletter] = await db.insert(newsletterQueue).values({
@@ -423,7 +423,7 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
       .update(newsletterQueue)
       .set({
         status: 'sending',
-        updatedAt: Date.now()
+        updatedAt: new Date()
       })
       .where(eq(newsletterQueue.id, newsletterId));
 
@@ -445,8 +445,8 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
         .update(newsletterQueue)
         .set({
           status: 'completed',
-          completedAt: Date.now(),
-          updatedAt: Date.now()
+          completedAt: new Date(),
+          updatedAt: new Date()
         })
         .where(eq(newsletterQueue.id, newsletterId));
 
@@ -495,7 +495,7 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
           .update(newsletterRecipients)
           .set({
             status: 'sent',
-            sentAt: Date.now()
+            sentAt: new Date()
           })
           .where(eq(newsletterRecipients.id, recipient.id));
 
@@ -527,7 +527,7 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
       .set({
         sentCount: newsletter.sentCount + sent,
         failedCount: newsletter.failedCount + failed,
-        updatedAt: Date.now()
+        updatedAt: new Date()
       })
       .where(eq(newsletterQueue.id, newsletterId));
 
@@ -547,8 +547,8 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
         .update(newsletterQueue)
         .set({
           status: 'completed',
-          completedAt: Date.now(),
-          updatedAt: Date.now()
+          completedAt: new Date(),
+          updatedAt: new Date()
         })
         .where(eq(newsletterQueue.id, newsletterId));
     }
@@ -563,7 +563,7 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
       .update(newsletterQueue)
       .set({
         status: 'failed',
-        updatedAt: Date.now()
+        updatedAt: new Date()
       })
       .where(eq(newsletterQueue.id, newsletterId));
 

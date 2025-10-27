@@ -222,7 +222,7 @@ module.exports = async function handler(req, res) {
       const newsletter = pendingNewsletters[0];
       await db
         .update(newsletterQueue)
-        .set({ status: 'sending', updatedAt: Date.now() })
+        .set({ status: 'sending', updatedAt: new Date() })
         .where(eq(newsletterQueue.id, newsletter.id));
 
       activeNewsletters.push(newsletter);
@@ -252,8 +252,8 @@ module.exports = async function handler(req, res) {
         .update(newsletterQueue)
         .set({
           status: 'completed',
-          completedAt: Date.now(),
-          updatedAt: Date.now()
+          completedAt: new Date(),
+          updatedAt: new Date()
         })
         .where(eq(newsletterQueue.id, newsletter.id));
 
@@ -306,7 +306,7 @@ module.exports = async function handler(req, res) {
           .update(newsletterRecipients)
           .set({
             status: 'sent',
-            sentAt: Date.now()
+            sentAt: new Date()
           })
           .where(eq(newsletterRecipients.id, recipient.id));
 
@@ -340,7 +340,7 @@ module.exports = async function handler(req, res) {
       .set({
         sentCount: newsletter.sentCount + sent,
         failedCount: newsletter.failedCount + failed,
-        updatedAt: Date.now()
+        updatedAt: new Date()
       })
       .where(eq(newsletterQueue.id, newsletter.id));
 
@@ -360,8 +360,8 @@ module.exports = async function handler(req, res) {
         .update(newsletterQueue)
         .set({
           status: 'completed',
-          completedAt: Date.now(),
-          updatedAt: Date.now()
+          completedAt: new Date(),
+          updatedAt: new Date()
         })
         .where(eq(newsletterQueue.id, newsletter.id));
 
