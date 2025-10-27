@@ -140,8 +140,8 @@ async function createUser(req, res) {
         subscription: subscription || null,
         newsletter: newsletter || false,
         isadmin: isadmin || false,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       })
       .returning();
 
@@ -293,7 +293,7 @@ async function updateUser(req, res) {
         newsletter: newsletter,
         isadmin: isadmin,
         infopro: infopro,
-        updatedAt: Date.now(),
+        updatedAt: new Date(),
       })
       .where(eq(users.id, parseInt(id)))
       .returning();
@@ -731,7 +731,7 @@ async function updateProfile(req, res) {
         newsletter: newsletter,
         isadmin: isadmin,
         infopro: JSON.stringify(professionalInfo),
-        updatedAt: Date.now(),
+        updatedAt: new Date(),
       })
       .where(eq(users.id, parseInt(id)))
       .returning();

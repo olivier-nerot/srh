@@ -200,7 +200,7 @@ const AdminMembers: React.FC = () => {
       // Professional info labels mapping
       const labelMap: { [key: string]: string } = {
         'huTitulaire': 'HU titulaire',
-        'phLiberal': 'PH Libéral',
+        'phLiberal': 'PH avec activité libérale',
         'hospitaloUniversitaireTitulaire': 'Hospitalo-Universitaire titulaire',
         'adhesionCollegiale': 'Adhésion conjointe à la collégiale de l\'AP-HP',
         'huLiberal': 'HU Libéral',

@@ -56,6 +56,11 @@ const publications = sqliteTable('publications', {
 const DAILY_EMAIL_LIMIT = 100;
 const RATE_LIMIT_MS = 500;
 
+// Debug mode configuration
+const DEBUG_MODE = process.env.NEWSLETTER_DEBUG_MODE === 'true';
+const DEBUG_EMAIL = process.env.NEWSLETTER_DEBUG_EMAIL || 'test@example.com';
+const DEBUG_LIMIT = parseInt(process.env.NEWSLETTER_DEBUG_LIMIT || '3', 10); // Send to max 3 recipients in debug
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Import helper functions (duplicated for serverless function isolation)
@@ -178,6 +183,12 @@ module.exports = async function handler(req, res) {
 
   console.log('[CRON] Starting newsletter batch send job...');
 
+  if (DEBUG_MODE) {
+    console.log('[CRON] ⚠️  DEBUG MODE ENABLED ⚠️');
+    console.log(`[CRON] - All emails will be sent to: ${DEBUG_EMAIL}`);
+    console.log(`[CRON] - Limit: ${DEBUG_LIMIT} recipients per batch`);
+  }
+
   try {
     const db = await getDb();
 
@@ -220,7 +231,8 @@ module.exports = async function handler(req, res) {
     const newsletter = activeNewsletters[0];
     console.log(`[CRON] Processing newsletter ID ${newsletter.id}: "${newsletter.title}"`);
 
-    // Get pending recipients (batch of 100)
+    // Get pending recipients (batch of 100, or DEBUG_LIMIT in debug mode)
+    const batchLimit = DEBUG_MODE ? DEBUG_LIMIT : DAILY_EMAIL_LIMIT;
     const pendingRecipients = await db
       .select()
       .from(newsletterRecipients)
@@ -230,9 +242,9 @@ module.exports = async function handler(req, res) {
           eq(newsletterRecipients.status, 'pending')
         )
       )
-      .limit(DAILY_EMAIL_LIMIT);
+      .limit(batchLimit);
 
-    console.log(`[CRON] Found ${pendingRecipients.length} pending recipients`);
+    console.log(`[CRON] Found ${pendingRecipients.length} pending recipients (limit: ${batchLimit})`);
 
     if (pendingRecipients.length === 0) {
       // Mark newsletter as completed
@@ -268,17 +280,24 @@ module.exports = async function handler(req, res) {
     // Send emails with rate limiting
     for (const recipient of pendingRecipients) {
       try {
+        // In debug mode, override recipient email with debug email
+        const targetEmail = DEBUG_MODE ? DEBUG_EMAIL : recipient.email;
+
         const emailHtml = generateEmailTemplate(
           newsletter.title,
           newsletter.content,
           selectedPublications,
-          recipient.email
+          recipient.email // Keep original email in template for tracking
         );
+
+        if (DEBUG_MODE) {
+          console.log(`[CRON] 🐛 DEBUG: Would send to ${recipient.email}, redirecting to ${DEBUG_EMAIL}`);
+        }
 
         await resend.emails.send({
           from: process.env.RESEND_EMAIL,
-          to: recipient.email,
-          subject: newsletter.title,
+          to: targetEmail,
+          subject: DEBUG_MODE ? `[DEBUG] ${newsletter.title}` : newsletter.title,
           html: emailHtml,
         });
 
@@ -292,7 +311,8 @@ module.exports = async function handler(req, res) {
           .where(eq(newsletterRecipients.id, recipient.id));
 
         sent++;
-        console.log(`[CRON] Sent to ${recipient.email} (${sent}/${pendingRecipients.length})`);
+        const logEmail = DEBUG_MODE ? `${recipient.email} → ${DEBUG_EMAIL}` : recipient.email;
+        console.log(`[CRON] Sent to ${logEmail} (${sent}/${pendingRecipients.length})`);
 
         // Rate limiting
         if (sent < pendingRecipients.length) {

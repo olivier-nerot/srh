@@ -790,7 +790,7 @@ const JadhereAuSrh: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
                           { key: "huTitulaire", label: "HU titulaire" },
-                          { key: "phLiberal", label: "PH Libéral" },
+                          { key: "phLiberal", label: "PH avec activité libérale" },
                           {
                             key: "hospitaloUniversitaireTitulaire",
                             label: "Hospitalo-Universitaire titulaire",

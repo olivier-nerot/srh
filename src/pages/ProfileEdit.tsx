@@ -210,7 +210,7 @@ const ProfileEdit: React.FC = () => {
 
   const professionalFields = [
     { key: 'huTitulaire', label: 'HU titulaire' },
-    { key: 'phLiberal', label: 'PH Libéral' },
+    { key: 'phLiberal', label: 'PH avec activité libérale' },
     { key: 'hospitaloUniversitaireTitulaire', label: 'Hospitalo-Universitaire titulaire' },
     { key: 'adhesionCollegiale', label: 'Adhésion conjointe à la collégiale de l\'AP-HP' },
     { key: 'huLiberal', label: 'HU Libéral' },

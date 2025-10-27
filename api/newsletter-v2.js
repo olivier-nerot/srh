@@ -66,6 +66,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const DAILY_EMAIL_LIMIT = 100; // Resend free tier limit
 const RATE_LIMIT_MS = 500; // 500ms between emails (2 emails/second)
 
+// Debug mode configuration
+const DEBUG_MODE = process.env.NEWSLETTER_DEBUG_MODE === 'true';
+const DEBUG_EMAIL = process.env.NEWSLETTER_DEBUG_EMAIL || 'test@example.com';
+const DEBUG_LIMIT = parseInt(process.env.NEWSLETTER_DEBUG_LIMIT || '3', 10);
+
 // Helper functions from original file
 function deltaToHtml(content) {
   try {
@@ -388,6 +393,15 @@ async function queueNewsletter(req, res) {
 async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
   const db = await getDb();
 
+  // Apply debug limit if in debug mode
+  const effectiveLimit = DEBUG_MODE ? Math.min(limit, DEBUG_LIMIT) : limit;
+
+  if (DEBUG_MODE) {
+    console.log('⚠️  DEBUG MODE ENABLED ⚠️');
+    console.log(`- All emails will be sent to: ${DEBUG_EMAIL}`);
+    console.log(`- Batch limit: ${effectiveLimit} recipients`);
+  }
+
   try {
     // Get newsletter details
     const [newsletter] = await db
@@ -418,7 +432,7 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
           eq(newsletterRecipients.status, 'pending')
         )
       )
-      .limit(limit);
+      .limit(effectiveLimit);
 
     if (pendingRecipients.length === 0) {
       // All sent, mark as completed
@@ -449,18 +463,25 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
     // Send emails with rate limiting
     for (const recipient of pendingRecipients) {
       try {
+        // In debug mode, override recipient email with debug email
+        const targetEmail = DEBUG_MODE ? DEBUG_EMAIL : recipient.email;
+
         const emailHtml = generateEmailTemplate(
           newsletter.title,
           newsletter.content,
           selectedPublications,
-          recipient.email,
+          recipient.email, // Keep original email in template
           null // No req object in cron
         );
 
+        if (DEBUG_MODE) {
+          console.log(`🐛 DEBUG: Would send to ${recipient.email}, redirecting to ${DEBUG_EMAIL}`);
+        }
+
         await resend.emails.send({
           from: process.env.RESEND_EMAIL,
-          to: recipient.email,
-          subject: newsletter.title,
+          to: targetEmail,
+          subject: DEBUG_MODE ? `[DEBUG] ${newsletter.title}` : newsletter.title,
           html: emailHtml,
         });
 
