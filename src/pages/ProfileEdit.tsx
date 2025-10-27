@@ -126,13 +126,13 @@ const ProfileEdit: React.FC = () => {
         throw new Error(result.error || 'Payment processing failed');
       }
 
-      // For recurring subscriptions with trial, confirm the card setup (no immediate charge)
-      // For one-time payments, confirm the payment
+      // For payments with trial period (1 year free), confirm the card setup (no immediate charge)
+      // This applies to BOTH recurring and one-time payments during the trial period
       if (result.clientSecret) {
         let confirmationResult;
 
-        if (isRecurring && result.setupIntentId) {
-          // Subscription with trial period - use confirmCardSetup (no charge)
+        if (result.setupIntentId) {
+          // Payment with trial period (recurring OR one-time) - use confirmCardSetup (no charge)
           confirmationResult = await stripe.confirmCardSetup(result.clientSecret, {
             payment_method: {
               card: cardElement,
@@ -143,7 +143,7 @@ const ProfileEdit: React.FC = () => {
             }
           });
         } else {
-          // One-time payment - use confirmCardPayment (immediate charge)
+          // Immediate payment (no trial) - use confirmCardPayment (immediate charge)
           confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
             payment_method: {
               card: cardElement,

@@ -279,28 +279,61 @@ async function createPayment(req, res) {
         trial_end: new Date(Date.now() + trialPeriod * 24 * 60 * 60 * 1000).toISOString(),
       });
     } else {
-      // Create a one-time payment intent
-      const paymentIntentParams = {
-        amount: amount,
-        currency: currency,
-        customer: stripeCustomer.id,
-        metadata: {
-          tier: tierData.id,
-          hospital: customer.hospital || "",
-          type: "one_time_membership",
+      // One-time payment with 1-year delay
+      // We need to save the payment method first, then schedule an invoice for 1 year later
+
+      const trialPeriod = req.body.trial_period_days || 365;
+
+      // Create SetupIntent to save payment method without charging
+      const setupIntent = await stripe.setupIntents.create(
+        {
+          customer: stripeCustomer.id,
+          payment_method_types: ['card'],
+          metadata: {
+            tier: tierData.id,
+            hospital: customer.hospital || "",
+            type: "one_time_membership_delayed",
+            amount: amount.toString(),
+            currency: currency,
+            trial_period_days: trialPeriod.toString(),
+          },
         },
-        description: `Adhésion SRH - ${tierData.title}`,
-      };
-      const paymentIntent = await stripe.paymentIntents.create(
-        paymentIntentParams,
+        requestOptions,
+      );
+
+      // Create a single-payment subscription with trial (auto-cancels after first payment)
+      // This is the only way to schedule a one-time payment for the future in Stripe
+      const priceId = await createOrGetPrice(tierData, requestOptions);
+
+      const subscription = await stripe.subscriptions.create(
+        {
+          customer: stripeCustomer.id,
+          items: [{ price: priceId }],
+          trial_period_days: trialPeriod,
+          cancel_at_period_end: true, // Auto-cancel after first payment
+          payment_settings: {
+            save_default_payment_method: "on_subscription",
+            payment_method_types: ['card'],
+          },
+          metadata: {
+            tier: tierData.id,
+            hospital: customer.hospital || "",
+            type: "one_time_membership_delayed",
+            free_trial: `${trialPeriod} days`,
+          },
+        },
         requestOptions,
       );
 
       return res.status(200).json({
         success: true,
-        type: "payment_intent",
-        clientSecret: paymentIntent.client_secret,
+        type: "one_time_delayed",
+        subscriptionId: subscription.id,
+        clientSecret: setupIntent.client_secret,
+        setupIntentId: setupIntent.id,
         customer: stripeCustomer,
+        trial_end: new Date(Date.now() + trialPeriod * 24 * 60 * 60 * 1000).toISOString(),
+        willCancelAfterPayment: true,
       });
     }
   } catch (error) {
