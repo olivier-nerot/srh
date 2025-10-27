@@ -29,6 +29,12 @@ interface QueueStatus {
   updatedAt: number;
 }
 
+interface DebugMode {
+  enabled: boolean;
+  email: string | null;
+  limit: number | null;
+}
+
 const AdminNewsletter: React.FC = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -42,6 +48,7 @@ const AdminNewsletter: React.FC = () => {
   const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
+  const [debugMode, setDebugMode] = useState<DebugMode | null>(null);
 
   // Load recent publications and queue status on component mount
   useEffect(() => {
@@ -59,6 +66,7 @@ const AdminNewsletter: React.FC = () => {
       if (data.success) {
         setPublications(data.publications);
         setQueueStatus(data.queueStatus);
+        setDebugMode(data.debugMode || null);
 
         // Select all publications by default if none selected
         if (selectedPublications.length === 0) {
@@ -240,6 +248,29 @@ const AdminNewsletter: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Debug Mode Banner */}
+        {debugMode && debugMode.enabled && (
+          <div className="mb-6 bg-yellow-50 border-2 border-yellow-400 rounded-md p-4">
+            <div className="flex items-start">
+              <AlertCircle className="h-6 w-6 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-yellow-900 mb-2 uppercase">
+                  ⚠️ Mode Debug Activé ⚠️
+                </h4>
+                <div className="text-sm text-yellow-800 space-y-1">
+                  <p><strong>Aucun email ne sera envoyé aux membres réels.</strong></p>
+                  <p>• Tous les emails seront redirigés vers : <span className="font-mono bg-yellow-100 px-2 py-0.5 rounded">{debugMode.email}</span></p>
+                  <p>• Limite de batch : <span className="font-semibold">{debugMode.limit} emails maximum</span></p>
+                  <p>• Les sujets des emails incluront le préfixe <span className="font-mono bg-yellow-100 px-2 py-0.5 rounded">[DEBUG]</span></p>
+                </div>
+                <div className="mt-3 pt-3 border-t border-yellow-300 text-xs text-yellow-700">
+                  Pour désactiver : Mettre <span className="font-mono">NEWSLETTER_DEBUG_MODE=false</span> dans les variables d'environnement
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Queue Status Banner */}
         {queueStatus && queueStatus.status === 'sending' && (
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-md p-4">

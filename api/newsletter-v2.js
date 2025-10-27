@@ -258,7 +258,12 @@ async function getNewsletterData(req, res) {
     return res.status(200).json({
       success: true,
       publications: recentPublications,
-      queueStatus: activeQueue[0] || null
+      queueStatus: activeQueue[0] || null,
+      debugMode: {
+        enabled: DEBUG_MODE,
+        email: DEBUG_MODE ? DEBUG_EMAIL : null,
+        limit: DEBUG_MODE ? DEBUG_LIMIT : null,
+      }
     });
   } catch (error) {
     console.error('Error fetching newsletter data:', error);
