@@ -126,20 +126,37 @@ const ProfileEdit: React.FC = () => {
         throw new Error(result.error || 'Payment processing failed');
       }
 
-      // Confirm the payment with Stripe using the clientSecret
+      // For recurring subscriptions with trial, confirm the card setup (no immediate charge)
+      // For one-time payments, confirm the payment
       if (result.clientSecret) {
-        const confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              name: `${user.firstname} ${user.lastname}`,
-              email: user.email,
-            },
-          }
-        });
+        let confirmationResult;
+
+        if (isRecurring && result.setupIntentId) {
+          // Subscription with trial period - use confirmCardSetup (no charge)
+          confirmationResult = await stripe.confirmCardSetup(result.clientSecret, {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: `${user.firstname} ${user.lastname}`,
+                email: user.email,
+              },
+            }
+          });
+        } else {
+          // One-time payment - use confirmCardPayment (immediate charge)
+          confirmationResult = await stripe.confirmCardPayment(result.clientSecret, {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: `${user.firstname} ${user.lastname}`,
+                email: user.email,
+              },
+            }
+          });
+        }
 
         if (confirmationResult.error) {
-          throw new Error(confirmationResult.error.message || 'Payment confirmation failed');
+          throw new Error(confirmationResult.error.message || 'Confirmation failed');
         }
 
         return { success: true, data: { ...result, confirmation: confirmationResult } };

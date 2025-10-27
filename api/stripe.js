@@ -230,7 +230,22 @@ async function createPayment(req, res) {
       // Get trial period from request or default to 365 days (1 year free)
       const trialPeriod = req.body.trial_period_days || 365;
 
-      // Create the subscription
+      // For subscriptions with trial, we need to create a SetupIntent (not PaymentIntent)
+      // to save the payment method WITHOUT charging immediately
+      const setupIntent = await stripe.setupIntents.create(
+        {
+          customer: stripeCustomer.id,
+          payment_method_types: ['card'],
+          metadata: {
+            tier: tierData.id,
+            hospital: customer.hospital || "",
+            trial_period_days: trialPeriod.toString(),
+          },
+        },
+        requestOptions,
+      );
+
+      // Create the subscription without immediate payment
       const subscriptionParams = {
         customer: stripeCustomer.id,
         items: [
@@ -238,10 +253,11 @@ async function createPayment(req, res) {
             price: priceId,
           },
         ],
-        payment_behavior: "default_incomplete",
-        payment_settings: { save_default_payment_method: "on_subscription" },
-        expand: ["latest_invoice.payment_intent"],
-        trial_period_days: trialPeriod, // Add trial period
+        trial_period_days: trialPeriod,
+        payment_settings: {
+          save_default_payment_method: "on_subscription",
+          payment_method_types: ['card'],
+        },
         metadata: {
           tier: tierData.id,
           hospital: customer.hospital || "",
@@ -257,8 +273,10 @@ async function createPayment(req, res) {
         success: true,
         type: "subscription",
         subscriptionId: subscription.id,
-        clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+        clientSecret: setupIntent.client_secret, // Return SetupIntent secret, not PaymentIntent
+        setupIntentId: setupIntent.id,
         customer: stripeCustomer,
+        trial_end: new Date(Date.now() + trialPeriod * 24 * 60 * 60 * 1000).toISOString(),
       });
     } else {
       // Create a one-time payment intent

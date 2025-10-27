@@ -332,20 +332,40 @@ const JadhereAuSrh: React.FC = () => {
       }
 
       // Confirm the payment with Stripe using the clientSecret
+      // For recurring subscriptions with trial, use confirmCardSetup (no immediate charge)
+      // For one-time payments, use confirmCardPayment (immediate charge)
       if (result.clientSecret) {
-        // Use the proper confirmCardPayment method as per Stripe docs
-        const confirmationResult = await stripe.confirmCardPayment(
-          result.clientSecret,
-          {
-            payment_method: {
-              card: cardElement,
-              billing_details: {
-                name: `${user.firstname} ${user.lastname}`,
-                email: user.email,
+        let confirmationResult;
+
+        if (isRecurring && result.setupIntentId) {
+          // Subscription with trial period - use confirmCardSetup (no charge)
+          confirmationResult = await stripe.confirmCardSetup(
+            result.clientSecret,
+            {
+              payment_method: {
+                card: cardElement,
+                billing_details: {
+                  name: `${user.firstname} ${user.lastname}`,
+                  email: user.email,
+                },
               },
             },
-          },
-        );
+          );
+        } else {
+          // One-time payment - use confirmCardPayment (immediate charge)
+          confirmationResult = await stripe.confirmCardPayment(
+            result.clientSecret,
+            {
+              payment_method: {
+                card: cardElement,
+                billing_details: {
+                  name: `${user.firstname} ${user.lastname}`,
+                  email: user.email,
+                },
+              },
+            },
+          );
+        }
 
         if (confirmationResult.error) {
           throw new Error(
