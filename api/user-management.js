@@ -342,11 +342,81 @@ async function deleteUser(req, res) {
 
     const db = await getDb();
 
+    // Get user information before deletion
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, parseInt(id)))
+      .limit(1);
+
+    if (userResult.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Utilisateur non trouvé",
+      });
+    }
+
+    const user = userResult[0];
+
+    // Cancel Stripe subscriptions if user has any
+    if (user.email) {
+      try {
+        const Stripe = require('stripe');
+        const isTestMode = process.env.VITE_STRIPE_TESTMODE === 'true';
+        const stripeSecretKey = isTestMode
+          ? process.env.VITE_STRIPE_TEST_SECRET_API_KEY
+          : process.env.VITE_STRIPE_SECRET_API_KEY;
+
+        if (stripeSecretKey) {
+          const stripe = new Stripe(stripeSecretKey, {
+            apiVersion: '2024-11-20.acacia',
+          });
+
+          const requestOptions = {
+            stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+          };
+
+          // Find Stripe customer by email
+          const customers = await stripe.customers.list(
+            { email: user.email, limit: 1 },
+            requestOptions
+          );
+
+          if (customers.data.length > 0) {
+            const customer = customers.data[0];
+
+            // Get all active subscriptions for this customer
+            const subscriptions = await stripe.subscriptions.list(
+              {
+                customer: customer.id,
+                status: 'all',
+                limit: 100,
+              },
+              requestOptions
+            );
+
+            // Cancel all active or trialing subscriptions
+            for (const subscription of subscriptions.data) {
+              if (['active', 'trialing', 'past_due'].includes(subscription.status)) {
+                await stripe.subscriptions.cancel(subscription.id, requestOptions);
+                console.log(`Canceled subscription ${subscription.id} for user ${user.email}`);
+              }
+            }
+          }
+        }
+      } catch (stripeError) {
+        console.error('Error canceling Stripe subscriptions:', stripeError);
+        // Continue with deletion even if Stripe cancellation fails
+        // Log the error but don't fail the entire operation
+      }
+    }
+
+    // Delete user from database
     await db.delete(users).where(eq(users.id, parseInt(id)));
 
     return res.status(200).json({
       success: true,
-      message: "Utilisateur supprimé avec succès",
+      message: "Utilisateur supprimé avec succès (et abonnements annulés si applicable)",
     });
   } catch (error) {
     console.error("Error deleting user:", error);

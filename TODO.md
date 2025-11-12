@@ -43,5 +43,22 @@ changer CB membre (recurrence annuelle ?)
 
 supprimer offre gratuite : tout abonnement démarre l'année suivante
 
+TODO
+* logo
+* années 1er jav-31 dec
+* reset abonnements stripe au 1er janvier. toujours 1er janvier
+* suppression d'un membre
+- pascal beroud
+- olivier pellerin : aucun paiement ? + valide
+* filtrer membres par paiement échoué 
+* archiver newsletters envoyées + view nl
+* extraire membres csv : tout + filtre courant
+
+transmettre accès vercel/resend
+accès github
+
+
+
+
 
 

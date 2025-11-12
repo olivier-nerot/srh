@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase, CreditCard, Euro } from 'lucide-react';
-import { getAllUsers } from '../../services/userService';
+import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase, CreditCard, Euro, Trash2, Download } from 'lucide-react';
+import { getAllUsers, deleteUser } from '../../services/userService';
 import { getUserLastPayment, type Payment } from '../../services/paymentService';
 
 interface User {
@@ -31,6 +31,11 @@ const AdminMembers: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubscription, setFilterSubscription] = useState('all');
   const [filterPaymentStatus, setFilterPaymentStatus] = useState('all');
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean; user: User | null }>({
+    show: false,
+    user: null
+  });
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -124,11 +129,18 @@ const AdminMembers: React.FC = () => {
     if (!user.lastPayment || user.lastPayment.status !== 'succeeded') {
       return false;
     }
-    
+
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    
+
     return user.lastPayment.created <= oneYearAgo;
+  };
+
+  const hasFailedPayment = (user: User): boolean => {
+    // User has failed payment if their last payment exists but status is not succeeded or pending
+    // This matches the display logic that shows "Échoué" for all non-succeeded, non-pending statuses
+    if (!user.lastPayment) return false;
+    return user.lastPayment.status !== 'succeeded' && user.lastPayment.status !== 'pending';
   };
 
   const filteredUsers = users.filter(user => {
@@ -140,10 +152,11 @@ const AdminMembers: React.FC = () => {
     
     const matchesSubscription = filterSubscription === 'all' || user.subscription === filterSubscription;
     
-    const matchesPaymentStatus = 
+    const matchesPaymentStatus =
       filterPaymentStatus === 'all' ||
       (filterPaymentStatus === 'valid' && isValidRegistration(user)) ||
       (filterPaymentStatus === 'expired' && hasExpiredPayment(user)) ||
+      (filterPaymentStatus === 'failed' && hasFailedPayment(user)) ||
       (filterPaymentStatus === 'no-payment' && !user.lastPayment);
     
     return matchesSearch && matchesSubscription && matchesPaymentStatus;
@@ -171,6 +184,36 @@ const AdminMembers: React.FC = () => {
 
   const handleUserClick = (userId: number) => {
     navigate(`/profile?id=${userId}`);
+  };
+
+  const handleDeleteClick = (user: User, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent navigation to profile
+    setDeleteConfirmation({ show: true, user });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmation.user) return;
+
+    setDeleting(true);
+    try {
+      const result = await deleteUser(deleteConfirmation.user.id);
+
+      if (result.success) {
+        // Remove user from UI
+        setUsers(prevUsers => prevUsers.filter(u => u.id !== deleteConfirmation.user!.id));
+        setDeleteConfirmation({ show: false, user: null });
+      } else {
+        setError(result.error || 'Erreur lors de la suppression du membre');
+      }
+    } catch (err) {
+      setError('Erreur lors de la suppression du membre');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmation({ show: false, user: null });
   };
 
   const formatDate = (dateInput: string | Date | null | undefined) => {
@@ -224,6 +267,82 @@ const AdminMembers: React.FC = () => {
     }
   };
 
+  const exportToCSV = () => {
+    // Use ALL users, not just filteredUsers, to ensure we export everyone
+    // Apply filters manually if needed
+    let usersToExport = users;
+
+    // Apply current filters if any are active
+    if (searchTerm || filterSubscription !== 'all' || filterPaymentStatus !== 'all') {
+      usersToExport = filteredUsers;
+    }
+
+    // Prepare CSV headers
+    const headers = [
+      'ID',
+      'Prénom',
+      'Nom',
+      'Email',
+      'Établissement',
+      'Adresse',
+      'Type d\'adhésion',
+      'Informations professionnelles',
+      'Admin',
+      'Newsletter',
+      'Date d\'inscription',
+      'Dernière mise à jour',
+      'Montant du paiement',
+      'Date du paiement',
+      'Statut du paiement',
+      'Devise'
+    ];
+
+    // Prepare CSV rows
+    const rows = usersToExport.map(user => {
+      const professionalLabels = parseProfessionalInfo(user.infopro || null).join('; ');
+
+      return [
+        user.id,
+        user.firstname || '',
+        user.lastname || '',
+        user.email,
+        user.hospital || '',
+        user.address || '',
+        getSubscriptionLabel(user.subscription || ''),
+        professionalLabels,
+        user.isadmin ? 'Oui' : 'Non',
+        user.newsletter ? 'Activée' : 'Désactivée',
+        formatDate(user.created_at),
+        formatDate(user.updated_at),
+        user.lastPayment?.amount || '',
+        user.lastPayment ? formatDate(user.lastPayment.created) : '',
+        user.lastPayment?.status === 'succeeded' ? 'Réussi' :
+         user.lastPayment?.status === 'pending' ? 'En attente' :
+         user.lastPayment?.status ? 'Échoué' : '',
+        user.lastPayment?.currency || ''
+      ];
+    });
+
+    // Convert to CSV string
+    const csvContent = [
+      headers.map(header => `"${header}"`).join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Create blob and download
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `membres_srh_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -254,8 +373,8 @@ const AdminMembers: React.FC = () => {
                       Chargement des paiements... {Math.min(loadingProgress.current, loadingProgress.total)}/{loadingProgress.total}
                     </p>
                     <div className="w-64 bg-gray-200 rounded-full h-1.5">
-                      <div 
-                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300" 
+                      <div
+                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
                         style={{ width: `${Math.min((loadingProgress.current / loadingProgress.total) * 100, 100)}%` }}
                       ></div>
                     </div>
@@ -263,6 +382,14 @@ const AdminMembers: React.FC = () => {
                 )}
               </div>
             </div>
+            <button
+              onClick={exportToCSV}
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              title="Exporter la liste des membres en CSV"
+            >
+              <Download className="h-5 w-5 mr-2" />
+              Exporter CSV
+            </button>
           </div>
         </div>
       </div>
@@ -310,6 +437,7 @@ const AdminMembers: React.FC = () => {
                   <option value="all">Tous les statuts de paiement</option>
                   <option value="valid">Adhésions valides (moins d'1 an)</option>
                   <option value="expired">Adhésions expirées (plus d'1 an)</option>
+                  <option value="failed">Paiements échoués</option>
                   <option value="no-payment">Aucun paiement</option>
                 </select>
               </div>
@@ -338,10 +466,16 @@ const AdminMembers: React.FC = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       {user.firstname || ''} {user.lastname || ''}
                     </h3>
-                    <div className="flex items-center mt-1">
+                    {user.isadmin && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                        <Settings className="h-3 w-3 mr-1" />
+                        Admin
+                      </span>
+                    )}
+                    <div className="flex items-center mt-2">
                       <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                      <a 
-                        href={`mailto:${user.email}`} 
+                      <a
+                        href={`mailto:${user.email}`}
                         className="text-sm text-gray-600 hover:text-red-600"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -350,24 +484,10 @@ const AdminMembers: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    {user.isadmin && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        <Settings className="h-3 w-3 mr-1" />
-                        Admin
-                      </span>
-                    )}
-                    {/* Registration Status Badge */}
-                    {isValidRegistration(user) ? (
+                    {/* Registration Status Badge - Only show "Valide" */}
+                    {isValidRegistration(user) && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         ✓ Valide
-                      </span>
-                    ) : user.lastPayment && user.lastPayment.status === 'succeeded' ? (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                        ⚠ Expirée
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        ✗ Aucun paiement
                       </span>
                     )}
                   </div>
@@ -480,9 +600,18 @@ const AdminMembers: React.FC = () => {
                 )}
 
                 {/* Creation Date */}
-                <div className="flex items-center text-xs text-gray-500 pt-3 border-t border-gray-100">
-                  <Calendar className="h-3 w-3 mr-1" />
-                  Inscrit le {formatDate(user.created_at)}
+                <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
+                  <div className="flex items-center">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    Inscrit le {formatDate(user.created_at)}
+                  </div>
+                  <button
+                    onClick={(e) => handleDeleteClick(user, e)}
+                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    title="Supprimer ce membre"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -496,6 +625,59 @@ const AdminMembers: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmation.show && deleteConfirmation.user && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start mb-4">
+              <div className="flex-shrink-0 bg-red-100 rounded-full p-3 mr-4">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Confirmer la suppression
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Êtes-vous sûr de vouloir supprimer le membre <strong>{deleteConfirmation.user.firstname} {deleteConfirmation.user.lastname}</strong> ({deleteConfirmation.user.email}) ?
+                </p>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Attention :</strong> Cette action est irréversible. Le membre sera supprimé de la base de données et tous les abonnements Stripe actifs seront annulés.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={handleCancelDelete}
+                disabled={deleting}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {deleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Suppression...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Supprimer
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

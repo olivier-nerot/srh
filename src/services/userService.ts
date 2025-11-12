@@ -106,3 +106,16 @@ export async function updateExistingUsersSubscriptions() {
     return { success: false, error: 'Erreur lors de la mise à jour des abonnements' };
   }
 }
+
+export async function deleteUser(id: string | number) {
+  try {
+    const response = await fetch(`${API_BASE}/api/user-management?action=delete&id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return { success: false, error: 'Erreur lors de la suppression de l\'utilisateur' };
+  }
+}

@@ -57,6 +57,14 @@ const JadhereAuSrh: React.FC = () => {
   const [registeredUser, setRegisteredUser] = useState<any>(null);
   const [isRecurring, setIsRecurring] = useState<boolean>(true);
 
+  // Calculate next January 1st dynamically
+  const getNextJan1Year = () => {
+    const today = new Date();
+    const nextJan1 = new Date(today.getFullYear() + 1, 0, 1);
+    return nextJan1.getFullYear();
+  };
+  const nextJan1Year = getNextJan1Year();
+
   // Redirect logged-in users to profile edit payment tab
   useEffect(() => {
     if (user) {
@@ -333,7 +341,7 @@ const JadhereAuSrh: React.FC = () => {
           },
           recurring: isRecurring,
           tierData: tierData,
-          trial_period_days: 365, // Add 1 year free trial
+          // trial_period_days calculated automatically by backend (until next Jan 1st)
         }),
       });
 
@@ -568,16 +576,16 @@ const JadhereAuSrh: React.FC = () => {
             <Euro className="h-6 w-6 text-green-600 mr-3" />
             <div>
               <h3 className="text-lg font-semibold text-green-900 mb-2">
-                Première année gratuite
+                Gratuit jusqu'au 1er janvier {nextJan1Year}
               </h3>
               <p className="text-green-800">
                 <strong>
-                  Votre adhésion est entièrement gratuite la première année,
+                  Votre adhésion est entièrement gratuite jusqu'au 1er janvier {nextJan1Year},
                   quel que soit le tarif choisi.
                 </strong>
                 <br />
-                Le prélèvement ne sera effectué qu'un an après votre
-                inscription.
+                Le prélèvement ne sera effectué qu'à partir du 1er janvier {nextJan1Year}.
+                Tous les adhérents renouvellent leur adhésion à la même date pour faciliter la gestion.
               </p>
             </div>
           </div>
@@ -924,7 +932,7 @@ const JadhereAuSrh: React.FC = () => {
                           {isRecurring && (
                             <div className="text-sm text-blue-600 mt-2 font-medium">
                               🔄 Paiement automatique annuel activé (premier
-                              paiement dans un an)
+                              paiement le 1er janvier {nextJan1Year})
                             </div>
                           )}
                         </div>
@@ -953,7 +961,7 @@ const JadhereAuSrh: React.FC = () => {
                                       Paiement unique
                                     </span>
                                     <div className="text-gray-500">
-                                      Premier paiement dans 1 an, puis adhésion
+                                      Premier paiement le 1er janvier {nextJan1Year}, puis adhésion
                                       pour l'année suivante uniquement
                                     </div>
                                   </label>
@@ -975,8 +983,8 @@ const JadhereAuSrh: React.FC = () => {
                                       Abonnement annuel automatique
                                     </span>
                                     <div className="text-gray-500">
-                                      Premier paiement dans 1 an, puis
-                                      renouvellement automatique chaque année
+                                      Premier paiement le 1er janvier {nextJan1Year}, puis
+                                      renouvellement automatique chaque 1er janvier
                                       (résiliable à tout moment)
                                     </div>
                                     <div className="text-green-600 text-xs mt-1">

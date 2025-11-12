@@ -6,7 +6,7 @@ const newsletterQueue = sqliteTable('newsletter_queue', {
   title: text('title').notNull(),
   content: text('content').notNull(), // Delta JSON
   selectedPublicationIds: text('selected_publication_ids', { mode: 'json' }).$type(),
-  status: text('status', { enum: ['pending', 'sending', 'completed', 'failed'] }).notNull().default('pending'),
+  status: text('status', { enum: ['draft', 'pending', 'sending', 'completed', 'failed'] }).notNull().default('draft'),
   totalRecipients: integer('total_recipients').notNull(),
   sentCount: integer('sent_count').notNull().default(0),
   failedCount: integer('failed_count').notNull().default(0),

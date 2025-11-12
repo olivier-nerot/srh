@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import QuillEditor from 'quill-next-react';
 import 'quill-next/dist/quill.snow.css';
-import { Mail, Send, Eye, FileText, Calendar, Users, AlertCircle, CheckCircle, Clock, Loader } from 'lucide-react';
+import { Mail, Send, Eye, FileText, Calendar, Users, AlertCircle, CheckCircle, Clock, Loader, Trash2, Plus, History, Save, Edit, X } from 'lucide-react';
 
 interface Publication {
   id: number;
@@ -21,7 +21,7 @@ interface SendProgress {
 interface QueueStatus {
   id: number;
   title: string;
-  status: 'pending' | 'sending' | 'completed' | 'failed';
+  status: 'draft' | 'pending' | 'sending' | 'completed' | 'failed';
   totalRecipients: number;
   sentCount: number;
   failedCount: number;
@@ -33,6 +33,28 @@ interface DebugMode {
   enabled: boolean;
   email: string | null;
   limit: number | null;
+}
+
+interface NewsletterHistory {
+  id: number;
+  title: string;
+  content: string;
+  selectedPublicationIds: number[] | null;
+  status: 'draft' | 'pending' | 'sending' | 'completed' | 'failed';
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  createdAt: number;
+  updatedAt: number;
+  completedAt: number | null;
+}
+
+interface Draft {
+  id: number;
+  title: string;
+  content: string;
+  selectedPublicationIds: number[] | null;
+  updatedAt: number;
 }
 
 const AdminNewsletter: React.FC = () => {
@@ -49,6 +71,13 @@ const AdminNewsletter: React.FC = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
   const [debugMode, setDebugMode] = useState<DebugMode | null>(null);
+  const [history, setHistory] = useState<NewsletterHistory[]>([]);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [currentDraftId, setCurrentDraftId] = useState<number | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [viewingNewsletter, setViewingNewsletter] = useState<NewsletterHistory | null>(null);
 
   // Load recent publications and queue status on component mount
   useEffect(() => {
@@ -67,6 +96,8 @@ const AdminNewsletter: React.FC = () => {
         setPublications(data.publications);
         setQueueStatus(data.queueStatus);
         setDebugMode(data.debugMode || null);
+        setHistory(data.history || []);
+        setDrafts(data.drafts || []);
 
         // Select all publications by default if none selected
         if (selectedPublications.length === 0) {
@@ -228,6 +259,180 @@ const AdminNewsletter: React.FC = () => {
     return types[type] || type;
   };
 
+  const formatDateTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusLabel = (status: string) => {
+    const statuses: { [key: string]: string } = {
+      draft: 'Brouillon',
+      pending: 'En attente',
+      sending: 'En cours d\'envoi',
+      completed: 'Envoyé',
+      failed: 'Échec'
+    };
+    return statuses[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: { [key: string]: string } = {
+      draft: 'bg-gray-100 text-gray-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      sending: 'bg-blue-100 text-blue-800',
+      completed: 'bg-green-100 text-green-800',
+      failed: 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const handleDeleteNewsletter = async (id: number) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette newsletter ?')) {
+      return;
+    }
+
+    setDeletingId(id);
+    try {
+      const response = await fetch(`/api/newsletter-v2?id=${id}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Newsletter supprimée avec succès' });
+        loadNewsletterData();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Erreur lors de la suppression' });
+      }
+    } catch (error) {
+      console.error('Error deleting newsletter:', error);
+      setMessage({ type: 'error', text: 'Erreur lors de la suppression' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!title.trim() || !content.trim()) {
+      setMessage({ type: 'error', text: 'Le titre et le contenu sont requis' });
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      const response = await fetch('/api/newsletter-v2', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'save-draft',
+          title,
+          content,
+          selectedPublicationIds: selectedPublications,
+          draftId: currentDraftId
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage({ type: 'success', text: data.message });
+        setCurrentDraftId(data.draftId);
+        loadNewsletterData();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Erreur lors de la sauvegarde' });
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      setMessage({ type: 'error', text: 'Erreur lors de la sauvegarde du brouillon' });
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const handleLoadDraft = (draft: Draft) => {
+    setTitle(draft.title);
+    setContent(draft.content);
+    setSelectedPublications(draft.selectedPublicationIds || []);
+    setCurrentDraftId(draft.id);
+    setShowForm(true);
+
+    // Set content in Quill editor
+    if (quillRef) {
+      try {
+        const delta = JSON.parse(draft.content);
+        quillRef.setContents(delta);
+      } catch (error) {
+        console.error('Error loading draft content:', error);
+      }
+    }
+
+    setMessage({ type: 'info', text: 'Brouillon chargé' });
+  };
+
+  const handleSendDraft = async (draftId: number) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir envoyer ce brouillon ?')) {
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const response = await fetch('/api/newsletter-v2', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'send-draft',
+          draftId
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage({ type: 'success', text: data.message });
+        setCurrentDraftId(null);
+        setTitle('');
+        setContent('');
+        setSelectedPublications([]);
+        if (quillRef) {
+          quillRef.setText('');
+        }
+        loadNewsletterData();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Erreur lors de l\'envoi' });
+      }
+    } catch (error) {
+      console.error('Error sending draft:', error);
+      setMessage({ type: 'error', text: 'Erreur lors de l\'envoi du brouillon' });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleNewNewsletter = () => {
+    setTitle('');
+    setContent('');
+    setSelectedPublications([]);
+    setCurrentDraftId(null);
+    if (quillRef) {
+      quillRef.setText('');
+    }
+    setShowForm(true);
+  };
+
+  const handleViewNewsletter = (newsletter: NewsletterHistory) => {
+    setViewingNewsletter(newsletter);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -243,6 +448,22 @@ const AdminNewsletter: React.FC = () => {
                 <p className="text-gray-600 mt-1">Création et envoi de la newsletter SRH</p>
               </div>
             </div>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="flex items-center px-4 py-2 bg-srh-blue text-white rounded-md hover:bg-srh-blue-dark transition-colors"
+            >
+              {showForm ? (
+                <>
+                  <History className="h-5 w-5 mr-2" />
+                  Voir l'historique
+                </>
+              ) : (
+                <>
+                  <Plus className="h-5 w-5 mr-2" />
+                  Nouvelle newsletter
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -362,9 +583,11 @@ const AdminNewsletter: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Newsletter Form */}
-          <div className="lg:col-span-2">
+        {/* Toggle between form and history */}
+        {showForm ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Newsletter Form */}
+            <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900 flex items-center">
@@ -433,7 +656,16 @@ const AdminNewsletter: React.FC = () => {
                     <Eye className="h-4 w-4 mr-2" />
                     {isLoading ? 'Génération...' : 'Aperçu'}
                   </button>
-                  
+
+                  <button
+                    onClick={handleSaveDraft}
+                    disabled={isSavingDraft || isSending || !title.trim() || !hasValidContent()}
+                    className="flex items-center justify-center px-4 py-2 border border-gray-500 text-gray-700 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSavingDraft ? 'Sauvegarde...' : currentDraftId ? 'Mettre à jour le brouillon' : 'Sauvegarder comme brouillon'}
+                  </button>
+
                   <button
                     onClick={handleSend}
                     disabled={isSending || !title.trim() || !hasValidContent()}
@@ -500,6 +732,165 @@ const AdminNewsletter: React.FC = () => {
             </div>
           </div>
         </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Drafts Section */}
+            {drafts.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border">
+                <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                      <FileText className="h-5 w-5 mr-2 text-srh-blue" />
+                      Brouillons
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {drafts.length} brouillon(s) en attente
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleNewNewsletter}
+                    className="flex items-center px-4 py-2 bg-srh-blue text-white rounded-md hover:bg-srh-blue-dark transition-colors"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nouveau
+                  </button>
+                </div>
+
+                <div className="divide-y divide-gray-200">
+                  {drafts.map((draft) => (
+                    <div key={draft.id} className="p-6 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            {draft.title}
+                          </h3>
+                          <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                            <div className="flex items-center">
+                              <Clock className="h-4 w-4 mr-1" />
+                              Modifié le {formatDateTime(draft.updatedAt)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 ml-4">
+                          <button
+                            onClick={() => handleLoadDraft(draft)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                            title="Modifier ce brouillon"
+                          >
+                            <Edit className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleSendDraft(draft.id)}
+                            disabled={isSending}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
+                            title="Envoyer ce brouillon"
+                          >
+                            <Send className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteNewsletter(draft.id)}
+                            disabled={deletingId === draft.id}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                            title="Supprimer ce brouillon"
+                          >
+                            {deletingId === draft.id ? (
+                              <Loader className="h-5 w-5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-5 w-5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Newsletter History */}
+            <div className="bg-white rounded-lg shadow-sm border">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <History className="h-5 w-5 mr-2 text-srh-blue" />
+                  Historique des newsletters
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {history.length} newsletter(s) envoyée(s)
+                </p>
+              </div>
+
+            <div className="divide-y divide-gray-200">
+              {history.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  Aucune newsletter envoyée pour le moment
+                </div>
+              ) : (
+                history.map((newsletter) => (
+                  <div key={newsletter.id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900 truncate">
+                            {newsletter.title}
+                          </h3>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(newsletter.status)}`}>
+                            {getStatusLabel(newsletter.status)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                          <div className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1" />
+                            {formatDateTime(newsletter.createdAt)}
+                          </div>
+                          <div className="flex items-center">
+                            <Users className="h-4 w-4 mr-1" />
+                            {newsletter.sentCount} / {newsletter.totalRecipients} envoyés
+                          </div>
+                          {newsletter.failedCount > 0 && (
+                            <span className="text-red-600">
+                              {newsletter.failedCount} échecs
+                            </span>
+                          )}
+                        </div>
+
+                        {newsletter.status === 'completed' && newsletter.completedAt && (
+                          <p className="text-xs text-gray-500">
+                            Complété le {formatDateTime(newsletter.completedAt)}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 ml-4">
+                        <button
+                          onClick={() => handleViewNewsletter(newsletter)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                          title="Voir cette newsletter"
+                        >
+                          <Eye className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNewsletter(newsletter.id)}
+                          disabled={deletingId === newsletter.id || newsletter.status === 'sending'}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Supprimer cette newsletter"
+                        >
+                          {deletingId === newsletter.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-5 w-5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          </div>
+        )}
       </div>
 
       {/* Preview Modal */}
@@ -543,6 +934,91 @@ const AdminNewsletter: React.FC = () => {
               >
                 <Send className="h-4 w-4 mr-2 inline" />
                 Envoyer maintenant
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Newsletter Modal */}
+      {viewingNewsletter && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-full overflow-hidden">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {viewingNewsletter.title}
+                </h3>
+                <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(viewingNewsletter.status)}`}>
+                    {getStatusLabel(viewingNewsletter.status)}
+                  </span>
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-1" />
+                    {formatDateTime(viewingNewsletter.createdAt)}
+                  </div>
+                  <div className="flex items-center">
+                    <Users className="h-4 w-4 mr-1" />
+                    {viewingNewsletter.sentCount} / {viewingNewsletter.totalRecipients} envoyés
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingNewsletter(null)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="overflow-auto p-6" style={{ maxHeight: '70vh' }}>
+              <div
+                className="prose max-w-none"
+                dangerouslySetInnerHTML={{
+                  __html: (() => {
+                    try {
+                      const delta = JSON.parse(viewingNewsletter.content);
+                      if (delta.ops && Array.isArray(delta.ops)) {
+                        return delta.ops.map((op: any) => {
+                          if (typeof op.insert === 'string') {
+                            let text = op.insert;
+                            if (op.attributes) {
+                              const attrs = op.attributes;
+                              if (attrs.bold) text = `<strong>${text}</strong>`;
+                              if (attrs.italic) text = `<em>${text}</em>`;
+                              if (attrs.underline) text = `<u>${text}</u>`;
+                              if (attrs.link) text = `<a href="${attrs.link}" target="_blank" rel="noopener noreferrer" style="color: #1e40af;">${text}</a>`;
+                              if (attrs.header) text = `<h${attrs.header} style="color: #1e40af; margin: 16px 0 8px 0;">${text}</h${attrs.header}>`;
+                            }
+                            return text.replace(/\n/g, '<br>');
+                          }
+                          return '';
+                        }).join('');
+                      }
+                    } catch (error) {
+                      return viewingNewsletter.content ? viewingNewsletter.content.replace(/\n/g, '<br>') : '';
+                    }
+                    return viewingNewsletter.content || '';
+                  })()
+                }}
+              />
+
+              {viewingNewsletter.selectedPublicationIds && viewingNewsletter.selectedPublicationIds.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                    Publications incluses
+                  </h4>
+                  <div className="text-sm text-gray-600">
+                    {viewingNewsletter.selectedPublicationIds.length} publication(s) incluse(s)
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setViewingNewsletter(null)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                Fermer
               </button>
             </div>
           </div>

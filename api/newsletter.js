@@ -69,23 +69,10 @@ function deltaToHtml(content) {
 
 // Generate HTML email template
 function generateEmailTemplate(title, content, selectedPublications, userEmail, req) {
-  let baseUrl;
-  
-  // Always use the request host when available
-  if (req && req.headers && req.headers.host) {
-    const protocol = req.headers['x-forwarded-proto'] || 
-                    (req.connection && req.connection.encrypted ? 'https' : 'http') ||
-                    'https'; // Default to https for security
-    baseUrl = `${protocol}://${req.headers.host}`;
-  } else {
-    // Fallback only when request is not available
-    baseUrl = process.env.VERCEL_URL || 'https://srh-info.org';
-    // Ensure the URL has a protocol
-    if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-      baseUrl = `https://${baseUrl}`;
-    }
-  }
-  
+  // IMPORTANT: Always use production domain for emails, never preview/branch URLs
+  // Emails are permanent records and should only link to production
+  const baseUrl = process.env.PRODUCTION_URL || 'https://srh-info.org';
+
   const publicationsHtml = selectedPublications.map(pub => {
     const publicationUrl = `${baseUrl}/publications/${pub.id}`;
     return `
@@ -125,7 +112,7 @@ function generateEmailTemplate(title, content, selectedPublications, userEmail, 
         <!-- Header -->
         <div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); padding: 20px; text-align: center;">
           <a href="${baseUrl}" style="text-decoration: none;">
-            <img src="${baseUrl}/logo.svg" alt="SRH Logo" style="height: 60px; width: auto; display: block; margin: 0 auto;">
+            <img src="${baseUrl}/icon.png" alt="SRH Logo" style="height: 60px; width: auto; display: block; margin: 0 auto;">
           </a>
           <h1 style="color: white; margin: 10px 0 0 0; font-size: 24px; font-weight: bold;">
             <a href="${baseUrl}" style="color: white; text-decoration: none;">

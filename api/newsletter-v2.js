@@ -1,5 +1,5 @@
 const { getDb } = require('./lib/turso');
-const { eq, gte, desc, and } = require('drizzle-orm');
+const { eq, ne, gte, desc, and } = require('drizzle-orm');
 const { sqliteTable, text, integer } = require('drizzle-orm/sqlite-core');
 const { Resend } = require('resend');
 
@@ -40,7 +40,7 @@ const newsletterQueue = sqliteTable('newsletter_queue', {
   title: text('title').notNull(),
   content: text('content').notNull(),
   selectedPublicationIds: text('selected_publication_ids', { mode: 'json' }).$type(),
-  status: text('status', { enum: ['pending', 'sending', 'completed', 'failed'] }).notNull().default('pending'),
+  status: text('status', { enum: ['draft', 'pending', 'sending', 'completed', 'failed'] }).notNull().default('draft'),
   totalRecipients: integer('total_recipients').notNull(),
   sentCount: integer('sent_count').notNull().default(0),
   failedCount: integer('failed_count').notNull().default(0),
@@ -111,19 +111,9 @@ function getTypeLabel(type) {
 }
 
 function generateEmailTemplate(title, content, selectedPublications, userEmail, req) {
-  let baseUrl;
-
-  if (req && req.headers && req.headers.host) {
-    const protocol = req.headers['x-forwarded-proto'] ||
-                    (req.connection && req.connection.encrypted ? 'https' : 'http') ||
-                    'https';
-    baseUrl = `${protocol}://${req.headers.host}`;
-  } else {
-    baseUrl = process.env.VERCEL_URL || 'https://srh-info.org';
-    if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-      baseUrl = `https://${baseUrl}`;
-    }
-  }
+  // IMPORTANT: Always use production domain for emails, never preview/branch URLs
+  // Emails are permanent records and should only link to production
+  const baseUrl = process.env.PRODUCTION_URL || 'https://srh-info.org';
 
   const publicationsHtml = selectedPublications.map(pub => {
     const publicationUrl = `${baseUrl}/publications/${pub.id}`;
@@ -161,7 +151,7 @@ function generateEmailTemplate(title, content, selectedPublications, userEmail, 
       <div style="max-width: 600px; margin: 0 auto; background-color: white;">
         <div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); padding: 20px; text-align: center;">
           <a href="${baseUrl}" style="text-decoration: none;">
-            <img src="${baseUrl}/logo.svg" alt="SRH Logo" style="height: 60px; width: auto;">
+            <img src="${baseUrl}/icon.png" alt="SRH Logo" style="height: 60px; width: auto;">
           </a>
           <h1 style="color: white; margin: 10px 0 0 0; font-size: 24px;">
             Syndicat des Radiologues Hospitaliers
@@ -222,8 +212,14 @@ module.exports = async function handler(req, res) {
           return await previewNewsletter(req, res);
         } else if (action === 'queue') {
           return await queueNewsletter(req, res);
+        } else if (action === 'save-draft') {
+          return await saveDraft(req, res);
+        } else if (action === 'send-draft') {
+          return await sendDraft(req, res);
         }
         return res.status(400).json({ success: false, error: 'Invalid action' });
+      case 'DELETE':
+        return await deleteNewsletter(req, res);
       default:
         return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
@@ -255,10 +251,28 @@ async function getNewsletterData(req, res) {
       .where(eq(newsletterQueue.status, 'sending'))
       .limit(1);
 
+    // Get draft newsletters (ordered by most recent)
+    const drafts = await db
+      .select()
+      .from(newsletterQueue)
+      .where(eq(newsletterQueue.status, 'draft'))
+      .orderBy(desc(newsletterQueue.updatedAt))
+      .limit(20);
+
+    // Get newsletter history (completed/failed/pending/sending newsletters, ordered by most recent)
+    const newsletterHistory = await db
+      .select()
+      .from(newsletterQueue)
+      .where(ne(newsletterQueue.status, 'draft'))
+      .orderBy(desc(newsletterQueue.createdAt))
+      .limit(50);
+
     return res.status(200).json({
       success: true,
       publications: recentPublications,
       queueStatus: activeQueue[0] || null,
+      drafts: drafts,
+      history: newsletterHistory,
       debugMode: {
         enabled: DEBUG_MODE,
         email: DEBUG_MODE ? DEBUG_EMAIL : null,
@@ -568,6 +582,229 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
       .where(eq(newsletterQueue.id, newsletterId));
 
     throw error;
+  }
+}
+
+// Delete newsletter
+async function deleteNewsletter(req, res) {
+  try {
+    const { id } = req.query;
+
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Newsletter ID is required' });
+    }
+
+    const db = await getDb();
+    const newsletterId = parseInt(id);
+
+    // Check if newsletter exists
+    const newsletter = await db
+      .select()
+      .from(newsletterQueue)
+      .where(eq(newsletterQueue.id, newsletterId))
+      .limit(1);
+
+    if (newsletter.length === 0) {
+      return res.status(404).json({ success: false, error: 'Newsletter not found' });
+    }
+
+    // Don't allow deletion of newsletters that are currently sending
+    if (newsletter[0].status === 'sending') {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete a newsletter that is currently being sent'
+      });
+    }
+
+    // Delete related newsletter recipients first (foreign key constraint)
+    await db
+      .delete(newsletterRecipients)
+      .where(eq(newsletterRecipients.newsletterId, newsletterId));
+
+    // Delete the newsletter
+    await db
+      .delete(newsletterQueue)
+      .where(eq(newsletterQueue.id, newsletterId));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Newsletter deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting newsletter:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error deleting newsletter: ' + error.message
+    });
+  }
+}
+
+// Save newsletter as draft
+async function saveDraft(req, res) {
+  try {
+    const { title, content, selectedPublicationIds, draftId } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({
+        success: false,
+        error: 'Title and content are required'
+      });
+    }
+
+    const db = await getDb();
+    const now = new Date();
+
+    // If draftId is provided, update existing draft
+    if (draftId) {
+      const existingDraft = await db
+        .select()
+        .from(newsletterQueue)
+        .where(eq(newsletterQueue.id, draftId))
+        .limit(1);
+
+      if (existingDraft.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Draft not found'
+        });
+      }
+
+      if (existingDraft[0].status !== 'draft') {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot update a newsletter that is not a draft'
+        });
+      }
+
+      await db
+        .update(newsletterQueue)
+        .set({
+          title,
+          content,
+          selectedPublicationIds: selectedPublicationIds || null,
+          updatedAt: now
+        })
+        .where(eq(newsletterQueue.id, draftId));
+
+      return res.status(200).json({
+        success: true,
+        message: 'Draft updated successfully',
+        draftId: draftId
+      });
+    }
+
+    // Create new draft
+    const result = await db
+      .insert(newsletterQueue)
+      .values({
+        title,
+        content,
+        selectedPublicationIds: selectedPublicationIds || null,
+        status: 'draft',
+        totalRecipients: 0,
+        sentCount: 0,
+        failedCount: 0,
+        createdAt: now,
+        updatedAt: now
+      })
+      .returning();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Draft saved successfully',
+      draftId: result[0].id
+    });
+
+  } catch (error) {
+    console.error('Error saving draft:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error saving draft: ' + error.message
+    });
+  }
+}
+
+// Send a draft newsletter
+async function sendDraft(req, res) {
+  try {
+    const { draftId } = req.body;
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Draft ID is required'
+      });
+    }
+
+    const db = await getDb();
+
+    // Get the draft
+    const draft = await db
+      .select()
+      .from(newsletterQueue)
+      .where(eq(newsletterQueue.id, draftId))
+      .limit(1);
+
+    if (draft.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Draft not found'
+      });
+    }
+
+    if (draft[0].status !== 'draft') {
+      return res.status(400).json({
+        success: false,
+        error: 'Newsletter is not a draft'
+      });
+    }
+
+    // Get newsletter subscribers
+    const subscribers = await db
+      .select()
+      .from(users)
+      .where(eq(users.newsletter, true));
+
+    if (subscribers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No subscribers found'
+      });
+    }
+
+    // Update draft to pending status and set recipient count
+    await db
+      .update(newsletterQueue)
+      .set({
+        status: 'pending',
+        totalRecipients: subscribers.length,
+        updatedAt: new Date()
+      })
+      .where(eq(newsletterQueue.id, draftId));
+
+    // Create recipient records
+    const recipientRecords = subscribers.map(subscriber => ({
+      newsletterId: draftId,
+      userId: subscriber.id,
+      email: subscriber.email,
+      status: 'pending',
+      createdAt: new Date()
+    }));
+
+    await db.insert(newsletterRecipients).values(recipientRecords);
+
+    return res.status(200).json({
+      success: true,
+      message: `Newsletter queued successfully. ${subscribers.length} recipients will receive it.`,
+      newsletterId: draftId
+    });
+
+  } catch (error) {
+    console.error('Error sending draft:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error sending draft: ' + error.message
+    });
   }
 }
 

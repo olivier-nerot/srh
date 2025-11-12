@@ -101,8 +101,9 @@ function getTypeLabel(type) {
 }
 
 function generateEmailTemplate(title, content, selectedPublications, userEmail) {
-  const baseUrl = process.env.VERCEL_URL || 'https://srh-info.org';
-  const fullBaseUrl = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`;
+  // IMPORTANT: Always use production domain for emails, never preview/branch URLs
+  // Emails are permanent records and should only link to production
+  const fullBaseUrl = process.env.PRODUCTION_URL || 'https://srh-info.org';
 
   const publicationsHtml = selectedPublications.map(pub => {
     const publicationUrl = `${fullBaseUrl}/publications/${pub.id}`;
@@ -138,7 +139,7 @@ function generateEmailTemplate(title, content, selectedPublications, userEmail) 
     <body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6;">
       <div style="max-width: 600px; margin: 0 auto; background-color: white;">
         <div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); padding: 20px; text-align: center;">
-          <a href="${fullBaseUrl}"><img src="${fullBaseUrl}/logo.svg" alt="SRH Logo" style="height: 60px;"></a>
+          <a href="${fullBaseUrl}"><img src="${fullBaseUrl}/icon.png" alt="SRH Logo" style="height: 60px;"></a>
           <h1 style="color: white; margin: 10px 0 0 0; font-size: 24px;">Syndicat des Radiologues Hospitaliers</h1>
         </div>
         <div style="padding: 30px;">

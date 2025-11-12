@@ -227,8 +227,10 @@ async function createPayment(req, res) {
       // First create a price object for this tier if it doesn't exist
       const priceId = await createOrGetPrice(tierData, requestOptions);
 
-      // Get trial period from request or default to 365 days (1 year free)
-      const trialPeriod = req.body.trial_period_days || 365;
+      // Calculate days until next January 1st (all members renew on the same date)
+      const today = new Date();
+      const nextJan1 = new Date(today.getFullYear() + 1, 0, 1); // January 1st next year
+      const trialPeriod = Math.ceil((nextJan1.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
       // For subscriptions with trial, we need to create a SetupIntent (not PaymentIntent)
       // to save the payment method WITHOUT charging immediately
@@ -279,10 +281,13 @@ async function createPayment(req, res) {
         trial_end: new Date(Date.now() + trialPeriod * 24 * 60 * 60 * 1000).toISOString(),
       });
     } else {
-      // One-time payment with 1-year delay
-      // We need to save the payment method first, then schedule an invoice for 1 year later
+      // One-time payment delayed until next January 1st
+      // All members renew on the same date for easier management
 
-      const trialPeriod = req.body.trial_period_days || 365;
+      // Calculate days until next January 1st
+      const today = new Date();
+      const nextJan1 = new Date(today.getFullYear() + 1, 0, 1); // January 1st next year
+      const trialPeriod = Math.ceil((nextJan1.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
       // Create SetupIntent to save payment method without charging
       const setupIntent = await stripe.setupIntents.create(
