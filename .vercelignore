@@ -1,0 +1,9 @@
+# Debug and development scripts - not needed in production
+api/debug-prices.js
+api/debug-stripe-prices.js
+api/fix-incorrect-prices.js
+
+# Development files
+*.log
+.env.local
+.DS_Store
