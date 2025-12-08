@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase, CreditCard, Euro, Trash2, Download } from 'lucide-react';
 import { getAllUsers, deleteUser } from '../../services/userService';
-import { getUserLastPayment, type Payment } from '../../services/paymentService';
+import { getUserLastPayment, getUserSubscriptions, type Payment, type Subscription } from '../../services/paymentService';
 
 interface User {
   id: number;
@@ -19,6 +19,7 @@ interface User {
   created_at: string | null;
   updated_at: string | null;
   lastPayment?: Payment | null;
+  activeSubscription?: Subscription | null;
 }
 
 const AdminMembers: React.FC = () => {
@@ -69,47 +70,63 @@ const AdminMembers: React.FC = () => {
   const loadPaymentsInBackground = async (userList: User[]) => {
     setLoadingPayments(true);
     setLoadingProgress({ current: 0, total: userList.length });
-    
+
     const batchSize = 5; // Process 5 users at a time
     const delay = 200; // 200ms delay between batches
-    
+
     for (let i = 0; i < userList.length; i += batchSize) {
       const batch = userList.slice(i, i + batchSize);
-      
+
       const batchResults = await Promise.all(
         batch.map(async (user: User) => {
           try {
-            const paymentResult = await getUserLastPayment(user.email);
+            // Fetch both payment and subscription data
+            const [paymentResult, subscriptionResult] = await Promise.all([
+              getUserLastPayment(user.email),
+              getUserSubscriptions(user.email)
+            ]);
+
+            // Find the active subscription (trialing or active status)
+            const activeSubscription = subscriptionResult.success && subscriptionResult.subscriptions
+              ? subscriptionResult.subscriptions.find(sub =>
+                  sub.status === 'trialing' || sub.status === 'active'
+                )
+              : null;
+
             return {
               email: user.email,
-              lastPayment: paymentResult.success ? paymentResult.lastPayment : null
+              lastPayment: paymentResult.success ? paymentResult.lastPayment : null,
+              activeSubscription: activeSubscription || null
             };
           } catch (error) {
-            console.error(`Error fetching payment for ${user.email}:`, error);
+            console.error(`Error fetching data for ${user.email}:`, error);
             return {
               email: user.email,
-              lastPayment: null
+              lastPayment: null,
+              activeSubscription: null
             };
           }
         })
       );
-      
-      // Update users with payment data for this batch
-      setUsers(prevUsers => 
+
+      // Update users with payment and subscription data for this batch
+      setUsers(prevUsers =>
         prevUsers.map(user => {
-          const paymentData = batchResults.find(result => result.email === user.email);
-          return paymentData ? { ...user, lastPayment: paymentData.lastPayment } : user;
+          const userData = batchResults.find(result => result.email === user.email);
+          return userData
+            ? { ...user, lastPayment: userData.lastPayment, activeSubscription: userData.activeSubscription }
+            : user;
         })
       );
-      
+
       setLoadingProgress({ current: i + batchSize, total: userList.length });
-      
+
       // Add delay between batches to avoid rate limiting
       if (i + batchSize < userList.length) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
-    
+
     setLoadingPayments(false);
   };
 
@@ -143,6 +160,16 @@ const AdminMembers: React.FC = () => {
     return user.lastPayment.status !== 'succeeded' && user.lastPayment.status !== 'pending';
   };
 
+  const hasFreeFirstYear = (user: User): boolean => {
+    // User has free first year if:
+    // 1. They have NO successful payment yet (no lastPayment or payment not succeeded)
+    // 2. They have an active subscription in trialing status
+    if (!user.activeSubscription) return false;
+    if (user.activeSubscription.status !== 'trialing') return false;
+    if (user.lastPayment && user.lastPayment.status === 'succeeded') return false;
+    return true;
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -157,8 +184,9 @@ const AdminMembers: React.FC = () => {
       (filterPaymentStatus === 'valid' && isValidRegistration(user)) ||
       (filterPaymentStatus === 'expired' && hasExpiredPayment(user)) ||
       (filterPaymentStatus === 'failed' && hasFailedPayment(user)) ||
-      (filterPaymentStatus === 'no-payment' && !user.lastPayment);
-    
+      (filterPaymentStatus === 'no-payment' && !user.lastPayment && !hasFreeFirstYear(user)) ||
+      (filterPaymentStatus === 'free-first-year' && hasFreeFirstYear(user));
+
     return matchesSearch && matchesSubscription && matchesPaymentStatus;
   });
 
@@ -166,8 +194,7 @@ const AdminMembers: React.FC = () => {
     const subscriptions: { [key: string]: string } = {
       'practicing': 'Médecin hospitalier en exercice, Professeur des Universités',
       'retired': 'Radiologue hospitalier/universitaire retraité',
-      'assistant': 'Radiologue assistant spécialiste',
-      'first-time': 'Première adhésion (dans l\'année de nomination)'
+      'assistant': 'Radiologue assistant spécialiste'
     };
     return subscriptions[subscription] || subscription;
   };
@@ -176,8 +203,7 @@ const AdminMembers: React.FC = () => {
     const colors: { [key: string]: string } = {
       'practicing': 'bg-blue-100 text-blue-800',
       'retired': 'bg-green-100 text-green-800',
-      'assistant': 'bg-purple-100 text-purple-800',
-      'first-time': 'bg-yellow-100 text-yellow-800'
+      'assistant': 'bg-purple-100 text-purple-800'
     };
     return colors[subscription] || 'bg-gray-100 text-gray-800';
   };
@@ -422,7 +448,6 @@ const AdminMembers: React.FC = () => {
                   <option value="practicing">Médecin hospitalier en exercice, Professeur des Universités</option>
                   <option value="retired">Radiologue hospitalier/universitaire retraité</option>
                   <option value="assistant">Radiologue assistant spécialiste</option>
-                  <option value="first-time">Première adhésion (dans l'année de nomination)</option>
                 </select>
               </div>
             </div>
@@ -438,6 +463,7 @@ const AdminMembers: React.FC = () => {
                   <option value="valid">Adhésions valides (moins d'1 an)</option>
                   <option value="expired">Adhésions expirées (plus d'1 an)</option>
                   <option value="failed">Paiements échoués</option>
+                  <option value="free-first-year">Première année gratuite</option>
                   <option value="no-payment">Aucun paiement</option>
                 </select>
               </div>
@@ -550,8 +576,36 @@ const AdminMembers: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Last Payment */}
-                {user.lastPayment ? (
+                {/* Last Payment or Trial Information */}
+                {hasFreeFirstYear(user) && user.activeSubscription ? (
+                  <div className="mb-3">
+                    <div className="flex items-center mb-2">
+                      <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-sm font-medium text-gray-700">Première année gratuite:</span>
+                    </div>
+                    <div className="ml-6 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Prochain paiement:</span>
+                        <span className="text-sm text-gray-600">
+                          {formatDate(user.activeSubscription.current_period_end)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Montant:</span>
+                        <span className="text-sm font-medium text-blue-600 flex items-center">
+                          <Euro className="h-3 w-3 mr-1" />
+                          {user.activeSubscription.amount} €
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Statut:</span>
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                          En période d'essai gratuite
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : user.lastPayment ? (
                   <div className="mb-3">
                     <div className="flex items-center mb-2">
                       <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
@@ -574,14 +628,14 @@ const AdminMembers: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Statut:</span>
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          user.lastPayment.status === 'succeeded' 
-                            ? 'bg-green-100 text-green-800' 
+                          user.lastPayment.status === 'succeeded'
+                            ? 'bg-green-100 text-green-800'
                             : user.lastPayment.status === 'pending'
                             ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {user.lastPayment.status === 'succeeded' ? 'Réussi' : 
-                           user.lastPayment.status === 'pending' ? 'En attente' : 
+                          {user.lastPayment.status === 'succeeded' ? 'Réussi' :
+                           user.lastPayment.status === 'pending' ? 'En attente' :
                            'Échoué'}
                         </span>
                       </div>

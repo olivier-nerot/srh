@@ -33,7 +33,7 @@ export default async function handler(req, res) {
   if (!action) {
     return res.status(400).json({
       error:
-        "Action is required (get-payments, create-payment, get-subscriptions, cancel-subscription, reactivate-subscription, update-payment-method)",
+        "Action is required (get-payments, create-payment, get-subscriptions, cancel-subscription, reactivate-subscription, update-payment-method, fix-incorrect-prices)",
     });
   }
 
@@ -53,6 +53,8 @@ export default async function handler(req, res) {
         return await updatePaymentMethod(req, res);
       case "create-recurring-subscription":
         return await createRecurringSubscription(req, res);
+      case "fix-incorrect-prices":
+        return await fixIncorrectPrices(req, res);
       default:
         return res.status(400).json({ error: "Invalid action" });
     }
@@ -90,6 +92,12 @@ async function getPayments(req, res) {
       requestOptions,
     );
 
+    console.log(`\n=== Customer Search for ${email} ===`);
+    console.log(`Customers found: ${customers.data.length}`);
+    if (customers.data.length > 1) {
+      console.log('Multiple customers found! IDs:', customers.data.map(c => c.id));
+    }
+
     if (customers.data.length === 0) {
       return res.status(200).json({
         success: true,
@@ -98,45 +106,67 @@ async function getPayments(req, res) {
       });
     }
 
-    const customer = customers.data[0];
+    // IMPORTANT: When multiple customer records exist for the same email,
+    // we need to check ALL of them to find the most recent payment
+    const allPayments = [];
 
-    // Try to get charges first (for completed payments)
-    const chargeParams = {
-      customer: customer.id,
-      limit: 1,
-    };
-    const charges = await stripe.charges.list(chargeParams, requestOptions);
+    // Iterate through ALL customer records
+    for (const customer of customers.data) {
+      console.log(`\n=== Checking customer ${customer.id} ===`);
 
-    if (charges.data.length > 0) {
-      const lastCharge = charges.data[0];
-
-      // Format the payment data from charge
-      const lastPayment = {
-        id: lastCharge.id,
-        amount: lastCharge.amount / 100, // Convert from cents to euros
-        currency: lastCharge.currency,
-        status: lastCharge.status,
-        created: new Date(lastCharge.created * 1000),
-        description: lastCharge.description,
+      // Fetch charges for this customer
+      const chargeParams = {
+        customer: customer.id,
+        limit: 10,
       };
+      const charges = await stripe.charges.list(chargeParams, requestOptions);
 
-      return res.status(200).json({
-        success: true,
-        lastPayment: lastPayment,
+      // Fetch payment intents for this customer
+      const paymentIntentParams = {
+        customer: customer.id,
+        limit: 10,
+      };
+      const paymentIntents = await stripe.paymentIntents.list(
+        paymentIntentParams,
+        requestOptions,
+      );
+
+      console.log(`Charges: ${charges.data.length}, Payment Intents: ${paymentIntents.data.length}`);
+
+      // Add charges from this customer
+      charges.data.forEach(charge => {
+        allPayments.push({
+          type: 'charge',
+          id: charge.id,
+          amount: charge.amount / 100,
+          currency: charge.currency,
+          status: charge.status,
+          created: charge.created,
+          description: charge.description,
+          customerId: customer.id,
+        });
+      });
+
+      // Add payment intents from this customer (excluding canceled)
+      paymentIntents.data.forEach(pi => {
+        if (pi.status !== 'canceled') {
+          allPayments.push({
+            type: 'payment_intent',
+            id: pi.id,
+            amount: pi.amount / 100,
+            currency: pi.currency,
+            status: pi.status,
+            created: pi.created,
+            description: pi.description,
+            customerId: customer.id,
+          });
+        }
       });
     }
 
-    // If no charges, try payment intents
-    const paymentIntentParams = {
-      customer: customer.id,
-      limit: 1,
-    };
-    const paymentIntents = await stripe.paymentIntents.list(
-      paymentIntentParams,
-      requestOptions,
-    );
+    console.log(`\n=== Total payments found across all customers: ${allPayments.length} ===`);
 
-    if (paymentIntents.data.length === 0) {
+    if (allPayments.length === 0) {
       return res.status(200).json({
         success: true,
         lastPayment: null,
@@ -144,16 +174,29 @@ async function getPayments(req, res) {
       });
     }
 
-    const lastPaymentIntent = paymentIntents.data[0];
+    // Sort by creation timestamp descending (most recent first)
+    allPayments.sort((a, b) => b.created - a.created);
 
-    // Format the payment data from payment intent
+    // Get the absolute most recent payment (excluding canceled trial intents)
+    const mostRecent = allPayments[0];
+
+    // Debug logging to see what status is being returned
+    console.log(`Payment status for ${email}:`, {
+      id: mostRecent.id,
+      type: mostRecent.type,
+      status: mostRecent.status,
+      amount: mostRecent.amount,
+      created: new Date(mostRecent.created * 1000)
+    });
+
+    // Format the payment data
     const lastPayment = {
-      id: lastPaymentIntent.id,
-      amount: lastPaymentIntent.amount / 100, // Convert from cents to euros
-      currency: lastPaymentIntent.currency,
-      status: lastPaymentIntent.status,
-      created: new Date(lastPaymentIntent.created * 1000),
-      description: lastPaymentIntent.description,
+      id: mostRecent.id,
+      amount: mostRecent.amount,
+      currency: mostRecent.currency,
+      status: mostRecent.status,
+      created: new Date(mostRecent.created * 1000),
+      description: mostRecent.description,
     };
 
     return res.status(200).json({
@@ -408,6 +451,20 @@ async function getSubscriptions(req, res) {
       });
     }
 
+    // Debug logging for subscription details
+    console.log(`\n=== Subscriptions for ${email} ===`);
+    subscriptions.data.forEach((sub, index) => {
+      console.log(`Subscription ${index + 1}:`, {
+        id: sub.id,
+        status: sub.status,
+        price_id: sub.items.data[0]?.price?.id,
+        unit_amount: sub.items.data[0]?.price?.unit_amount,
+        amount_in_euros: sub.items.data[0]?.price?.unit_amount / 100,
+        tier_metadata: sub.metadata?.tier,
+        interval: sub.items.data[0]?.price?.recurring?.interval,
+      });
+    });
+
     // Format the subscription data
     const formattedSubscriptions = subscriptions.data.map((sub) => ({
       id: sub.id,
@@ -453,29 +510,54 @@ async function createOrGetPrice(tierData, requestOptions) {
     const prices = await stripe.prices.list(priceListParams, requestOptions);
 
     if (prices.data.length > 0) {
-      return prices.data[0].id;
+      const existingPrice = prices.data[0];
+      const expectedAmount = tierData.price * 100;
+
+      // IMPORTANT: Validate that the existing price matches our expected amount
+      // This prevents reusing incorrectly created prices
+      if (existingPrice.unit_amount === expectedAmount) {
+        console.log(`✓ Using existing price ${existingPrice.id} for tier ${tierData.id}: ${tierData.price}€`);
+        return existingPrice.id;
+      } else {
+        console.warn(`⚠️  Price mismatch for tier ${tierData.id}:`, {
+          expected: `${tierData.price}€ (${expectedAmount} cents)`,
+          found: `${existingPrice.unit_amount / 100}€ (${existingPrice.unit_amount} cents)`,
+          price_id: existingPrice.id
+        });
+        console.log(`Creating new price with correct amount for tier ${tierData.id}`);
+        // Don't return the wrong price - create a new one instead
+      }
     }
 
-    // Create new price if not found
+    // Create new price if not found or if amount mismatch
+    const expectedAmount = tierData.price * 100;
+    const timestamp = Date.now();
+
     const priceCreateParams = {
-      unit_amount: tierData.price * 100, // Convert to cents
+      unit_amount: expectedAmount, // Convert to cents
       currency: "eur",
       recurring: {
         interval: "year",
       },
-      lookup_key: `srh_${tierData.id}_yearly`,
-      nickname: `${tierData.title} - Abonnement annuel`,
+      // Use unique lookup key with amount to avoid conflicts with incorrect prices
+      lookup_key: `srh_${tierData.id}_yearly_${expectedAmount}_${timestamp}`,
+      nickname: `${tierData.title} - Abonnement annuel (${tierData.price}€)`,
       metadata: {
         tier: tierData.id,
+        amount_euros: tierData.price.toString(),
       },
       product_data: {
         name: `Adhésion SRH - ${tierData.title}`,
         metadata: {
           tier: tierData.id,
+          amount_euros: tierData.price.toString(),
         },
       },
     };
+
+    console.log(`Creating new Stripe price for tier ${tierData.id}: ${tierData.price}€`);
     const price = await stripe.prices.create(priceCreateParams, requestOptions);
+    console.log(`✓ Created price ${price.id}`);
 
     return price.id;
   } catch (error) {
@@ -712,6 +794,198 @@ async function reactivateSubscription(req, res) {
       success: false,
       error: "Error reactivating subscription",
       details: error.message,
+    });
+  }
+}
+
+// Fix incorrect subscription prices functionality
+async function fixIncorrectPrices(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed. Use POST." });
+  }
+
+  console.log('\n=== FIXING INCORRECT SUBSCRIPTION PRICES ===\n');
+
+  const report = {
+    subscriptionsChecked: 0,
+    subscriptionsFixed: 0,
+    pricesCreated: 0,
+    pricesArchived: 0,
+    errors: [],
+    details: []
+  };
+
+  try {
+    // Use the connected account ID for API calls
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+    };
+
+    // Define expected prices
+    const expectedPrices = {
+      'practicing': 120,
+      'retired': 60,
+      'assistant': 30
+    };
+
+    // For each tier, find and fix incorrect prices
+    for (const [tier, expectedPrice] of Object.entries(expectedPrices)) {
+      console.log(`\n--- Processing ${tier} tier (expected: ${expectedPrice}€) ---`);
+
+      // Find all prices for this tier
+      const allPrices = await stripe.prices.list(
+        { limit: 100 },
+        requestOptions
+      );
+
+      const tierPrices = allPrices.data.filter(
+        p => p.metadata?.tier === tier || p.lookup_key?.includes(tier)
+      );
+
+      console.log(`Found ${tierPrices.length} prices for ${tier} tier`);
+
+      // Identify correct and incorrect prices
+      const correctPrices = tierPrices.filter(p => p.unit_amount === expectedPrice * 100 && p.active);
+      const incorrectPrices = tierPrices.filter(p => p.unit_amount !== expectedPrice * 100 && p.active);
+
+      console.log(`  Correct: ${correctPrices.length}, Incorrect: ${incorrectPrices.length}`);
+
+      if (incorrectPrices.length === 0) {
+        console.log(`  ✓ No incorrect prices found for ${tier}`);
+        continue;
+      }
+
+      // Ensure we have a correct price to migrate to
+      let correctPriceId;
+      if (correctPrices.length > 0) {
+        correctPriceId = correctPrices[0].id;
+        console.log(`  ✓ Using existing correct price: ${correctPriceId}`);
+      } else {
+        // Create a new correct price
+        console.log(`  Creating new correct price for ${tier}: ${expectedPrice}€`);
+
+        const newPrice = await stripe.prices.create({
+          unit_amount: expectedPrice * 100,
+          currency: 'eur',
+          recurring: { interval: 'year' },
+          lookup_key: `srh_${tier}_yearly_${expectedPrice * 100}_${Date.now()}`,
+          nickname: `${tier} - Correct Price (${expectedPrice}€)`,
+          metadata: {
+            tier: tier,
+            amount_euros: expectedPrice.toString(),
+            created_by_fix_script: 'true',
+            fix_date: new Date().toISOString()
+          },
+          product_data: {
+            name: `Adhésion SRH - ${tier}`,
+            metadata: { tier: tier }
+          }
+        }, requestOptions);
+
+        correctPriceId = newPrice.id;
+        report.pricesCreated++;
+        console.log(`  ✓ Created price: ${correctPriceId}`);
+      }
+
+      // Find and update subscriptions using incorrect prices
+      for (const incorrectPrice of incorrectPrices) {
+        console.log(`\n  Processing incorrect price ${incorrectPrice.id} (${incorrectPrice.unit_amount / 100}€)`);
+
+        const subscriptions = await stripe.subscriptions.list({
+          price: incorrectPrice.id,
+          status: 'all',
+          limit: 100
+        }, requestOptions);
+
+        console.log(`    Found ${subscriptions.data.length} subscriptions using this price`);
+        report.subscriptionsChecked += subscriptions.data.length;
+
+        for (const subscription of subscriptions.data) {
+          try {
+            // Only update active or trialing subscriptions
+            if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+              console.log(`    - ${subscription.id}: Skipped (status: ${subscription.status})`);
+              continue;
+            }
+
+            console.log(`    - ${subscription.id}: Updating from ${incorrectPrice.unit_amount / 100}€ to ${expectedPrice}€`);
+
+            // Get customer email for reporting
+            const customer = await stripe.customers.retrieve(subscription.customer, requestOptions);
+
+            // Update subscription to use correct price
+            await stripe.subscriptions.update(
+              subscription.id,
+              {
+                items: [{
+                  id: subscription.items.data[0].id,
+                  price: correctPriceId
+                }],
+                proration_behavior: 'none', // Don't charge/credit the difference
+                metadata: {
+                  ...subscription.metadata,
+                  price_fixed: 'true',
+                  fixed_date: new Date().toISOString(),
+                  old_price: incorrectPrice.id,
+                  new_price: correctPriceId
+                }
+              },
+              requestOptions
+            );
+
+            report.subscriptionsFixed++;
+            report.details.push({
+              subscriptionId: subscription.id,
+              customerEmail: customer.email,
+              tier: tier,
+              oldPrice: `${incorrectPrice.unit_amount / 100}€`,
+              newPrice: `${expectedPrice}€`,
+              status: subscription.status
+            });
+
+            console.log(`    ✓ Updated successfully`);
+          } catch (error) {
+            console.error(`    ✗ Error updating ${subscription.id}:`, error.message);
+            report.errors.push({
+              subscriptionId: subscription.id,
+              error: error.message
+            });
+          }
+        }
+
+        // Archive the incorrect price (don't delete - Stripe doesn't allow it)
+        console.log(`    Archiving incorrect price ${incorrectPrice.id}`);
+        try {
+          await stripe.prices.update(
+            incorrectPrice.id,
+            { active: false },
+            requestOptions
+          );
+          report.pricesArchived++;
+          console.log(`    ✓ Price archived`);
+        } catch (error) {
+          console.error(`    ✗ Error archiving price:`, error.message);
+        }
+      }
+    }
+
+    console.log('\n=== FIX COMPLETE ===\n');
+    console.log(`Subscriptions checked: ${report.subscriptionsChecked}`);
+    console.log(`Subscriptions fixed: ${report.subscriptionsFixed}`);
+    console.log(`Prices created: ${report.pricesCreated}`);
+    console.log(`Prices archived: ${report.pricesArchived}`);
+    console.log(`Errors: ${report.errors.length}`);
+
+    return res.status(200).json({
+      success: true,
+      report: report
+    });
+  } catch (error) {
+    console.error('Fatal error in fix script:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error fixing incorrect prices',
+      details: error.message
     });
   }
 }

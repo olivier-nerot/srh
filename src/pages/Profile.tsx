@@ -5,7 +5,7 @@ import {
   ArrowLeft, Shield, Briefcase, Bell, BellOff, Edit, CreditCard, Euro
 } from 'lucide-react';
 import { getUserById } from '../services/userService';
-import { getUserLastPayment, type Payment } from '../services/paymentService';
+import { getUserLastPayment, getUserSubscriptions, type Payment, type Subscription } from '../services/paymentService';
 import { useAuthStore } from '../stores/authStore';
 // Date formatting is now handled inline
 
@@ -33,6 +33,7 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [payment, setPayment] = useState<Payment | null>(null);
+  const [activeSubscription, setActiveSubscription] = useState<Subscription | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
 
   const userId = searchParams.get('id');
@@ -70,9 +71,22 @@ const Profile: React.FC = () => {
   const fetchPaymentData = async (email: string) => {
     setPaymentLoading(true);
     try {
-      const paymentResult = await getUserLastPayment(email);
+      // Fetch both payment and subscription data
+      const [paymentResult, subscriptionResult] = await Promise.all([
+        getUserLastPayment(email),
+        getUserSubscriptions(email)
+      ]);
+
       if (paymentResult.success) {
         setPayment(paymentResult.lastPayment);
+      }
+
+      // Find the active subscription (trialing or active status)
+      if (subscriptionResult.success && subscriptionResult.subscriptions) {
+        const activeSub = subscriptionResult.subscriptions.find(sub =>
+          sub.status === 'trialing' || sub.status === 'active'
+        );
+        setActiveSubscription(activeSub || null);
       }
     } catch (error) {
       console.error('Error fetching payment data:', error);
@@ -154,24 +168,38 @@ const Profile: React.FC = () => {
     }
   };
 
+  const hasFreeFirstYear = (): boolean => {
+    // User has free first year if:
+    // 1. They have NO successful payment yet (no payment or payment not succeeded)
+    // 2. They have an active subscription in trialing status
+    if (!activeSubscription) return false;
+    if (activeSubscription.status !== 'trialing') return false;
+    if (payment && payment.status === 'succeeded') return false;
+    return true;
+  };
+
   const isValidRegistration = (): boolean => {
     if (!payment || payment.status !== 'succeeded') {
       return false;
     }
-    
+
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    
+
     return payment.created > oneYearAgo;
   };
 
   const getPaymentStatus = () => {
+    if (hasFreeFirstYear()) {
+      return { label: 'Première année gratuite', color: 'bg-blue-100 text-blue-800' };
+    }
+
     if (!payment) return { label: 'Aucun paiement', color: 'bg-gray-100 text-gray-800' };
-    
+
     if (payment.status !== 'succeeded') {
       return { label: 'Paiement échoué', color: 'bg-red-100 text-red-800' };
     }
-    
+
     if (isValidRegistration()) {
       return { label: 'Adhésion valide', color: 'bg-green-100 text-green-800' };
     } else {
@@ -424,6 +452,47 @@ const Profile: React.FC = () => {
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-srh-blue"></div>
                       <span className="ml-2 text-sm text-gray-600">Chargement des paiements...</span>
                     </div>
+                  ) : hasFreeFirstYear() && activeSubscription ? (
+                    <div className="space-y-4">
+                      {/* Trial Status */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Statut de l'adhésion:</span>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatus().color}`}>
+                          {getPaymentStatus().label}
+                        </span>
+                      </div>
+
+                      {/* Trial Subscription Details */}
+                      <div className="border-t border-gray-200 pt-4 space-y-3">
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
+                          <p className="text-sm text-blue-800 mb-1">
+                            Votre carte a été enregistrée avec succès.
+                          </p>
+                          <p className="text-xs text-blue-600">
+                            Le premier paiement sera effectué automatiquement à la fin de votre période d'essai gratuite.
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Prochain paiement:</span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {formatDate(activeSubscription.current_period_end)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Montant à payer:</span>
+                          <span className="text-sm font-medium text-blue-600 flex items-center">
+                            <Euro className="h-3 w-3 mr-1" />
+                            {activeSubscription.amount} €
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">ID d'abonnement:</span>
+                          <span className="text-xs text-gray-500 font-mono">
+                            {activeSubscription.id}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   ) : payment ? (
                     <div className="space-y-4">
                       {/* Payment Status */}
@@ -433,7 +502,7 @@ const Profile: React.FC = () => {
                           {getPaymentStatus().label}
                         </span>
                       </div>
-                      
+
                       {/* Payment Details */}
                       <div className="border-t border-gray-200 pt-4 space-y-3">
                         <div className="flex items-center justify-between">
@@ -465,7 +534,7 @@ const Profile: React.FC = () => {
                   )}
                   
                   {/* Payment Action Button */}
-                  {isOwnProfile && !isValidRegistration() && (
+                  {isOwnProfile && !isValidRegistration() && !hasFreeFirstYear() && (
                     <div className="mt-6 pt-4 border-t border-gray-200">
                       <button
                         type="button"
@@ -494,7 +563,20 @@ const Profile: React.FC = () => {
                       </div>
                     </div>
 
-                    {payment && payment.status === 'succeeded' && (
+                    {hasFreeFirstYear() && activeSubscription ? (
+                      <div className="flex items-center">
+                        <Calendar className="h-5 w-5 text-gray-400 mr-3" />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-600">Période d'essai gratuite jusqu'au</p>
+                          <p className="text-gray-900">
+                            {formatDate(activeSubscription.current_period_end)}
+                          </p>
+                          <p className="text-xs text-blue-600 mt-1">
+                            Premier paiement automatique : {activeSubscription.amount}€
+                          </p>
+                        </div>
+                      </div>
+                    ) : payment && payment.status === 'succeeded' && (
                       <div className="flex items-center">
                         <Calendar className="h-5 w-5 text-gray-400 mr-3" />
                         <div className="flex-1">

@@ -57,6 +57,14 @@ TODO
 transmettre accès vercel/resend
 accès github
 
+  * filtre "paiements échoués". Vanessa brun, Nadya Pyatigorskaya, Céline savoye-collet
+  + id_abonnement
+  + filtrage gratuit
+  - imane.karout : bizarre...
+  * 50 euro
+  + verif montant stripe
+
+
 
 
 
