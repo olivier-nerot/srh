@@ -2,7 +2,7 @@
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0" y="0" width="274" height="274.08" viewBox="0, 0, 274, 274.08">
   <g id="Background">
-    <rect x="0" y="0" width="274" height="274.08" fill="#FFFFFF"/>
+    <!-- Background removed for transparency -->
   </g>
   <g id="Calque_1">
     <path d="M235.419,188.048 L235.419,86.011 C235.418,79.024 231.839,72.524 225.936,68.786 L147.826,19.453 C141.172,15.248 132.691,15.248 126.037,19.453 L47.996,68.786 C42.087,72.521 38.503,79.021 38.499,86.011 L38.499,188.048 C38.503,195.038 42.087,201.539 47.996,205.273 L126.106,254.606 C132.76,258.811 141.24,258.811 147.894,254.606 L226.004,205.273 C231.882,201.519 235.433,195.022 235.419,188.048 z" fill="#F4F4F4" id="path13"/>

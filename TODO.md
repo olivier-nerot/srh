@@ -61,9 +61,10 @@ accès github
   + id_abonnement
   + filtrage gratuit
   - imane.karout : bizarre...
+  compte en attente ? pas d'accès email
   * 50 euro
   + verif montant stripe
-
+- logo page d'accueil
 
 
 

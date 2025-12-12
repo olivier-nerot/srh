@@ -5,6 +5,7 @@ import { siteContent } from '../data/content';
 import InfoCard from '../components/ui/InfoCard';
 import homepageLeft from '../assets/images/homepage-left.webp';
 import homepageRight2 from '../assets/images/homepage-right-2.webp';
+import srhLogo from '/icon.svg';
 import type { NewsItem } from '../types';
 import { formatDateToDDMMYYYY } from '../utils/dateUtils';
 
@@ -165,16 +166,25 @@ const HomePage: React.FC = () => {
   return (
     <div className="space-y-0">
       {/* Hero Section - Full background image */}
-      <section 
-        className="relative py-20 text-white max-h-[60vh] bg-cover bg-center bg-no-repeat"
+      <section
+        className="relative py-20 text-white min-h-[60vh] bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: `linear-gradient(rgba(0, 51, 102, 0.7), rgba(0, 102, 204, 0.7)), url(${homepageLeft})`
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
-          <div className="flex items-center justify-center lg:justify-end h-full min-h-[60vh]">
-            {/* Content positioned on the right */}
-            <div className="text-center lg:text-left max-w-lg">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center min-h-[60vh]">
+            {/* Logo on the left */}
+            <div className="hidden lg:flex items-center justify-center">
+              <img
+                src={srhLogo}
+                alt="SRH Logo"
+                className="w-96 h-96 xl:w-[480px] xl:h-[480px] drop-shadow-2xl"
+              />
+            </div>
+
+            {/* Content on the right */}
+            <div className="text-center lg:text-left">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
                 {siteContent.hero.title}
               </h1>

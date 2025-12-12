@@ -4,7 +4,7 @@ import { ChevronDown, Menu, X, User, LogOut, FileText, HelpCircle, Users, File, 
          Building2, UserCheck, ScrollText, BookOpen, MessageCircle, Scale, FileBarChart, Mail } from 'lucide-react';
 import { siteContent } from '../../data/content';
 import { useAuthStore } from '../../stores/authStore';
-import logoSvg from '../../assets/images/logo.svg';
+import logoSvg from '/icon.svg';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();

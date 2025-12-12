@@ -12,7 +12,7 @@ const Footer: React.FC = () => {
           {/* Logo and Address */}
           <div>
             <div className="flex items-center mb-4">
-              <img src={logoSvg} alt="SRH Logo" className="h-12 w-auto" />
+              <img src={logoSvg} alt="SRH Logo" className="h-24 w-auto" />
             </div>
             <div className="text-sm text-gray-400">
               <p>{siteContent.contact.address}</p>
