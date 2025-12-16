@@ -116,6 +116,7 @@ const response = await fetch('/api/publications', {
 
 ## Important Notes
 
+- **Never git push** - only commit changes, the user will push manually
 - **Never access database directly from client code** - all DB operations must go through API routes
 - **Authentication is required for admin routes** - use `AdminRoute` wrapper component
 - **Rich text content uses QuillEditor Delta format** - provide conversion utilities when displaying

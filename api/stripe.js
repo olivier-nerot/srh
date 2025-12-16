@@ -85,53 +85,64 @@ async function getPayments(req, res) {
     // Stripe email search is CASE-SENSITIVE, so we search for multiple variants
     // Also try searching by the local part (before @) with different domains
     const emailLower = email.toLowerCase();
-    const emailUpper = email.toUpperCase();
     const emailParts = email.split('@');
     const localPart = emailParts[0]?.toLowerCase();
+    const domain = emailParts[1]?.toLowerCase();
 
     // Collect customers from multiple search strategies
     const customersSet = new Map(); // Use Map to dedupe by customer ID
 
     // Strategy 1: Exact email match
-    const exactMatch = await stripe.customers.list(
-      { email: email, limit: 10 },
-      requestOptions,
-    );
-    exactMatch.data.forEach(c => customersSet.set(c.id, c));
+    try {
+      const exactMatch = await stripe.customers.list(
+        { email: email, limit: 10 },
+        requestOptions,
+      );
+      if (exactMatch?.data) {
+        exactMatch.data.forEach(c => customersSet.set(c.id, c));
+      }
+    } catch (err) {
+      console.log('Exact email search failed:', err.message);
+    }
 
     // Strategy 2: Lowercase email match (if different from exact)
     if (emailLower !== email) {
-      const lowerMatch = await stripe.customers.list(
-        { email: emailLower, limit: 10 },
-        requestOptions,
-      );
-      lowerMatch.data.forEach(c => customersSet.set(c.id, c));
+      try {
+        const lowerMatch = await stripe.customers.list(
+          { email: emailLower, limit: 10 },
+          requestOptions,
+        );
+        if (lowerMatch?.data) {
+          lowerMatch.data.forEach(c => customersSet.set(c.id, c));
+        }
+      } catch (err) {
+        console.log('Lowercase email search failed:', err.message);
+      }
     }
 
-    // Strategy 3: Search all customers and filter by case-insensitive email
+    // Strategy 3: Search API for case-insensitive matches
     // This catches customers with uppercase variants like michel.SOFFER@...
-    // Stripe's search API allows searching with query syntax
     try {
       const searchResult = await stripe.customers.search({
         query: `email~"${localPart}"`,
         limit: 20,
       }, requestOptions);
 
-      // Filter results to match the domain part case-insensitively
-      const domain = emailParts[1]?.toLowerCase();
-      searchResult.data.forEach(c => {
-        if (c.email) {
-          const customerDomain = c.email.split('@')[1]?.toLowerCase();
-          const customerLocal = c.email.split('@')[0]?.toLowerCase();
-          // Match if local part is similar (case-insensitive)
-          if (customerLocal === localPart && customerDomain === domain) {
-            customersSet.set(c.id, c);
+      if (searchResult?.data) {
+        searchResult.data.forEach(c => {
+          if (c.email) {
+            const customerDomain = c.email.split('@')[1]?.toLowerCase();
+            const customerLocal = c.email.split('@')[0]?.toLowerCase();
+            // Match if local part is similar (case-insensitive)
+            if (customerLocal === localPart && customerDomain === domain) {
+              customersSet.set(c.id, c);
+            }
           }
-        }
-      });
+        });
+      }
     } catch (searchError) {
-      // Search API might not be available in all Stripe versions
-      console.log('Search API not available, using list fallback');
+      // Search API might not be available in all Stripe versions or connected accounts
+      console.log('Search API not available:', searchError.message);
     }
 
     const customers = Array.from(customersSet.values());
@@ -159,7 +170,7 @@ async function getPayments(req, res) {
     const allPayments = [];
 
     // Iterate through ALL customer records
-    for (const customer of customers.data) {
+    for (const customer of customers) {
       console.log(`\n=== Checking customer ${customer.id} ===`);
 
       // Fetch charges for this customer
@@ -464,24 +475,37 @@ async function getSubscriptions(req, res) {
     const emailLower = email.toLowerCase();
     const emailParts = email.split('@');
     const localPart = emailParts[0]?.toLowerCase();
+    const domain = emailParts[1]?.toLowerCase();
 
     // Collect customers from multiple search strategies
     const customersSet = new Map();
 
     // Strategy 1: Exact email match
-    const exactMatch = await stripe.customers.list(
-      { email: email, limit: 10 },
-      requestOptions,
-    );
-    exactMatch.data.forEach(c => customersSet.set(c.id, c));
+    try {
+      const exactMatch = await stripe.customers.list(
+        { email: email, limit: 10 },
+        requestOptions,
+      );
+      if (exactMatch?.data) {
+        exactMatch.data.forEach(c => customersSet.set(c.id, c));
+      }
+    } catch (err) {
+      console.log('Exact email search failed:', err.message);
+    }
 
     // Strategy 2: Lowercase email match
     if (emailLower !== email) {
-      const lowerMatch = await stripe.customers.list(
-        { email: emailLower, limit: 10 },
-        requestOptions,
-      );
-      lowerMatch.data.forEach(c => customersSet.set(c.id, c));
+      try {
+        const lowerMatch = await stripe.customers.list(
+          { email: emailLower, limit: 10 },
+          requestOptions,
+        );
+        if (lowerMatch?.data) {
+          lowerMatch.data.forEach(c => customersSet.set(c.id, c));
+        }
+      } catch (err) {
+        console.log('Lowercase email search failed:', err.message);
+      }
     }
 
     // Strategy 3: Search API for case-insensitive matches
@@ -491,18 +515,19 @@ async function getSubscriptions(req, res) {
         limit: 20,
       }, requestOptions);
 
-      const domain = emailParts[1]?.toLowerCase();
-      searchResult.data.forEach(c => {
-        if (c.email) {
-          const customerDomain = c.email.split('@')[1]?.toLowerCase();
-          const customerLocal = c.email.split('@')[0]?.toLowerCase();
-          if (customerLocal === localPart && customerDomain === domain) {
-            customersSet.set(c.id, c);
+      if (searchResult?.data) {
+        searchResult.data.forEach(c => {
+          if (c.email) {
+            const customerDomain = c.email.split('@')[1]?.toLowerCase();
+            const customerLocal = c.email.split('@')[0]?.toLowerCase();
+            if (customerLocal === localPart && customerDomain === domain) {
+              customersSet.set(c.id, c);
+            }
           }
-        }
-      });
+        });
+      }
     } catch (searchError) {
-      console.log('Search API not available for subscriptions lookup');
+      console.log('Search API not available for subscriptions:', searchError.message);
     }
 
     const customers = Array.from(customersSet.values());
