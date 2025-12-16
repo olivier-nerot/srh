@@ -82,23 +82,71 @@ async function getPayments(req, res) {
       stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
     };
 
-    // Search for customers by email in the connected account
-    const customerParams = {
-      email: email,
-      limit: 10, // Get more results for debugging
-    };
-    const customers = await stripe.customers.list(
-      customerParams,
+    // Stripe email search is CASE-SENSITIVE, so we search for multiple variants
+    // Also try searching by the local part (before @) with different domains
+    const emailLower = email.toLowerCase();
+    const emailUpper = email.toUpperCase();
+    const emailParts = email.split('@');
+    const localPart = emailParts[0]?.toLowerCase();
+
+    // Collect customers from multiple search strategies
+    const customersSet = new Map(); // Use Map to dedupe by customer ID
+
+    // Strategy 1: Exact email match
+    const exactMatch = await stripe.customers.list(
+      { email: email, limit: 10 },
       requestOptions,
     );
+    exactMatch.data.forEach(c => customersSet.set(c.id, c));
 
-    console.log(`\n=== Customer Search for ${email} ===`);
-    console.log(`Customers found: ${customers.data.length}`);
-    if (customers.data.length > 1) {
-      console.log('Multiple customers found! IDs:', customers.data.map(c => c.id));
+    // Strategy 2: Lowercase email match (if different from exact)
+    if (emailLower !== email) {
+      const lowerMatch = await stripe.customers.list(
+        { email: emailLower, limit: 10 },
+        requestOptions,
+      );
+      lowerMatch.data.forEach(c => customersSet.set(c.id, c));
     }
 
-    if (customers.data.length === 0) {
+    // Strategy 3: Search all customers and filter by case-insensitive email
+    // This catches customers with uppercase variants like michel.SOFFER@...
+    // Stripe's search API allows searching with query syntax
+    try {
+      const searchResult = await stripe.customers.search({
+        query: `email~"${localPart}"`,
+        limit: 20,
+      }, requestOptions);
+
+      // Filter results to match the domain part case-insensitively
+      const domain = emailParts[1]?.toLowerCase();
+      searchResult.data.forEach(c => {
+        if (c.email) {
+          const customerDomain = c.email.split('@')[1]?.toLowerCase();
+          const customerLocal = c.email.split('@')[0]?.toLowerCase();
+          // Match if local part is similar (case-insensitive)
+          if (customerLocal === localPart && customerDomain === domain) {
+            customersSet.set(c.id, c);
+          }
+        }
+      });
+    } catch (searchError) {
+      // Search API might not be available in all Stripe versions
+      console.log('Search API not available, using list fallback');
+    }
+
+    const customers = Array.from(customersSet.values());
+
+    console.log(`\n=== Customer Search for ${email} ===`);
+    console.log(`Search strategies: exact="${email}", lower="${emailLower}"`);
+    console.log(`Customers found: ${customers.length}`);
+    if (customers.length > 0) {
+      console.log('Customer emails found:', customers.map(c => c.email));
+    }
+    if (customers.length > 1) {
+      console.log('Multiple customers found! IDs:', customers.map(c => c.id));
+    }
+
+    if (customers.length === 0) {
       return res.status(200).json({
         success: true,
         lastPayment: null,
@@ -412,17 +460,54 @@ async function getSubscriptions(req, res) {
       stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
     };
 
-    // Search for customers by email in the connected account
-    const customerSearchParams = {
-      email: email,
-      limit: 10,
-    };
-    const customers = await stripe.customers.list(
-      customerSearchParams,
+    // Stripe email search is CASE-SENSITIVE, so we search for multiple variants
+    const emailLower = email.toLowerCase();
+    const emailParts = email.split('@');
+    const localPart = emailParts[0]?.toLowerCase();
+
+    // Collect customers from multiple search strategies
+    const customersSet = new Map();
+
+    // Strategy 1: Exact email match
+    const exactMatch = await stripe.customers.list(
+      { email: email, limit: 10 },
       requestOptions,
     );
+    exactMatch.data.forEach(c => customersSet.set(c.id, c));
 
-    if (customers.data.length === 0) {
+    // Strategy 2: Lowercase email match
+    if (emailLower !== email) {
+      const lowerMatch = await stripe.customers.list(
+        { email: emailLower, limit: 10 },
+        requestOptions,
+      );
+      lowerMatch.data.forEach(c => customersSet.set(c.id, c));
+    }
+
+    // Strategy 3: Search API for case-insensitive matches
+    try {
+      const searchResult = await stripe.customers.search({
+        query: `email~"${localPart}"`,
+        limit: 20,
+      }, requestOptions);
+
+      const domain = emailParts[1]?.toLowerCase();
+      searchResult.data.forEach(c => {
+        if (c.email) {
+          const customerDomain = c.email.split('@')[1]?.toLowerCase();
+          const customerLocal = c.email.split('@')[0]?.toLowerCase();
+          if (customerLocal === localPart && customerDomain === domain) {
+            customersSet.set(c.id, c);
+          }
+        }
+      });
+    } catch (searchError) {
+      console.log('Search API not available for subscriptions lookup');
+    }
+
+    const customers = Array.from(customersSet.values());
+
+    if (customers.length === 0) {
       return res.status(200).json({
         success: true,
         subscriptions: [],
@@ -430,20 +515,52 @@ async function getSubscriptions(req, res) {
       });
     }
 
-    const customer = customers.data[0];
+    // Collect subscriptions from ALL matching customers
+    const allSubscriptions = [];
 
-    // Get all subscriptions for this customer
-    const subscriptionListParams = {
-      customer: customer.id,
-      status: "all", // Get all statuses (active, past_due, canceled, etc.)
-      limit: 100,
-    };
-    const subscriptions = await stripe.subscriptions.list(
-      subscriptionListParams,
-      requestOptions,
-    );
+    console.log(`\n=== Subscriptions search for ${email} ===`);
+    console.log(`Found ${customers.length} customer records to check`);
 
-    if (subscriptions.data.length === 0) {
+    // Iterate through ALL customer records
+    for (const customer of customers) {
+      const subscriptionListParams = {
+        customer: customer.id,
+        status: "all", // Get all statuses (active, past_due, canceled, etc.)
+        limit: 100,
+      };
+      const subscriptions = await stripe.subscriptions.list(
+        subscriptionListParams,
+        requestOptions,
+      );
+
+      console.log(`Customer ${customer.id} (${customer.email}): ${subscriptions.data.length} subscriptions`);
+
+      // Format and add subscriptions from this customer
+      subscriptions.data.forEach((sub) => {
+        console.log(`  Subscription ${sub.id}:`, {
+          status: sub.status,
+          amount: sub.items.data[0]?.price?.unit_amount / 100,
+          tier: sub.metadata?.tier,
+        });
+
+        allSubscriptions.push({
+          id: sub.id,
+          status: sub.status,
+          current_period_start: new Date(sub.current_period_start * 1000),
+          current_period_end: new Date(sub.current_period_end * 1000),
+          amount: sub.items.data[0]?.price?.unit_amount
+            ? sub.items.data[0].price.unit_amount / 100
+            : 0,
+          currency: sub.currency,
+          tier: sub.metadata?.tier || "unknown",
+          customer_email: customer.email,
+          cancel_at_period_end: sub.cancel_at_period_end,
+          canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+        });
+      });
+    }
+
+    if (allSubscriptions.length === 0) {
       return res.status(200).json({
         success: true,
         subscriptions: [],
@@ -451,39 +568,11 @@ async function getSubscriptions(req, res) {
       });
     }
 
-    // Debug logging for subscription details
-    console.log(`\n=== Subscriptions for ${email} ===`);
-    subscriptions.data.forEach((sub, index) => {
-      console.log(`Subscription ${index + 1}:`, {
-        id: sub.id,
-        status: sub.status,
-        price_id: sub.items.data[0]?.price?.id,
-        unit_amount: sub.items.data[0]?.price?.unit_amount,
-        amount_in_euros: sub.items.data[0]?.price?.unit_amount / 100,
-        tier_metadata: sub.metadata?.tier,
-        interval: sub.items.data[0]?.price?.recurring?.interval,
-      });
-    });
-
-    // Format the subscription data
-    const formattedSubscriptions = subscriptions.data.map((sub) => ({
-      id: sub.id,
-      status: sub.status,
-      current_period_start: new Date(sub.current_period_start * 1000),
-      current_period_end: new Date(sub.current_period_end * 1000),
-      amount: sub.items.data[0]?.price?.unit_amount
-        ? sub.items.data[0].price.unit_amount / 100
-        : 0,
-      currency: sub.currency,
-      tier: sub.metadata?.tier || "unknown",
-      customer_email: customer.email,
-      cancel_at_period_end: sub.cancel_at_period_end,
-      canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
-    }));
+    console.log(`Total subscriptions found: ${allSubscriptions.length}`);
 
     return res.status(200).json({
       success: true,
-      subscriptions: formattedSubscriptions,
+      subscriptions: allSubscriptions,
     });
   } catch (error) {
     console.error(
