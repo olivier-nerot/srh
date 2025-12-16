@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { upload } from '@vercel/blob/client';
 import { Upload, X, Download } from 'lucide-react';
 
 interface Document {
@@ -15,15 +16,16 @@ interface DocumentUploadProps {
   currentDocumentIds?: number[];
 }
 
-const DocumentUpload: React.FC<DocumentUploadProps> = ({ 
-  onDocumentsChange, 
-  currentDocumentIds = [] 
+const DocumentUpload: React.FC<DocumentUploadProps> = ({
+  onDocumentsChange,
+  currentDocumentIds = []
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch documents when currentDocumentIds changes
@@ -38,7 +40,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       try {
         const response = await fetch(`/api/files?action=list&ids=${currentDocumentIds.join(',')}`);
         const data = await response.json();
-        
+
         if (data.success) {
           setDocuments(data.documents);
         } else {
@@ -67,9 +69,10 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   const handleFileSelect = async (files: FileList) => {
     setError(null);
     setIsUploading(true);
+    setUploadProgress(0);
 
     try {
-      const uploadPromises = Array.from(files).map(async (file) => {
+      const uploadPromises = Array.from(files).map(async (file, index) => {
         // Validate file type
         const allowedTypes = [
           'application/pdf',
@@ -77,56 +80,78 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'text/plain'
         ];
-        
+
         if (!allowedTypes.includes(file.type)) {
           throw new Error(`Type de fichier non supporté pour ${file.name}. Utilisez PDF, DOC, DOCX ou TXT.`);
         }
 
-        // Validate file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-          throw new Error(`Fichier ${file.name} trop volumineux. Taille maximale : 10MB.`);
+        // Validate file size (max 50MB - increased since we're using direct upload)
+        if (file.size > 50 * 1024 * 1024) {
+          throw new Error(`Fichier ${file.name} trop volumineux. Taille maximale : 50MB.`);
         }
 
-        // Convert file to buffer
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = new Uint8Array(arrayBuffer);
+        const title = file.name.replace(/\.[^/.]+$/, ''); // Remove extension for title
 
-        // Upload to API
-        const response = await fetch('/api/files?action=upload&type=document', {
+        // Upload directly to Vercel Blob using client upload
+        // This bypasses the serverless function body size limit
+        const blob = await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: '/api/blob-upload?action=upload',
+          clientPayload: JSON.stringify({
+            isAdmin: true,
+            uploadType: 'document',
+            title: title,
+            description: '',
+            category: 'other',
+          }),
+          onUploadProgress: (progress) => {
+            // Calculate overall progress for multiple files
+            const fileProgress = progress.percentage || 0;
+            const overallProgress = ((index * 100) + fileProgress) / files.length;
+            setUploadProgress(Math.round(overallProgress));
+          },
+        });
+
+        // Save the document record to database
+        const saveResponse = await fetch('/api/blob-upload?action=save-document', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            file: Array.from(buffer), // Convert Uint8Array to regular array
+            url: blob.url,
             fileName: file.name,
+            fileSize: file.size,
             mimeType: file.type,
-            title: file.name.replace(/\.[^/.]+$/, ''), // Remove extension for title
+            title: title,
             description: '',
-            uploadedBy: null, // This should come from auth context
+            category: 'other',
             isAdmin: true,
           }),
         });
 
-        const data = await response.json();
-        
-        if (!data.success) {
-          throw new Error(data.error || `Erreur lors de l'upload de ${file.name}`);
+        const saveData = await saveResponse.json();
+
+        if (!saveData.success) {
+          throw new Error(saveData.error || `Erreur lors de l'enregistrement de ${file.name}`);
         }
 
-        return data.document;
+        return saveData.document;
       });
 
       const uploadedDocuments = await Promise.all(uploadPromises);
       const updatedDocuments = [...documents, ...uploadedDocuments];
-      
+
       setDocuments(updatedDocuments);
       onDocumentsChange(updatedDocuments.map(doc => doc.id));
-      
+      setUploadProgress(100);
+
     } catch (err) {
+      console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'Erreur lors de l\'upload');
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -143,7 +168,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       handleFileSelect(files);
@@ -179,7 +204,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       <label className="block text-sm font-medium text-gray-700">
         Documents joints
       </label>
-      
+
       {/* Upload Area */}
       <div
         className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
@@ -201,12 +226,19 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
           disabled={isUploading}
           multiple
         />
-        
+
         <div className="space-y-4">
           {isUploading ? (
             <div className="flex flex-col items-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-srh-blue"></div>
-              <p className="text-sm text-gray-600 mt-2">Upload en cours...</p>
+              <p className="text-sm text-gray-600 mt-2">Upload en cours... {uploadProgress}%</p>
+              {/* Progress bar */}
+              <div className="w-full max-w-xs mt-2 bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-srh-blue h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
             </div>
           ) : (
             <>
@@ -220,14 +252,14 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
                   <span className="font-medium text-srh-blue">Cliquez pour sélectionner</span> ou glissez-déposez des documents
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  PDF, DOC, DOCX ou TXT - Maximum 10MB par fichier
+                  PDF, DOC, DOCX ou TXT - Maximum 50MB par fichier
                 </p>
               </div>
             </>
           )}
         </div>
       </div>
-      
+
       {/* Document List */}
       {(documents.length > 0 || isLoading) && (
         <div className="space-y-3">
@@ -280,7 +312,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
           </div>
         </div>
       )}
-      
+
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
           {error}
