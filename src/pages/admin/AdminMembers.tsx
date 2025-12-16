@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase, CreditCard, Euro, Trash2, Download } from 'lucide-react';
+import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase, CreditCard, Euro, Trash2, Download, RefreshCw } from 'lucide-react';
 import { getAllUsers, deleteUser } from '../../services/userService';
 import { getUserLastPayment, getUserSubscriptions, type Payment, type Subscription } from '../../services/paymentService';
 
@@ -38,6 +38,53 @@ const AdminMembers: React.FC = () => {
   });
   const [deleting, setDeleting] = useState(false);
 
+  // Guard against multiple payment loading calls
+  const isLoadingPaymentsRef = useRef(false);
+  const hasLoadedPaymentsRef = useRef(false);
+
+  // Cache key for sessionStorage
+  const PAYMENT_CACHE_KEY = 'srh_admin_payments_cache';
+
+  // Check if this is a fresh page load (browser refresh) vs navigation
+  const isFreshPageLoad = (): boolean => {
+    // Use performance.navigation or navigation entries to detect refresh
+    const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    if (navEntries.length > 0) {
+      return navEntries[0].type === 'reload';
+    }
+    return false;
+  };
+
+  const getCachedPayments = (): Record<string, { lastPayment: Payment | null; activeSubscription: Subscription | null }> | null => {
+    try {
+      // If this is a browser refresh, clear the cache and return null
+      if (isFreshPageLoad()) {
+        sessionStorage.removeItem(PAYMENT_CACHE_KEY);
+        return null;
+      }
+      const cached = sessionStorage.getItem(PAYMENT_CACHE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const setCachedPayments = (data: Record<string, { lastPayment: Payment | null; activeSubscription: Subscription | null }>) => {
+    try {
+      sessionStorage.setItem(PAYMENT_CACHE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('Failed to cache payments:', e);
+    }
+  };
+
+  const clearCacheAndRefresh = () => {
+    sessionStorage.removeItem(PAYMENT_CACHE_KEY);
+    hasLoadedPaymentsRef.current = false;
+    isLoadingPaymentsRef.current = false;
+    // Reload users which will trigger fresh payment loading
+    fetchUsers();
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -47,16 +94,35 @@ const AdminMembers: React.FC = () => {
     try {
       const result = await getAllUsers();
       if (result.success) {
-        // Set users immediately without payment data
-        const usersWithoutPayments = result.users.map((user: User) => ({
-          ...user,
-          lastPayment: null
-        }));
-        setUsers(usersWithoutPayments);
-        setLoading(false);
-        
-        // Start background payment loading
-        loadPaymentsInBackground(result.users);
+        // Check for cached payment data
+        const cachedPayments = getCachedPayments();
+
+        if (cachedPayments) {
+          // Use cached data - apply it immediately
+          const usersWithCachedPayments = result.users.map((user: User) => {
+            const cached = cachedPayments[user.email];
+            return {
+              ...user,
+              lastPayment: cached?.lastPayment || null,
+              activeSubscription: cached?.activeSubscription || null
+            };
+          });
+          setUsers(usersWithCachedPayments);
+          setLoading(false);
+          hasLoadedPaymentsRef.current = true;
+          console.log('Using cached payment data for', Object.keys(cachedPayments).length, 'users');
+        } else {
+          // No cache - set users without payment data and load in background
+          const usersWithoutPayments = result.users.map((user: User) => ({
+            ...user,
+            lastPayment: null
+          }));
+          setUsers(usersWithoutPayments);
+          setLoading(false);
+
+          // Start background payment loading
+          loadPaymentsInBackground(result.users);
+        }
       } else {
         setError(result.error || 'Erreur lors du chargement des membres');
         setLoading(false);
@@ -68,6 +134,13 @@ const AdminMembers: React.FC = () => {
   };
 
   const loadPaymentsInBackground = async (userList: User[]) => {
+    // Guard: prevent multiple simultaneous calls
+    if (isLoadingPaymentsRef.current || hasLoadedPaymentsRef.current) {
+      console.log('Payment loading already in progress or completed, skipping...');
+      return;
+    }
+
+    isLoadingPaymentsRef.current = true;
     setLoadingPayments(true);
     setLoadingProgress({ current: 0, total: userList.length });
 
@@ -127,6 +200,23 @@ const AdminMembers: React.FC = () => {
       }
     }
 
+    // Build cache from final user state
+    setUsers(prevUsers => {
+      const cacheData: Record<string, { lastPayment: Payment | null; activeSubscription: Subscription | null }> = {};
+      prevUsers.forEach(user => {
+        cacheData[user.email] = {
+          lastPayment: user.lastPayment || null,
+          activeSubscription: user.activeSubscription || null
+        };
+      });
+      setCachedPayments(cacheData);
+      console.log('Cached payment data for', Object.keys(cacheData).length, 'users');
+      return prevUsers;
+    });
+
+    // Mark as completed
+    isLoadingPaymentsRef.current = false;
+    hasLoadedPaymentsRef.current = true;
     setLoadingPayments(false);
   };
 
@@ -408,14 +498,25 @@ const AdminMembers: React.FC = () => {
                 )}
               </div>
             </div>
-            <button
-              onClick={exportToCSV}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-              title="Exporter la liste des membres en CSV"
-            >
-              <Download className="h-5 w-5 mr-2" />
-              Exporter CSV
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={clearCacheAndRefresh}
+                disabled={loadingPayments}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Rafraîchir les données Stripe"
+              >
+                <RefreshCw className={`h-5 w-5 mr-2 ${loadingPayments ? 'animate-spin' : ''}`} />
+                Rafraîchir Stripe
+              </button>
+              <button
+                onClick={exportToCSV}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                title="Exporter la liste des membres en CSV"
+              >
+                <Download className="h-5 w-5 mr-2" />
+                Exporter CSV
+              </button>
+            </div>
           </div>
         </div>
       </div>
