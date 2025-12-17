@@ -1318,7 +1318,11 @@ const ProfileEdit: React.FC = () => {
                           />
                           <label htmlFor="one-time" className="ml-3 text-sm text-gray-700">
                             <span className="font-medium">Paiement unique</span>
-                            <div className="text-gray-500">Adhésion pour l'année en cours uniquement</div>
+                            <div className="text-gray-500">
+                              {isValidRegistration()
+                                ? `Adhésion pour l'année ${new Date().getFullYear() + 1} uniquement`
+                                : "Adhésion pour l'année en cours uniquement"}
+                            </div>
                           </label>
                         </div>
                         <div className="flex items-center">
