@@ -179,6 +179,18 @@ const Profile: React.FC = () => {
   };
 
   const isValidRegistration = (): boolean => {
+    // First check if there's an active/trialing subscription with valid period
+    if (activeSubscription) {
+      const isActiveStatus = activeSubscription.status === 'active' || activeSubscription.status === 'trialing';
+      if (isActiveStatus && activeSubscription.current_period_end) {
+        const periodEnd = new Date(activeSubscription.current_period_end);
+        if (periodEnd > new Date()) {
+          return true; // Subscription is active and period hasn't ended
+        }
+      }
+    }
+
+    // Fallback: check payment date (for one-time payments without subscription)
     if (!payment || payment.status !== 'succeeded') {
       return false;
     }

@@ -331,13 +331,25 @@ const ProfileEdit: React.FC = () => {
   };
 
   const isValidRegistration = (): boolean => {
+    // First check if there's an active/trialing subscription with valid period
+    if (currentSubscription) {
+      const isActiveStatus = currentSubscription.status === 'active' || currentSubscription.status === 'trialing';
+      if (isActiveStatus && currentSubscription.current_period_end) {
+        const periodEnd = new Date(currentSubscription.current_period_end);
+        if (periodEnd > new Date()) {
+          return true; // Subscription is active and period hasn't ended
+        }
+      }
+    }
+
+    // Fallback: check payment date (for one-time payments without subscription)
     if (!currentPayment || currentPayment.status !== 'succeeded') {
       return false;
     }
-    
+
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    
+
     return currentPayment.created > oneYearAgo;
   };
 
