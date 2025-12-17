@@ -353,27 +353,36 @@ const ProfileEdit: React.FC = () => {
     return currentSubscription.status;
   };
 
-  const isValidRegistration = (): boolean => {
-    // First check if there's an active/trialing subscription with valid period
-    if (currentSubscription) {
-      const isActiveStatus = currentSubscription.status === 'active' || currentSubscription.status === 'trialing';
-      if (isActiveStatus && currentSubscription.current_period_end) {
-        const periodEnd = new Date(currentSubscription.current_period_end);
-        if (periodEnd > new Date()) {
-          return true; // Subscription is active and period hasn't ended
-        }
-      }
-    }
-
-    // Fallback: check payment date (for one-time payments without subscription)
+  // Calculate the membership end date based on payment date
+  // SRH memberships are calendar year based: payment for year X = valid until Dec 31, X
+  const getMembershipEndDate = (): Date | null => {
     if (!currentPayment || currentPayment.status !== 'succeeded') {
-      return false;
+      return null;
     }
 
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const paymentDate = new Date(currentPayment.created);
+    const paymentYear = paymentDate.getFullYear();
 
-    return currentPayment.created > oneYearAgo;
+    // The payment covers the NEXT calendar year
+    // e.g., payment in Dec 2024 = valid for 2025 → until Dec 31, 2025
+    const membershipYear = paymentYear + 1;
+
+    return new Date(membershipYear, 11, 31); // December 31 of membership year
+  };
+
+  const isValidRegistration = (): boolean => {
+    // Check membership end date based on actual payment
+    const membershipEnd = getMembershipEndDate();
+    if (membershipEnd && membershipEnd > new Date()) {
+      return true;
+    }
+
+    // Fallback: check if in trial period (new member, no payment yet, waiting for Jan 1st)
+    if (isInTrialPeriod()) {
+      return true;
+    }
+
+    return false;
   };
 
   const getPaymentStatus = () => {
@@ -706,15 +715,7 @@ const ProfileEdit: React.FC = () => {
           return;
         }
 
-        // Check if user already has a valid AUTOMATIC subscription (not one-time)
-        // Allow payment if subscription is set to cancel at period end (one-time payment)
-        if (isValidRegistration() && currentSubscription &&
-            getEffectiveSubscriptionStatus() === 'active' &&
-            !currentSubscription.cancel_at_period_end) {
-          alert('Vous avez déjà une adhésion active avec renouvellement automatique. Aucun paiement supplémentaire n\'est nécessaire.');
-          setIsPaymentLoading(false);
-          return;
-        }
+        // No blocking check - users can always pay for the next year even if they have an active subscription
 
         // Process payment if needed
         if (selectedTierData.price > 0) {
@@ -759,30 +760,22 @@ const ProfileEdit: React.FC = () => {
       }
     };
 
-    // Check if user has automatic subscription (not one-time)
-    const hasAutoRenewal = isValidRegistration() && currentSubscription &&
-                           getEffectiveSubscriptionStatus() === 'active' &&
-                           !currentSubscription.cancel_at_period_end;
-
     return (
       <button
         onClick={handlePaymentClick}
         disabled={!formData.subscription || isPaymentLoading ||
-                  (!stripe && (getSelectedTierData()?.price ?? 0) > 0) ||
-                  hasAutoRenewal}
+                  (!stripe && (getSelectedTierData()?.price ?? 0) > 0)}
         className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
       >
         {isPaymentLoading
           ? 'Traitement en cours...'
-          : hasAutoRenewal
-            ? 'Adhésion avec renouvellement automatique'
-            : getSelectedTierData()?.price === 0
-              ? 'Mettre à jour l\'adhésion'
-              : isValidRegistration()
-                ? 'Payer pour l\'année prochaine'
-                : isRecurring
-                  ? 'Souscrire l\'abonnement annuel'
-                  : 'Effectuer le paiement'
+          : getSelectedTierData()?.price === 0
+            ? 'Mettre à jour l\'adhésion'
+            : isValidRegistration()
+              ? 'Payer pour l\'année prochaine'
+              : isRecurring
+                ? 'Souscrire l\'abonnement annuel'
+                : 'Effectuer le paiement'
         }
       </button>
     );
@@ -1105,14 +1098,7 @@ const ProfileEdit: React.FC = () => {
                           <span className="text-sm text-gray-600">Fin d'adhésion:</span>
                           <div className="text-sm text-gray-900 flex items-center">
                             <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                            {currentSubscription ? 
-                              formatDate(currentSubscription.current_period_end) :
-                              (() => {
-                                const endDate = new Date(currentPayment.created);
-                                endDate.setFullYear(endDate.getFullYear() + 1);
-                                return formatDate(endDate);
-                              })()
-                            }
+                            {getMembershipEndDate() ? formatDate(getMembershipEndDate()!) : 'Non définie'}
                           </div>
                         </div>
                       </div>
@@ -1246,45 +1232,37 @@ const ProfileEdit: React.FC = () => {
                   </div>
                 )}
                 
-                {/* Message for users with valid automatic subscriptions */}
-                {(isValidRegistration() && currentPayment) &&
-                 (currentSubscription && (getEffectiveSubscriptionStatus() === 'active' || getEffectiveSubscriptionStatus() === 'trialing') && !(currentSubscription.cancel_at_period_end ?? false)) && (
-                  <div className="border-t border-gray-200 pt-6">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <div className="flex items-start">
-                        <CreditCard className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
-                        <div>
-                          <h5 className="text-sm font-medium text-green-900 mb-2">
-                            Votre adhésion est active
-                          </h5>
-                          <p className="text-sm text-green-800">
-                            Votre abonnement automatique est actif et se renouvellera automatiquement le{' '}
-                            {currentSubscription ? formatDate(currentSubscription.current_period_end) : 'à la date prévue'}.
-                            Aucune action n'est requise de votre part.
-                          </p>
+                {/* Payment/Renewal Section - Always show for all users */}
+                <div className="border-t border-gray-200 pt-6">
+                  {isValidRegistration() ? (
+                    <>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                        <div className="flex items-start">
+                          <CreditCard className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
+                          <div>
+                            <h5 className="text-sm font-medium text-green-900 mb-2">
+                              Votre adhésion est active
+                            </h5>
+                            <p className="text-sm text-green-800">
+                              Votre adhésion est valide jusqu'au{' '}
+                              {getMembershipEndDate() ? formatDate(getMembershipEndDate()!) : 'à la date prévue'}.
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Payment/Renewal Section - Show for users who need to pay manually */}
-                {/* Show if: no subscription, canceled subscription, OR subscription set to cancel (one-time payment) */}
-                {(!currentSubscription ||
-                  getEffectiveSubscriptionStatus() === 'canceled' ||
-                  (currentSubscription && currentSubscription.cancel_at_period_end)) && (
-                  <>
-                    <div className="border-t border-gray-200 pt-6">
                       <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                        {isValidRegistration() ? 'Renouveler pour l\'année prochaine' : 'Renouveler ou modifier l\'adhésion'}
+                        Renouveler pour l'année prochaine
                       </h4>
-                      {isValidRegistration() && currentSubscription?.cancel_at_period_end && (
-                        <p className="text-sm text-gray-600 mb-4">
-                          Votre adhésion actuelle est valide jusqu'au {formatDate(currentSubscription.current_period_end)}.
-                          Vous pouvez dès maintenant régler votre adhésion pour l'année suivante.
-                        </p>
-                      )}
-                    </div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Vous pouvez dès maintenant régler votre adhésion pour l'année suivante.
+                      </p>
+                    </>
+                  ) : (
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                      Renouveler ou modifier l'adhésion
+                    </h4>
+                  )}
+                </div>
                 
                 {/* Subscription Selection */}
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -1363,19 +1341,14 @@ const ProfileEdit: React.FC = () => {
                     <StripeCardInput />
                   </>
                 )}
-                </>
-                )}
               </div>
             )}
           </div>
         </div>
       </div>
       
-      {/* Payment Button for Payment Tab - Show when renewal section is visible */}
-      {activeTab === 'payment' && getSelectedTierData() &&
-       (!currentSubscription ||
-        getEffectiveSubscriptionStatus() === 'canceled' ||
-        (currentSubscription && currentSubscription.cancel_at_period_end)) && (
+      {/* Payment Button for Payment Tab - Always show when a tier is selected */}
+      {activeTab === 'payment' && getSelectedTierData() && (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex justify-center">

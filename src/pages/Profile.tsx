@@ -178,16 +178,6 @@ const Profile: React.FC = () => {
     return true;
   };
 
-  // Get effective subscription status (treats paid 'trialing' as 'active')
-  const getEffectiveSubscriptionStatus = (): string => {
-    if (!activeSubscription) return '';
-    // If subscription is 'trialing' but user has paid, treat as 'active'
-    if (activeSubscription.status === 'trialing' && payment && payment.status === 'succeeded') {
-      return 'active';
-    }
-    return activeSubscription.status;
-  };
-
   const isValidRegistration = (): boolean => {
     // First check if there's an active/trialing subscription with valid period
     if (activeSubscription) {
