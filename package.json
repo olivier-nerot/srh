@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "vercel dev --listen 3002 --yes",
+    "all": "npm run dev:api & sleep 2 && npm run dev",
     "build": "tsc -b && vite build",
     "convert-pdfs": "node scripts/convert-pdfs.js",
     "lint": "eslint .",

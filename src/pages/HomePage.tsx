@@ -174,17 +174,17 @@ const HomePage: React.FC = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center min-h-[60vh]">
-            {/* Logo on the left */}
-            <div className="hidden lg:flex items-center justify-center">
+            {/* Logo on the left (desktop) / above (mobile) */}
+            <div className="flex items-center justify-center lg:order-1 order-1">
               <img
                 src={srhLogo}
                 alt="SRH Logo"
-                className="w-96 h-96 xl:w-[480px] xl:h-[480px] drop-shadow-2xl"
+                className="w-72 h-72 md:w-96 md:h-96 lg:w-96 lg:h-96 xl:w-[480px] xl:h-[480px] drop-shadow-2xl"
               />
             </div>
 
-            {/* Content on the right */}
-            <div className="text-center lg:text-left">
+            {/* Content on the right (desktop) / below (mobile) */}
+            <div className="text-center lg:text-left lg:order-2 order-2">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
                 {siteContent.hero.title}
               </h1>
