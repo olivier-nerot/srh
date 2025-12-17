@@ -706,9 +706,12 @@ const ProfileEdit: React.FC = () => {
           return;
         }
 
-        // Check if user already has a valid subscription (treat paid trialing as active)
-        if (isValidRegistration() && currentSubscription && getEffectiveSubscriptionStatus() === 'active') {
-          alert('Vous avez déjà une adhésion active. Aucun paiement supplémentaire n\'est nécessaire.');
+        // Check if user already has a valid AUTOMATIC subscription (not one-time)
+        // Allow payment if subscription is set to cancel at period end (one-time payment)
+        if (isValidRegistration() && currentSubscription &&
+            getEffectiveSubscriptionStatus() === 'active' &&
+            !currentSubscription.cancel_at_period_end) {
+          alert('Vous avez déjà une adhésion active avec renouvellement automatique. Aucun paiement supplémentaire n\'est nécessaire.');
           setIsPaymentLoading(false);
           return;
         }
@@ -756,23 +759,30 @@ const ProfileEdit: React.FC = () => {
       }
     };
 
+    // Check if user has automatic subscription (not one-time)
+    const hasAutoRenewal = isValidRegistration() && currentSubscription &&
+                           getEffectiveSubscriptionStatus() === 'active' &&
+                           !currentSubscription.cancel_at_period_end;
+
     return (
       <button
         onClick={handlePaymentClick}
         disabled={!formData.subscription || isPaymentLoading ||
                   (!stripe && (getSelectedTierData()?.price ?? 0) > 0) ||
-                  Boolean(isValidRegistration() && currentSubscription && getEffectiveSubscriptionStatus() === 'active')}
+                  hasAutoRenewal}
         className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
       >
         {isPaymentLoading
           ? 'Traitement en cours...'
-          : (isValidRegistration() && currentSubscription && getEffectiveSubscriptionStatus() === 'active')
-            ? 'Adhésion déjà active'
+          : hasAutoRenewal
+            ? 'Adhésion avec renouvellement automatique'
             : getSelectedTierData()?.price === 0
               ? 'Mettre à jour l\'adhésion'
-              : isRecurring
-                ? 'Souscrire l\'abonnement annuel'
-                : 'Effectuer le paiement'
+              : isValidRegistration()
+                ? 'Payer pour l\'année prochaine'
+                : isRecurring
+                  ? 'Souscrire l\'abonnement annuel'
+                  : 'Effectuer le paiement'
         }
       </button>
     );
@@ -1236,7 +1246,7 @@ const ProfileEdit: React.FC = () => {
                   </div>
                 )}
                 
-                {/* Message for users with valid subscriptions */}
+                {/* Message for users with valid automatic subscriptions */}
                 {(isValidRegistration() && currentPayment) &&
                  (currentSubscription && (getEffectiveSubscriptionStatus() === 'active' || getEffectiveSubscriptionStatus() === 'trialing') && !(currentSubscription.cancel_at_period_end ?? false)) && (
                   <div className="border-t border-gray-200 pt-6">
@@ -1258,13 +1268,22 @@ const ProfileEdit: React.FC = () => {
                   </div>
                 )}
 
-                {/* Renewal Section - Only show if payment is expired or no payment AND no active subscription */}
-                {(!isValidRegistration() || !currentPayment) &&
-                 (!currentSubscription ||
-                  (currentSubscription && getEffectiveSubscriptionStatus() === 'canceled' && !(currentSubscription.cancel_at_period_end ?? false))) && (
+                {/* Payment/Renewal Section - Show for users who need to pay manually */}
+                {/* Show if: no subscription, canceled subscription, OR subscription set to cancel (one-time payment) */}
+                {(!currentSubscription ||
+                  getEffectiveSubscriptionStatus() === 'canceled' ||
+                  (currentSubscription && currentSubscription.cancel_at_period_end)) && (
                   <>
                     <div className="border-t border-gray-200 pt-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Renouveler ou modifier l'adhésion</h4>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                        {isValidRegistration() ? 'Renouveler pour l\'année prochaine' : 'Renouveler ou modifier l\'adhésion'}
+                      </h4>
+                      {isValidRegistration() && currentSubscription?.cancel_at_period_end && (
+                        <p className="text-sm text-gray-600 mb-4">
+                          Votre adhésion actuelle est valide jusqu'au {formatDate(currentSubscription.current_period_end)}.
+                          Vous pouvez dès maintenant régler votre adhésion pour l'année suivante.
+                        </p>
+                      )}
                     </div>
                 
                 {/* Subscription Selection */}
@@ -1352,11 +1371,11 @@ const ProfileEdit: React.FC = () => {
         </div>
       </div>
       
-      {/* Payment Button for Payment Tab - Only show if renewal section is visible */}
-      {activeTab === 'payment' && getSelectedTierData() && 
-       (!isValidRegistration() || !currentPayment) && 
-       (!currentSubscription || 
-        (currentSubscription && currentSubscription.status === 'canceled' && !(currentSubscription.cancel_at_period_end ?? false))) && (
+      {/* Payment Button for Payment Tab - Show when renewal section is visible */}
+      {activeTab === 'payment' && getSelectedTierData() &&
+       (!currentSubscription ||
+        getEffectiveSubscriptionStatus() === 'canceled' ||
+        (currentSubscription && currentSubscription.cancel_at_period_end)) && (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex justify-center">
