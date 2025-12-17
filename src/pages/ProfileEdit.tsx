@@ -318,8 +318,8 @@ const ProfileEdit: React.FC = () => {
       }
       
       if (subscriptionResult.success && subscriptionResult.subscriptions && subscriptionResult.subscriptions.length > 0) {
-        // Get the most recent active subscription
-        const activeSubscription = subscriptionResult.subscriptions.find(sub => sub.status === 'active') ||
+        // Get the most recent active or trialing subscription
+        const activeSubscription = subscriptionResult.subscriptions.find(sub => sub.status === 'active' || sub.status === 'trialing') ||
                                  subscriptionResult.subscriptions[0];
         setCurrentSubscription(activeSubscription);
       }
@@ -1054,14 +1054,15 @@ const ProfileEdit: React.FC = () => {
                             {currentSubscription ? 'Abonnement automatique' : 'Paiement unique'}
                             {currentSubscription && (
                               <span className={`ml-2 ${
-                                currentSubscription.status === 'active' 
-                                  ? 'text-green-600' 
-                                  : currentSubscription.status === 'canceled' 
-                                    ? 'text-orange-600' 
+                                currentSubscription.status === 'active' || currentSubscription.status === 'trialing'
+                                  ? 'text-green-600'
+                                  : currentSubscription.status === 'canceled'
+                                    ? 'text-orange-600'
                                     : 'text-red-600'
                               }`}>
-                                ✓ {currentSubscription.status === 'active' ? 'Actif' : 
-                                   currentSubscription.status === 'canceled' ? 'Annulé' : 
+                                ✓ {currentSubscription.status === 'active' ? 'Actif' :
+                                   currentSubscription.status === 'trialing' ? 'Période d\'essai' :
+                                   currentSubscription.status === 'canceled' ? 'Annulé' :
                                    'Inactif'}
                               </span>
                             )}
@@ -1105,7 +1106,7 @@ const ProfileEdit: React.FC = () => {
                           <h5 className="font-medium text-gray-900">Gestion de l'abonnement</h5>
                           <div className="flex flex-wrap gap-3">
                             {/* Show different buttons based on subscription status */}
-                            {currentSubscription.status === 'active' && !(currentSubscription.cancel_at_period_end ?? false) && (
+                            {(currentSubscription.status === 'active' || currentSubscription.status === 'trialing') && !(currentSubscription.cancel_at_period_end ?? false) && (
                               <>
                                 <button
                                   type="button"
@@ -1125,8 +1126,8 @@ const ProfileEdit: React.FC = () => {
                             )}
                             
                             {/* Show reactivate button if subscription was canceled */}
-                            {(currentSubscription.status === 'active' && (currentSubscription.cancel_at_period_end ?? false)) || 
-                             currentSubscription.status === 'canceled' && (
+                            {(((currentSubscription.status === 'active' || currentSubscription.status === 'trialing') && (currentSubscription.cancel_at_period_end ?? false)) ||
+                             currentSubscription.status === 'canceled') && (
                               <button
                                 type="button"
                                 onClick={handleReactivateSubscription}
@@ -1213,8 +1214,8 @@ const ProfileEdit: React.FC = () => {
                 )}
                 
                 {/* Message for users with valid subscriptions */}
-                {(isValidRegistration() && currentPayment) && 
-                 (currentSubscription && currentSubscription.status === 'active' && !(currentSubscription.cancel_at_period_end ?? false)) && (
+                {(isValidRegistration() && currentPayment) &&
+                 (currentSubscription && (currentSubscription.status === 'active' || currentSubscription.status === 'trialing') && !(currentSubscription.cancel_at_period_end ?? false)) && (
                   <div className="border-t border-gray-200 pt-6">
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <div className="flex items-start">
