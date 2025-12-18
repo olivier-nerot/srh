@@ -99,33 +99,45 @@ export async function getUserSubscriptions(email: string): Promise<{ success: bo
   }
 }
 
-export async function getUserLastPayment(email: string): Promise<{ success: boolean; lastPayment: Payment | null; error?: string }> {
+export async function getUserLastPayment(email: string): Promise<{ success: boolean; lastPayment: Payment | null; firstPayment: Payment | null; error?: string }> {
   try {
     const response = await fetch(`${API_BASE}/api/stripe?action=get-payments&email=${encodeURIComponent(email)}`);
-    
+
     if (!response.ok) {
       console.error('Payment API response not OK:', response.status, response.statusText);
       return {
         success: false,
         lastPayment: null,
+        firstPayment: null,
         error: `API error: ${response.status} ${response.statusText}`
       };
     }
-    
+
     const result = await response.json();
-    
+
     if (result.success && result.lastPayment) {
       // Convert the created date string back to Date object
       result.lastPayment.created = new Date(result.lastPayment.created);
     }
-    
-    return result;
+
+    if (result.success && result.firstPayment) {
+      // Convert the created date string back to Date object
+      result.firstPayment.created = new Date(result.firstPayment.created);
+    }
+
+    return {
+      success: result.success,
+      lastPayment: result.lastPayment || null,
+      firstPayment: result.firstPayment || null,
+      error: result.error
+    };
   } catch (error) {
     console.error('Error fetching user last payment:', error);
-    return { 
-      success: false, 
+    return {
+      success: false,
       lastPayment: null,
-      error: 'Erreur lors de la récupération des informations de paiement' 
+      firstPayment: null,
+      error: 'Erreur lors de la récupération des informations de paiement'
     };
   }
 }

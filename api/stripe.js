@@ -239,6 +239,12 @@ async function getPayments(req, res) {
     // Get the absolute most recent payment (excluding canceled trial intents)
     const mostRecent = allPayments[0];
 
+    // Get the first (oldest) successful payment for "member since" date
+    const successfulPayments = allPayments.filter(p => p.status === 'succeeded');
+    const oldestSuccessful = successfulPayments.length > 0
+      ? successfulPayments[successfulPayments.length - 1]
+      : null;
+
     // Debug logging to see what status is being returned
     console.log(`Payment status for ${email}:`, {
       id: mostRecent.id,
@@ -258,9 +264,20 @@ async function getPayments(req, res) {
       description: mostRecent.description,
     };
 
+    // Format the first payment data (for "member since")
+    const firstPayment = oldestSuccessful ? {
+      id: oldestSuccessful.id,
+      amount: oldestSuccessful.amount,
+      currency: oldestSuccessful.currency,
+      status: oldestSuccessful.status,
+      created: new Date(oldestSuccessful.created * 1000),
+      description: oldestSuccessful.description,
+    } : null;
+
     return res.status(200).json({
       success: true,
       lastPayment: lastPayment,
+      firstPayment: firstPayment,
     });
   } catch (error) {
     console.error("Error fetching payments for email:", req.query.email, error);

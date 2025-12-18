@@ -33,6 +33,7 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [payment, setPayment] = useState<Payment | null>(null);
+  const [firstPayment, setFirstPayment] = useState<Payment | null>(null);
   const [activeSubscription, setActiveSubscription] = useState<Subscription | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
 
@@ -79,6 +80,7 @@ const Profile: React.FC = () => {
 
       if (paymentResult.success) {
         setPayment(paymentResult.lastPayment);
+        setFirstPayment(paymentResult.firstPayment);
       }
 
       // Find the active subscription (trialing or active status)
@@ -178,27 +180,60 @@ const Profile: React.FC = () => {
     return true;
   };
 
+  // Calculate the membership end date based on payment date
+  // SRH memberships are calendar year based: payment for year X = valid until Dec 31, X+1
+  const getMembershipEndDate = (): Date | null => {
+    if (!payment || payment.status !== 'succeeded') {
+      return null;
+    }
+
+    const paymentDate = new Date(payment.created);
+    const paymentYear = paymentDate.getFullYear();
+
+    // The payment covers the NEXT calendar year
+    // e.g., payment in Dec 2024 = valid for 2025 → until Dec 31, 2025
+    const membershipYear = paymentYear + 1;
+
+    return new Date(membershipYear, 11, 31); // December 31 of membership year
+  };
+
   const isValidRegistration = (): boolean => {
-    // First check if there's an active/trialing subscription with valid period
-    if (activeSubscription) {
-      const isActiveStatus = activeSubscription.status === 'active' || activeSubscription.status === 'trialing';
-      if (isActiveStatus && activeSubscription.current_period_end) {
-        const periodEnd = new Date(activeSubscription.current_period_end);
-        if (periodEnd > new Date()) {
-          return true; // Subscription is active and period hasn't ended
-        }
+    // Check membership end date based on actual payment
+    const membershipEnd = getMembershipEndDate();
+    if (membershipEnd && membershipEnd > new Date()) {
+      return true;
+    }
+
+    // Fallback: check if in trial period (new member, no payment yet, waiting for Jan 1st)
+    if (hasFreeFirstYear()) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Get the "member since" date, using first payment as fallback if createdAt is wrong
+  const getMemberSinceDate = (): Date | null => {
+    if (!userProfile) return null;
+
+    const createdAt = new Date(userProfile.createdAt);
+    const now = new Date();
+
+    // If createdAt is in the future, it's definitely wrong - use first payment
+    if (createdAt > now && firstPayment) {
+      return new Date(firstPayment.created);
+    }
+
+    // If first payment exists and is earlier than createdAt, use first payment
+    // (this means the user was migrated/recreated after their first payment)
+    if (firstPayment) {
+      const firstPaymentDate = new Date(firstPayment.created);
+      if (firstPaymentDate < createdAt) {
+        return firstPaymentDate;
       }
     }
 
-    // Fallback: check payment date (for one-time payments without subscription)
-    if (!payment || payment.status !== 'succeeded') {
-      return false;
-    }
-
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-
-    return payment.created > oneYearAgo;
+    return createdAt;
   };
 
   const getPaymentStatus = () => {
@@ -571,7 +606,7 @@ const Profile: React.FC = () => {
                       <Calendar className="h-5 w-5 text-gray-400 mr-3" />
                       <div>
                         <p className="text-sm text-gray-600">Membre depuis</p>
-                        <p className="text-gray-900">{formatDate(userProfile.createdAt)}</p>
+                        <p className="text-gray-900">{getMemberSinceDate() ? formatDate(getMemberSinceDate()!) : formatDate(userProfile.createdAt)}</p>
                       </div>
                     </div>
 
@@ -592,26 +627,21 @@ const Profile: React.FC = () => {
                       <div className="flex items-center">
                         <Calendar className="h-5 w-5 text-gray-400 mr-3" />
                         <div className="flex-1">
-                          <p className="text-sm text-gray-600">Abonnement jusqu'au</p>
+                          <p className="text-sm text-gray-600">Adhésion valide jusqu'au</p>
                           <p className="text-gray-900">
-                            {(() => {
-                              const subscriptionEnd = new Date(payment.created);
-                              subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1);
-                              return formatDate(subscriptionEnd);
-                            })()}
+                            {getMembershipEndDate() ? formatDate(getMembershipEndDate()!) : 'Non définie'}
                           </p>
                           {(() => {
-                            const subscriptionEnd = new Date(payment.created);
-                            subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1);
+                            const membershipEnd = getMembershipEndDate();
                             const now = new Date();
-                            if (now > subscriptionEnd) {
+                            if (membershipEnd && now > membershipEnd) {
                               return (
                                 <button
                                   type="button"
                                   onClick={() => navigate(`/profile/edit?id=${userId}#payment`)}
                                   className="mt-2 text-sm text-orange-600 hover:text-orange-700 underline"
                                 >
-                                  Renouvelez votre abonnement
+                                  Renouvelez votre adhésion
                                 </button>
                               );
                             }
