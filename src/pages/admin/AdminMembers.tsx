@@ -19,6 +19,7 @@ interface User {
   created_at: string | null;
   updated_at: string | null;
   lastPayment?: Payment | null;
+  firstPayment?: Payment | null;
   activeSubscription?: Subscription | null;
 }
 
@@ -55,7 +56,7 @@ const AdminMembers: React.FC = () => {
     return false;
   };
 
-  const getCachedPayments = (): Record<string, { lastPayment: Payment | null; activeSubscription: Subscription | null }> | null => {
+  const getCachedPayments = (): Record<string, { lastPayment: Payment | null; firstPayment: Payment | null; activeSubscription: Subscription | null }> | null => {
     try {
       // If this is a browser refresh, clear the cache and return null
       if (isFreshPageLoad()) {
@@ -69,7 +70,7 @@ const AdminMembers: React.FC = () => {
     }
   };
 
-  const setCachedPayments = (data: Record<string, { lastPayment: Payment | null; activeSubscription: Subscription | null }>) => {
+  const setCachedPayments = (data: Record<string, { lastPayment: Payment | null; firstPayment: Payment | null; activeSubscription: Subscription | null }>) => {
     try {
       sessionStorage.setItem(PAYMENT_CACHE_KEY, JSON.stringify(data));
     } catch (e) {
@@ -104,6 +105,7 @@ const AdminMembers: React.FC = () => {
             return {
               ...user,
               lastPayment: cached?.lastPayment || null,
+              firstPayment: cached?.firstPayment || null,
               activeSubscription: cached?.activeSubscription || null
             };
           });
@@ -115,7 +117,8 @@ const AdminMembers: React.FC = () => {
           // No cache - set users without payment data and load in background
           const usersWithoutPayments = result.users.map((user: User) => ({
             ...user,
-            lastPayment: null
+            lastPayment: null,
+            firstPayment: null
           }));
           setUsers(usersWithoutPayments);
           setLoading(false);
@@ -169,6 +172,7 @@ const AdminMembers: React.FC = () => {
             return {
               email: user.email,
               lastPayment: paymentResult.success ? paymentResult.lastPayment : null,
+              firstPayment: paymentResult.success ? paymentResult.firstPayment : null,
               activeSubscription: activeSubscription || null
             };
           } catch (error) {
@@ -176,6 +180,7 @@ const AdminMembers: React.FC = () => {
             return {
               email: user.email,
               lastPayment: null,
+              firstPayment: null,
               activeSubscription: null
             };
           }
@@ -187,7 +192,7 @@ const AdminMembers: React.FC = () => {
         prevUsers.map(user => {
           const userData = batchResults.find(result => result.email === user.email);
           return userData
-            ? { ...user, lastPayment: userData.lastPayment, activeSubscription: userData.activeSubscription }
+            ? { ...user, lastPayment: userData.lastPayment, firstPayment: userData.firstPayment, activeSubscription: userData.activeSubscription }
             : user;
         })
       );
@@ -202,10 +207,11 @@ const AdminMembers: React.FC = () => {
 
     // Build cache from final user state
     setUsers(prevUsers => {
-      const cacheData: Record<string, { lastPayment: Payment | null; activeSubscription: Subscription | null }> = {};
+      const cacheData: Record<string, { lastPayment: Payment | null; firstPayment: Payment | null; activeSubscription: Subscription | null }> = {};
       prevUsers.forEach(user => {
         cacheData[user.email] = {
           lastPayment: user.lastPayment || null,
+          firstPayment: user.firstPayment || null,
           activeSubscription: user.activeSubscription || null
         };
       });
@@ -220,27 +226,68 @@ const AdminMembers: React.FC = () => {
     setLoadingPayments(false);
   };
 
-  const isValidRegistration = (user: User): boolean => {
+  // Calculate the membership end date based on payment date
+  // SRH memberships are calendar year based: payment for year X = valid until Dec 31, X+1
+  const getMembershipEndDate = (user: User): Date | null => {
     if (!user.lastPayment || user.lastPayment.status !== 'succeeded') {
-      return false;
+      return null;
     }
-    
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    
-    return user.lastPayment.created > oneYearAgo;
+
+    const paymentDate = new Date(user.lastPayment.created);
+    const paymentYear = paymentDate.getFullYear();
+
+    // The payment covers the NEXT calendar year
+    // e.g., payment in Dec 2024 = valid for 2025 → until Dec 31, 2025
+    const membershipYear = paymentYear + 1;
+
+    return new Date(membershipYear, 11, 31); // December 31 of membership year
+  };
+
+  const isValidRegistration = (user: User): boolean => {
+    // Check membership end date based on actual payment
+    const membershipEnd = getMembershipEndDate(user);
+    if (membershipEnd && membershipEnd > new Date()) {
+      return true;
+    }
+
+    // Fallback: check if in trial period (new member, no payment yet)
+    if (hasFreeFirstYear(user)) {
+      return true;
+    }
+
+    return false;
   };
 
   const hasExpiredPayment = (user: User): boolean => {
-    // User has expired payment if they have a successful payment that's older than 1 year
-    if (!user.lastPayment || user.lastPayment.status !== 'succeeded') {
+    // User has expired payment if they have a successful payment but membership has ended
+    const membershipEnd = getMembershipEndDate(user);
+    if (!membershipEnd) {
       return false;
     }
 
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    return membershipEnd <= new Date();
+  };
 
-    return user.lastPayment.created <= oneYearAgo;
+  // Get the "member since" date, using first payment as fallback if created_at is wrong
+  const getMemberSinceDate = (user: User): Date | null => {
+    const createdAt = user.created_at ? new Date(user.created_at) : null;
+    const now = new Date();
+
+    // If created_at is in the future, it's definitely wrong - use first payment
+    if (createdAt && createdAt > now && user.firstPayment) {
+      return new Date(user.firstPayment.created);
+    }
+
+    // If first payment exists and is earlier than created_at, use first payment
+    // (this means the user was migrated/recreated after their first payment)
+    if (user.firstPayment && createdAt) {
+      const firstPaymentDate = new Date(user.firstPayment.created);
+      if (firstPaymentDate < createdAt) {
+        return firstPaymentDate;
+      }
+    }
+
+    return createdAt;
   };
 
   const hasFailedPayment = (user: User): boolean => {
@@ -758,7 +805,7 @@ const AdminMembers: React.FC = () => {
                 <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
                   <div className="flex items-center">
                     <Calendar className="h-3 w-3 mr-1" />
-                    Inscrit le {formatDate(user.created_at)}
+                    Membre depuis {getMemberSinceDate(user) ? formatDate(getMemberSinceDate(user)) : formatDate(user.created_at)}
                   </div>
                   <button
                     onClick={(e) => handleDeleteClick(user, e)}
