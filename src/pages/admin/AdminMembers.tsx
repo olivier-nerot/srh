@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase, CreditCard, Euro, Trash2, Download, RefreshCw } from 'lucide-react';
+import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase, CreditCard, Euro, Trash2, Download, RefreshCw, Repeat } from 'lucide-react';
 import { getAllUsers, deleteUser } from '../../services/userService';
 import { getUserLastPayment, getUserSubscriptions, type Payment, type Subscription } from '../../services/paymentService';
 
@@ -46,23 +46,8 @@ const AdminMembers: React.FC = () => {
   // Cache key for sessionStorage
   const PAYMENT_CACHE_KEY = 'srh_admin_payments_cache';
 
-  // Check if this is a fresh page load (browser refresh) vs navigation
-  const isFreshPageLoad = (): boolean => {
-    // Use performance.navigation or navigation entries to detect refresh
-    const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-    if (navEntries.length > 0) {
-      return navEntries[0].type === 'reload';
-    }
-    return false;
-  };
-
   const getCachedPayments = (): Record<string, { lastPayment: Payment | null; firstPayment: Payment | null; activeSubscription: Subscription | null }> | null => {
     try {
-      // If this is a browser refresh, clear the cache and return null
-      if (isFreshPageLoad()) {
-        sessionStorage.removeItem(PAYMENT_CACHE_KEY);
-        return null;
-      }
       const cached = sessionStorage.getItem(PAYMENT_CACHE_KEY);
       return cached ? JSON.parse(cached) : null;
     } catch {
@@ -227,7 +212,7 @@ const AdminMembers: React.FC = () => {
   };
 
   // Calculate the membership end date based on payment date
-  // SRH memberships are calendar year based: payment for year X = valid until Dec 31, X+1
+  // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
   const getMembershipEndDate = (user: User): Date | null => {
     if (!user.lastPayment || user.lastPayment.status !== 'succeeded') {
       return null;
@@ -236,11 +221,9 @@ const AdminMembers: React.FC = () => {
     const paymentDate = new Date(user.lastPayment.created);
     const paymentYear = paymentDate.getFullYear();
 
-    // The payment covers the NEXT calendar year
-    // e.g., payment in Dec 2024 = valid for 2025 → until Dec 31, 2025
-    const membershipYear = paymentYear + 1;
-
-    return new Date(membershipYear, 11, 31); // December 31 of membership year
+    // The payment covers the SAME calendar year
+    // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
+    return new Date(paymentYear, 11, 31); // December 31 of payment year
   };
 
   const isValidRegistration = (user: User): boolean => {
@@ -307,6 +290,15 @@ const AdminMembers: React.FC = () => {
     return true;
   };
 
+  const hasRecurringPayment = (user: User): boolean => {
+    // User has recurring payment if:
+    // 1. They have an active subscription (active or trialing)
+    // 2. The subscription is NOT set to cancel at period end
+    if (!user.activeSubscription) return false;
+    if (user.activeSubscription.status !== 'active' && user.activeSubscription.status !== 'trialing') return false;
+    return !user.activeSubscription.cancel_at_period_end;
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -322,7 +314,9 @@ const AdminMembers: React.FC = () => {
       (filterPaymentStatus === 'expired' && hasExpiredPayment(user)) ||
       (filterPaymentStatus === 'failed' && hasFailedPayment(user)) ||
       (filterPaymentStatus === 'no-payment' && !user.lastPayment && !hasFreeFirstYear(user)) ||
-      (filterPaymentStatus === 'free-first-year' && hasFreeFirstYear(user));
+      (filterPaymentStatus === 'free-first-year' && hasFreeFirstYear(user)) ||
+      (filterPaymentStatus === 'recurring' && hasRecurringPayment(user)) ||
+      (filterPaymentStatus === 'no-recurring' && !hasRecurringPayment(user));
 
     return matchesSearch && matchesSubscription && matchesPaymentStatus;
   });
@@ -613,6 +607,8 @@ const AdminMembers: React.FC = () => {
                   <option value="failed">Paiements échoués</option>
                   <option value="free-first-year">Première année gratuite</option>
                   <option value="no-payment">Aucun paiement</option>
+                  <option value="recurring">Paiement récurrent activé</option>
+                  <option value="no-recurring">Paiement récurrent désactivé</option>
                 </select>
               </div>
             </div>
@@ -628,12 +624,12 @@ const AdminMembers: React.FC = () => {
         {/* Members Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredUsers.map((user) => (
-            <div 
-              key={user.id} 
-              className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+            <div
+              key={user.id}
+              className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer flex flex-col"
               onClick={() => handleUserClick(user.id)}
             >
-              <div className="p-6">
+              <div className="p-6 flex-1">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
@@ -662,6 +658,13 @@ const AdminMembers: React.FC = () => {
                     {isValidRegistration(user) && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         ✓ Valide
+                      </span>
+                    )}
+                    {/* Recurring Payment Badge */}
+                    {hasRecurringPayment(user) && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800" title="Paiement récurrent activé">
+                        <Repeat className="h-3 w-3 mr-1" />
+                        Récurrent
                       </span>
                     )}
                   </div>
@@ -801,12 +804,15 @@ const AdminMembers: React.FC = () => {
                   </div>
                 )}
 
-                {/* Creation Date */}
-                <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
-                  <div className="flex items-center">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    Membre depuis {getMemberSinceDate(user) ? formatDate(getMemberSinceDate(user)) : formatDate(user.created_at)}
-                  </div>
+                {/* Edit and Delete Buttons */}
+                <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/profile/edit?id=${user.id}`); }}
+                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                    title="Modifier ce membre"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </button>
                   <button
                     onClick={(e) => handleDeleteClick(user, e)}
                     className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
@@ -814,6 +820,22 @@ const AdminMembers: React.FC = () => {
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
+                </div>
+              </div>
+
+              {/* Creation Date and Membership End - Footer */}
+              <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 rounded-b-lg mt-auto">
+                <div className="space-y-1 text-xs text-gray-500">
+                  <div className="flex items-center">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    Membre depuis {getMemberSinceDate(user) ? formatDate(getMemberSinceDate(user)) : formatDate(user.created_at)}
+                  </div>
+                  {getMembershipEndDate(user) && (
+                    <div className={`flex items-center ${getMembershipEndDate(user)! > new Date() ? 'text-green-600' : 'text-orange-600'}`}>
+                      <Calendar className="h-3 w-3 mr-1" />
+                      Adhésion valide jusqu'au {formatDate(getMembershipEndDate(user))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

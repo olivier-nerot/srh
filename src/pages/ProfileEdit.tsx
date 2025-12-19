@@ -354,7 +354,7 @@ const ProfileEdit: React.FC = () => {
   };
 
   // Calculate the membership end date based on payment date
-  // SRH memberships are calendar year based: payment for year X = valid until Dec 31, X
+  // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
   const getMembershipEndDate = (): Date | null => {
     if (!currentPayment || currentPayment.status !== 'succeeded') {
       return null;
@@ -363,11 +363,9 @@ const ProfileEdit: React.FC = () => {
     const paymentDate = new Date(currentPayment.created);
     const paymentYear = paymentDate.getFullYear();
 
-    // The payment covers the NEXT calendar year
-    // e.g., payment in Dec 2024 = valid for 2025 → until Dec 31, 2025
-    const membershipYear = paymentYear + 1;
-
-    return new Date(membershipYear, 11, 31); // December 31 of membership year
+    // The payment covers the SAME calendar year
+    // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
+    return new Date(paymentYear, 11, 31); // December 31 of payment year
   };
 
   const isValidRegistration = (): boolean => {
