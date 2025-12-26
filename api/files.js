@@ -159,14 +159,14 @@ async function handleImageUpload(req, res) {
   try {
     // Check if this is multipart form data or JSON
     const contentType = req.headers['content-type'] || '';
-    
+
     if (contentType.includes('application/json')) {
-      // Handle JSON format (similar to document upload)
+      // Handle JSON format (base64 encoded image)
       let body = req.body;
-      
+
       if (typeof body === 'string') {
         try {
-          body = JSON.parse(body);  
+          body = JSON.parse(body);
         } catch (parseError) {
           return res.status(400).json({
             success: false,
@@ -174,11 +174,67 @@ async function handleImageUpload(req, res) {
           });
         }
       }
-      
-      // For JSON image uploads, implement similar logic as document upload
-      return res.status(400).json({
-        success: false,
-        error: 'JSON image upload not implemented yet'
+
+      const { file, fileName, mimeType, isAdmin } = body;
+
+      if (!isAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied. Admin privileges required.'
+        });
+      }
+
+      if (!file || !fileName) {
+        return res.status(400).json({
+          success: false,
+          error: 'File data and filename are required'
+        });
+      }
+
+      // Check if it's a base64 data URL
+      let fileBuffer;
+      let actualMimeType = mimeType || 'image/jpeg';
+
+      if (file.startsWith('data:')) {
+        // Extract MIME type and base64 data from data URL
+        const matches = file.match(/^data:([^;]+);base64,(.+)$/);
+        if (!matches) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid base64 data URL format'
+          });
+        }
+        actualMimeType = matches[1];
+        fileBuffer = Buffer.from(matches[2], 'base64');
+      } else {
+        // Assume it's raw base64
+        fileBuffer = Buffer.from(file, 'base64');
+      }
+
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(actualMimeType)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Type de fichier non supporté. Utilisez JPEG, PNG, WebP ou GIF.'
+        });
+      }
+
+      // Generate a unique filename
+      const timestamp = Date.now();
+      const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const uniqueFileName = `images/${timestamp}-${sanitizedFileName}`;
+
+      // Upload to Vercel Blob
+      const { url } = await put(uniqueFileName, fileBuffer, {
+        access: 'public',
+        contentType: actualMimeType
+      });
+
+      return res.status(201).json({
+        success: true,
+        imageUrl: url,
+        base64: file // Return the original base64 for immediate display
       });
     }
     

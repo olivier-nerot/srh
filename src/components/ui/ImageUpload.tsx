@@ -23,9 +23,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
     try {
       // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
       if (!allowedTypes.includes(file.type)) {
-        throw new Error('Type de fichier non supporté. Utilisez JPEG, PNG ou WebP.');
+        throw new Error('Type de fichier non supporté. Utilisez JPEG, PNG, WebP ou GIF.');
       }
 
       // Validate file size (max 500KB)
@@ -56,7 +56,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           const data = await response.json();
           
           if (data.success) {
-            onImageSelect(data.base64);
+            // Use the Vercel Blob URL if available, otherwise fall back to base64
+            onImageSelect(data.imageUrl || data.base64);
           } else {
             throw new Error(data.error || 'Erreur lors du traitement de l\'image');
           }
@@ -178,7 +179,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                     <span className="font-medium text-srh-blue">Cliquez pour sélectionner</span> ou glissez-déposez une image
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    JPEG, PNG ou WebP - Maximum 500KB
+                    JPEG, PNG, WebP ou GIF - Maximum 500KB
                   </p>
                 </div>
               </>
