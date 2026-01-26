@@ -19,6 +19,7 @@ import { getUserById } from "../services/userService";
 import {
   getUserLastPayment,
   getUserSubscriptions,
+  retryPayment,
   type Payment,
   type Subscription,
 } from "../services/paymentService";
@@ -53,6 +54,11 @@ const Profile: React.FC = () => {
   const [activeSubscription, setActiveSubscription] =
     useState<Subscription | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [retryLoading, setRetryLoading] = useState(false);
+  const [retryMessage, setRetryMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const userId = searchParams.get("id");
 
@@ -322,6 +328,41 @@ const Profile: React.FC = () => {
 
   const handleEdit = () => {
     navigate(`/profile/edit?id=${userId}`);
+  };
+
+  const handleRetryPayment = async () => {
+    if (!userProfile?.email) return;
+
+    setRetryLoading(true);
+    setRetryMessage(null);
+
+    try {
+      const result = await retryPayment(
+        userProfile.email,
+        activeSubscription?.id,
+      );
+
+      if (result.success) {
+        setRetryMessage({
+          type: "success",
+          text: result.message || "Paiement relancé avec succès",
+        });
+        // Refresh payment data after successful retry
+        fetchPaymentData(userProfile.email);
+      } else {
+        setRetryMessage({
+          type: "error",
+          text: result.details || result.error || "Échec de la relance",
+        });
+      }
+    } catch {
+      setRetryMessage({
+        type: "error",
+        text: "Erreur lors de la relance du paiement",
+      });
+    } finally {
+      setRetryLoading(false);
+    }
   };
 
   // Check if the current user is viewing their own profile or is an admin
@@ -641,6 +682,60 @@ const Profile: React.FC = () => {
                             {payment.id}
                           </span>
                         </div>
+
+                        {/* Failure reason for failed payments */}
+                        {payment.status !== "succeeded" &&
+                          payment.failure_message && (
+                            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                              <p className="text-sm font-medium text-red-800">
+                                Raison de l'échec:
+                              </p>
+                              <p className="text-sm text-red-700 mt-1">
+                                {payment.failure_message}
+                              </p>
+                              {payment.failure_code && (
+                                <p className="text-xs text-red-600 mt-1">
+                                  Code: {payment.failure_code}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                        {/* Admin retry button for failed payments */}
+                        {payment.status !== "succeeded" &&
+                          currentUser?.isadmin && (
+                            <div className="mt-4">
+                              {retryMessage && (
+                                <div
+                                  className={`mb-3 p-3 rounded-md text-sm ${
+                                    retryMessage.type === "success"
+                                      ? "bg-green-50 text-green-800 border border-green-200"
+                                      : "bg-red-50 text-red-800 border border-red-200"
+                                  }`}
+                                >
+                                  {retryMessage.text}
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={handleRetryPayment}
+                                disabled={retryLoading}
+                                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
+                              >
+                                {retryLoading ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                    Relance en cours...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CreditCard className="h-4 w-4 mr-2" />
+                                    Relancer le paiement (Admin)
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
                       </div>
                     </div>
                   ) : (

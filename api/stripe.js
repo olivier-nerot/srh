@@ -55,6 +55,8 @@ export default async function handler(req, res) {
         return await createRecurringSubscription(req, res);
       case "fix-incorrect-prices":
         return await fixIncorrectPrices(req, res);
+      case "retry-payment":
+        return await retryPayment(req, res);
       default:
         return res.status(400).json({ error: "Invalid action" });
     }
@@ -203,6 +205,9 @@ async function getPayments(req, res) {
           created: charge.created,
           description: charge.description,
           customerId: customer.id,
+          // Include failure information for failed charges
+          failure_code: charge.failure_code || null,
+          failure_message: charge.failure_message || null,
         });
       });
 
@@ -218,6 +223,9 @@ async function getPayments(req, res) {
             created: pi.created,
             description: pi.description,
             customerId: customer.id,
+            // Include failure information for failed payment intents
+            failure_code: pi.last_payment_error?.code || null,
+            failure_message: pi.last_payment_error?.message || null,
           });
         }
       });
@@ -262,6 +270,8 @@ async function getPayments(req, res) {
       status: mostRecent.status,
       created: new Date(mostRecent.created * 1000),
       description: mostRecent.description,
+      failure_code: mostRecent.failure_code,
+      failure_message: mostRecent.failure_message,
     };
 
     // Format the first payment data (for "member since")
@@ -924,6 +934,151 @@ async function reactivateSubscription(req, res) {
     return res.status(500).json({
       success: false,
       error: "Error reactivating subscription",
+      details: error.message,
+    });
+  }
+}
+
+// Retry failed payment functionality
+async function retryPayment(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const { email, subscriptionId } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    // Use the connected account ID for API calls
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+    };
+
+    // Find customer by email
+    const customers = await stripe.customers.list(
+      { email: email, limit: 1 },
+      requestOptions
+    );
+
+    if (customers.data.length === 0) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
+    const customer = customers.data[0];
+    console.log(`Retrying payment for customer ${customer.id} (${email})`);
+
+    // If subscriptionId is provided, try to pay the latest invoice for that subscription
+    if (subscriptionId) {
+      const subscription = await stripe.subscriptions.retrieve(
+        subscriptionId,
+        { expand: ['latest_invoice'] },
+        requestOptions
+      );
+
+      if (subscription.latest_invoice && typeof subscription.latest_invoice === 'object') {
+        const invoice = subscription.latest_invoice;
+
+        // Check if invoice is open or past_due
+        if (invoice.status === 'open' || invoice.status === 'draft') {
+          console.log(`Attempting to pay invoice ${invoice.id}`);
+
+          try {
+            const paidInvoice = await stripe.invoices.pay(
+              invoice.id,
+              {},
+              requestOptions
+            );
+
+            return res.status(200).json({
+              success: true,
+              message: "Payment retry successful",
+              invoice: {
+                id: paidInvoice.id,
+                status: paidInvoice.status,
+                amount_paid: paidInvoice.amount_paid / 100,
+              }
+            });
+          } catch (payError) {
+            console.error("Invoice payment failed:", payError.message);
+            return res.status(400).json({
+              success: false,
+              error: "Payment retry failed",
+              details: payError.message,
+              failure_code: payError.code,
+            });
+          }
+        }
+      }
+    }
+
+    // Find any past_due subscriptions for this customer
+    const subscriptions = await stripe.subscriptions.list(
+      {
+        customer: customer.id,
+        status: 'past_due',
+        limit: 1,
+      },
+      requestOptions
+    );
+
+    if (subscriptions.data.length > 0) {
+      const subscription = subscriptions.data[0];
+      console.log(`Found past_due subscription ${subscription.id}`);
+
+      // Get the latest invoice
+      const invoices = await stripe.invoices.list(
+        {
+          subscription: subscription.id,
+          status: 'open',
+          limit: 1,
+        },
+        requestOptions
+      );
+
+      if (invoices.data.length > 0) {
+        const invoice = invoices.data[0];
+        console.log(`Attempting to pay invoice ${invoice.id}`);
+
+        try {
+          const paidInvoice = await stripe.invoices.pay(
+            invoice.id,
+            {},
+            requestOptions
+          );
+
+          return res.status(200).json({
+            success: true,
+            message: "Payment retry successful",
+            invoice: {
+              id: paidInvoice.id,
+              status: paidInvoice.status,
+              amount_paid: paidInvoice.amount_paid / 100,
+            }
+          });
+        } catch (payError) {
+          console.error("Invoice payment failed:", payError.message);
+          return res.status(400).json({
+            success: false,
+            error: "Payment retry failed",
+            details: payError.message,
+            failure_code: payError.code,
+          });
+        }
+      }
+    }
+
+    return res.status(404).json({
+      success: false,
+      error: "No pending or failed payment found to retry",
+    });
+  } catch (error) {
+    console.error("Error retrying payment:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error retrying payment",
       details: error.message,
     });
   }
