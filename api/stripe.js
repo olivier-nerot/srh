@@ -57,6 +57,8 @@ export default async function handler(req, res) {
         return await fixIncorrectPrices(req, res);
       case "retry-payment":
         return await retryPayment(req, res);
+      case "confirm-setup":
+        return await confirmSetup(req, res);
       default:
         return res.status(400).json({ error: "Invalid action" });
     }
@@ -1079,6 +1081,116 @@ async function retryPayment(req, res) {
     return res.status(500).json({
       success: false,
       error: "Error retrying payment",
+      details: error.message,
+    });
+  }
+}
+
+// Confirm setup intent and attach payment method to subscription
+// This MUST be called after confirmCardSetup() succeeds on the frontend
+async function confirmSetup(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const { setupIntentId, subscriptionId, customerId } = req.body;
+
+    if (!setupIntentId) {
+      return res.status(400).json({ error: "setupIntentId is required" });
+    }
+
+    // Use the connected account ID for API calls
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+    };
+
+    // Retrieve the SetupIntent to get the payment method
+    const setupIntent = await stripe.setupIntents.retrieve(
+      setupIntentId,
+      requestOptions
+    );
+
+    console.log(`\n=== Confirming setup intent ${setupIntentId} ===`);
+    console.log(`Status: ${setupIntent.status}`);
+    console.log(`Payment method: ${setupIntent.payment_method}`);
+
+    if (setupIntent.status !== 'succeeded') {
+      return res.status(400).json({
+        success: false,
+        error: `SetupIntent is not succeeded (status: ${setupIntent.status})`,
+      });
+    }
+
+    const paymentMethodId = setupIntent.payment_method;
+    if (!paymentMethodId) {
+      return res.status(400).json({
+        success: false,
+        error: "No payment method found on SetupIntent",
+      });
+    }
+
+    // Get the customer ID from the SetupIntent if not provided
+    const customerIdToUse = customerId || setupIntent.customer;
+    if (!customerIdToUse) {
+      return res.status(400).json({
+        success: false,
+        error: "No customer ID found",
+      });
+    }
+
+    // 1. Set the payment method as the customer's default for invoices
+    console.log(`Setting payment method ${paymentMethodId} as default for customer ${customerIdToUse}`);
+    await stripe.customers.update(
+      customerIdToUse,
+      {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      },
+      requestOptions
+    );
+
+    // 2. Update all active/trialing subscriptions to use this payment method
+    const subscriptions = await stripe.subscriptions.list(
+      {
+        customer: customerIdToUse,
+        status: 'all',
+      },
+      requestOptions
+    );
+
+    let subscriptionsUpdated = 0;
+    for (const sub of subscriptions.data) {
+      if (sub.status === 'trialing' || sub.status === 'active') {
+        console.log(`Updating subscription ${sub.id} (status: ${sub.status})`);
+        await stripe.subscriptions.update(
+          sub.id,
+          {
+            default_payment_method: paymentMethodId,
+          },
+          requestOptions
+        );
+        subscriptionsUpdated++;
+      }
+    }
+
+    console.log(`✓ Payment method attached successfully`);
+    console.log(`  - Customer default updated`);
+    console.log(`  - ${subscriptionsUpdated} subscription(s) updated`);
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment method attached successfully",
+      paymentMethodId: paymentMethodId,
+      customerId: customerIdToUse,
+      subscriptionsUpdated: subscriptionsUpdated,
+    });
+  } catch (error) {
+    console.error("Error confirming setup:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error confirming setup",
       details: error.message,
     });
   }

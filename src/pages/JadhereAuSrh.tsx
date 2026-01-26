@@ -22,6 +22,28 @@ import { createUser } from "../services/userService";
 import StripeCardInput from "../components/StripeCardInput";
 import { useAuthStore } from "../stores/authStore";
 
+// Type definitions for this component
+interface TierData {
+  id: string;
+  title: string;
+  price: number;
+  description?: string;
+  actualCost?: number;
+}
+
+interface UserFormData {
+  firstname: string;
+  lastname: string;
+  email: string;
+  hospital?: string;
+  address?: string;
+}
+
+interface RegisteredUserData extends UserFormData {
+  selectedTier?: TierData;
+  isRecurring?: boolean;
+}
+
 // Use VITE_STRIPE_TESTMODE to determine which Stripe keys to use
 const isTestMode = import.meta.env.VITE_STRIPE_TESTMODE === "true";
 const stripePublicKey = isTestMode
@@ -54,7 +76,8 @@ const JadhereAuSrh: React.FC = () => {
     "personal" | "professional" | "payment"
   >("personal");
   const [isRegistrationComplete, setIsRegistrationComplete] = useState(false);
-  const [registeredUser, setRegisteredUser] = useState<any>(null);
+  const [registeredUser, setRegisteredUser] =
+    useState<RegisteredUserData | null>(null);
   const [isRecurring, setIsRecurring] = useState<boolean>(true);
 
   // Calculate next January 1st dynamically
@@ -302,10 +325,10 @@ const JadhereAuSrh: React.FC = () => {
   };
 
   const processStripePayment = async (
-    tierData: any,
-    user: any,
-    stripe: any,
-    elements: any,
+    tierData: TierData,
+    user: UserFormData,
+    stripe: ReturnType<typeof useStripe>,
+    elements: ReturnType<typeof useElements>,
   ) => {
     try {
       if (!stripe || !elements) {
@@ -393,6 +416,44 @@ const JadhereAuSrh: React.FC = () => {
           );
         }
 
+        // CRITICAL: After confirmCardSetup succeeds, we MUST call confirm-setup
+        // to attach the payment method to the subscription. Without this,
+        // the subscription will have no payment method and future payments will fail!
+        if (result.setupIntentId) {
+          console.log(
+            "Confirming setup and attaching payment method to subscription...",
+          );
+          const confirmSetupResponse = await fetch(
+            `/api/stripe?action=confirm-setup`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                setupIntentId: result.setupIntentId,
+                subscriptionId: result.subscriptionId,
+                customerId: result.customer?.id,
+              }),
+            },
+          );
+
+          const confirmSetupResult = await confirmSetupResponse.json();
+          if (!confirmSetupResult.success) {
+            console.error(
+              "Failed to attach payment method:",
+              confirmSetupResult.error,
+            );
+            // Don't fail the whole operation, but log the error
+            // The user's registration is still valid, we just need to fix the payment method later
+          } else {
+            console.log(
+              "Payment method attached successfully:",
+              confirmSetupResult,
+            );
+          }
+        }
+
         return {
           success: true,
           data: { ...result, confirmation: confirmationResult },
@@ -473,7 +534,7 @@ const JadhereAuSrh: React.FC = () => {
                     ? "Gratuit"
                     : `${registeredUser?.selectedTier?.price} €${registeredUser?.isRecurring ? "/an" : ""}`}
                 </p>
-                {registeredUser?.selectedTier?.price > 0 && (
+                {(registeredUser?.selectedTier?.price ?? 0) > 0 && (
                   <>
                     <p className="text-sm text-green-600">
                       Première année gratuite, puis coût réel après déduction
@@ -559,7 +620,8 @@ const JadhereAuSrh: React.FC = () => {
           <div className="flex items-center justify-center">
             <LogIn className="h-6 w-6 text-blue-600 mr-3" />
             <p className="text-blue-800">
-              Si vous êtes déjà enregistré, renouvelez votre abonnement dans votre{" "}
+              Si vous êtes déjà enregistré, renouvelez votre abonnement dans
+              votre{" "}
               <a
                 href="/login"
                 className="font-medium text-blue-600 hover:text-blue-700 underline"
@@ -580,12 +642,13 @@ const JadhereAuSrh: React.FC = () => {
               </h3>
               <p className="text-green-800">
                 <strong>
-                  Votre adhésion est entièrement gratuite jusqu'au 1er janvier {nextJan1Year},
-                  quel que soit le tarif choisi.
+                  Votre adhésion est entièrement gratuite jusqu'au 1er janvier{" "}
+                  {nextJan1Year}, quel que soit le tarif choisi.
                 </strong>
                 <br />
-                Le prélèvement ne sera effectué qu'à partir du 1er janvier {nextJan1Year}.
-                Tous les adhérents renouvellent leur adhésion à la même date pour faciliter la gestion.
+                Le prélèvement ne sera effectué qu'à partir du 1er janvier{" "}
+                {nextJan1Year}. Tous les adhérents renouvellent leur adhésion à
+                la même date pour faciliter la gestion.
               </p>
             </div>
           </div>
@@ -676,7 +739,11 @@ const JadhereAuSrh: React.FC = () => {
                       return (
                         <button
                           key={tab.id}
-                          onClick={() => setActiveTab(tab.id as any)}
+                          onClick={() =>
+                            setActiveTab(
+                              tab.id as "personal" | "professional" | "payment",
+                            )
+                          }
                           className={`group inline-flex items-center justify-center py-2 px-1 border-b-2 font-medium text-sm flex-1 ${
                             isActive
                               ? "border-blue-500 text-blue-600"
@@ -757,9 +824,13 @@ const JadhereAuSrh: React.FC = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                         <p className="mt-2 text-sm text-gray-600">
-                          Indiquez un email garantissant la réception des messages depuis{" "}
-                          <span className="font-medium">no-reply@srh-info.org</span>. Il sera utile pour vous loguer.
-                          Si besoin utilisez votre email personnel plutôt que professionnel.
+                          Indiquez un email garantissant la réception des
+                          messages depuis{" "}
+                          <span className="font-medium">
+                            no-reply@srh-info.org
+                          </span>
+                          . Il sera utile pour vous loguer. Si besoin utilisez
+                          votre email personnel plutôt que professionnel.
                         </p>
                       </div>
 
@@ -830,7 +901,10 @@ const JadhereAuSrh: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
                           { key: "huTitulaire", label: "HU titulaire" },
-                          { key: "phLiberal", label: "PH avec activité libérale" },
+                          {
+                            key: "phLiberal",
+                            label: "PH avec activité libérale",
+                          },
                           {
                             key: "hospitaloUniversitaireTitulaire",
                             label: "Hospitalo-Universitaire titulaire",
@@ -961,8 +1035,9 @@ const JadhereAuSrh: React.FC = () => {
                                       Paiement unique
                                     </span>
                                     <div className="text-gray-500">
-                                      Premier paiement le 1er janvier {nextJan1Year}, puis adhésion
-                                      pour l'année suivante uniquement
+                                      Premier paiement le 1er janvier{" "}
+                                      {nextJan1Year}, puis adhésion pour l'année
+                                      suivante uniquement
                                     </div>
                                   </label>
                                 </div>
@@ -983,9 +1058,10 @@ const JadhereAuSrh: React.FC = () => {
                                       Abonnement annuel automatique
                                     </span>
                                     <div className="text-gray-500">
-                                      Premier paiement le 1er janvier {nextJan1Year}, puis
-                                      renouvellement automatique chaque 1er janvier
-                                      (résiliable à tout moment)
+                                      Premier paiement le 1er janvier{" "}
+                                      {nextJan1Year}, puis renouvellement
+                                      automatique chaque 1er janvier (résiliable
+                                      à tout moment)
                                     </div>
                                     <div className="text-green-600 text-xs mt-1">
                                       ✨ Recommandé - Ne ratez jamais votre
