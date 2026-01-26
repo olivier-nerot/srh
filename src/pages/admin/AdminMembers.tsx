@@ -1,8 +1,29 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Users, Mail, Building2, MapPin, Calendar, Settings, Search, Filter, Briefcase, CreditCard, Euro, Trash2, Download, RefreshCw, Repeat } from 'lucide-react';
-import { getAllUsers, deleteUser } from '../../services/userService';
-import { getUserLastPayment, getUserSubscriptions, type Payment, type Subscription } from '../../services/paymentService';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Users,
+  Mail,
+  Building2,
+  MapPin,
+  Calendar,
+  Settings,
+  Search,
+  Filter,
+  Briefcase,
+  CreditCard,
+  Euro,
+  Trash2,
+  Download,
+  RefreshCw,
+  Repeat,
+} from "lucide-react";
+import { getAllUsers, deleteUser } from "../../services/userService";
+import {
+  getUserLastPayment,
+  getUserSubscriptions,
+  type Payment,
+  type Subscription,
+} from "../../services/paymentService";
 
 interface User {
   id: number;
@@ -27,15 +48,21 @@ const AdminMembers: React.FC = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loadingPayments, setLoadingPayments] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterSubscription, setFilterSubscription] = useState('all');
-  const [filterPaymentStatus, setFilterPaymentStatus] = useState('all');
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean; user: User | null }>({
+  const [loadingProgress, setLoadingProgress] = useState({
+    current: 0,
+    total: 0,
+  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterSubscription, setFilterSubscription] = useState("all");
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState("all");
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    show: boolean;
+    user: User | null;
+  }>({
     show: false,
-    user: null
+    user: null,
   });
   const [deleting, setDeleting] = useState(false);
 
@@ -44,9 +71,16 @@ const AdminMembers: React.FC = () => {
   const hasLoadedPaymentsRef = useRef(false);
 
   // Cache key for sessionStorage
-  const PAYMENT_CACHE_KEY = 'srh_admin_payments_cache';
+  const PAYMENT_CACHE_KEY = "srh_admin_payments_cache";
 
-  const getCachedPayments = (): Record<string, { lastPayment: Payment | null; firstPayment: Payment | null; activeSubscription: Subscription | null }> | null => {
+  const getCachedPayments = (): Record<
+    string,
+    {
+      lastPayment: Payment | null;
+      firstPayment: Payment | null;
+      activeSubscription: Subscription | null;
+    }
+  > | null => {
     try {
       const cached = sessionStorage.getItem(PAYMENT_CACHE_KEY);
       return cached ? JSON.parse(cached) : null;
@@ -55,11 +89,20 @@ const AdminMembers: React.FC = () => {
     }
   };
 
-  const setCachedPayments = (data: Record<string, { lastPayment: Payment | null; firstPayment: Payment | null; activeSubscription: Subscription | null }>) => {
+  const setCachedPayments = (
+    data: Record<
+      string,
+      {
+        lastPayment: Payment | null;
+        firstPayment: Payment | null;
+        activeSubscription: Subscription | null;
+      }
+    >,
+  ) => {
     try {
       sessionStorage.setItem(PAYMENT_CACHE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.warn('Failed to cache payments:', e);
+      console.warn("Failed to cache payments:", e);
     }
   };
 
@@ -73,6 +116,7 @@ const AdminMembers: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchUsers = async () => {
@@ -91,19 +135,23 @@ const AdminMembers: React.FC = () => {
               ...user,
               lastPayment: cached?.lastPayment || null,
               firstPayment: cached?.firstPayment || null,
-              activeSubscription: cached?.activeSubscription || null
+              activeSubscription: cached?.activeSubscription || null,
             };
           });
           setUsers(usersWithCachedPayments);
           setLoading(false);
           hasLoadedPaymentsRef.current = true;
-          console.log('Using cached payment data for', Object.keys(cachedPayments).length, 'users');
+          console.log(
+            "Using cached payment data for",
+            Object.keys(cachedPayments).length,
+            "users",
+          );
         } else {
           // No cache - set users without payment data and load in background
           const usersWithoutPayments = result.users.map((user: User) => ({
             ...user,
             lastPayment: null,
-            firstPayment: null
+            firstPayment: null,
           }));
           setUsers(usersWithoutPayments);
           setLoading(false);
@@ -112,11 +160,11 @@ const AdminMembers: React.FC = () => {
           loadPaymentsInBackground(result.users);
         }
       } else {
-        setError(result.error || 'Erreur lors du chargement des membres');
+        setError(result.error || "Erreur lors du chargement des membres");
         setLoading(false);
       }
-    } catch (err) {
-      setError('Erreur lors du chargement des membres');
+    } catch {
+      setError("Erreur lors du chargement des membres");
       setLoading(false);
     }
   };
@@ -124,7 +172,9 @@ const AdminMembers: React.FC = () => {
   const loadPaymentsInBackground = async (userList: User[]) => {
     // Guard: prevent multiple simultaneous calls
     if (isLoadingPaymentsRef.current || hasLoadedPaymentsRef.current) {
-      console.log('Payment loading already in progress or completed, skipping...');
+      console.log(
+        "Payment loading already in progress or completed, skipping...",
+      );
       return;
     }
 
@@ -144,21 +194,27 @@ const AdminMembers: React.FC = () => {
             // Fetch both payment and subscription data
             const [paymentResult, subscriptionResult] = await Promise.all([
               getUserLastPayment(user.email),
-              getUserSubscriptions(user.email)
+              getUserSubscriptions(user.email),
             ]);
 
             // Find the active subscription (trialing or active status)
-            const activeSubscription = subscriptionResult.success && subscriptionResult.subscriptions
-              ? subscriptionResult.subscriptions.find(sub =>
-                  sub.status === 'trialing' || sub.status === 'active'
-                )
-              : null;
+            const activeSubscription =
+              subscriptionResult.success && subscriptionResult.subscriptions
+                ? subscriptionResult.subscriptions.find(
+                    (sub) =>
+                      sub.status === "trialing" || sub.status === "active",
+                  )
+                : null;
 
             return {
               email: user.email,
-              lastPayment: paymentResult.success ? paymentResult.lastPayment : null,
-              firstPayment: paymentResult.success ? paymentResult.firstPayment : null,
-              activeSubscription: activeSubscription || null
+              lastPayment: paymentResult.success
+                ? paymentResult.lastPayment
+                : null,
+              firstPayment: paymentResult.success
+                ? paymentResult.firstPayment
+                : null,
+              activeSubscription: activeSubscription || null,
             };
           } catch (error) {
             console.error(`Error fetching data for ${user.email}:`, error);
@@ -166,42 +222,60 @@ const AdminMembers: React.FC = () => {
               email: user.email,
               lastPayment: null,
               firstPayment: null,
-              activeSubscription: null
+              activeSubscription: null,
             };
           }
-        })
+        }),
       );
 
       // Update users with payment and subscription data for this batch
-      setUsers(prevUsers =>
-        prevUsers.map(user => {
-          const userData = batchResults.find(result => result.email === user.email);
+      setUsers((prevUsers) =>
+        prevUsers.map((user) => {
+          const userData = batchResults.find(
+            (result) => result.email === user.email,
+          );
           return userData
-            ? { ...user, lastPayment: userData.lastPayment, firstPayment: userData.firstPayment, activeSubscription: userData.activeSubscription }
+            ? {
+                ...user,
+                lastPayment: userData.lastPayment,
+                firstPayment: userData.firstPayment,
+                activeSubscription: userData.activeSubscription,
+              }
             : user;
-        })
+        }),
       );
 
       setLoadingProgress({ current: i + batchSize, total: userList.length });
 
       // Add delay between batches to avoid rate limiting
       if (i + batchSize < userList.length) {
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
 
     // Build cache from final user state
-    setUsers(prevUsers => {
-      const cacheData: Record<string, { lastPayment: Payment | null; firstPayment: Payment | null; activeSubscription: Subscription | null }> = {};
-      prevUsers.forEach(user => {
+    setUsers((prevUsers) => {
+      const cacheData: Record<
+        string,
+        {
+          lastPayment: Payment | null;
+          firstPayment: Payment | null;
+          activeSubscription: Subscription | null;
+        }
+      > = {};
+      prevUsers.forEach((user) => {
         cacheData[user.email] = {
           lastPayment: user.lastPayment || null,
           firstPayment: user.firstPayment || null,
-          activeSubscription: user.activeSubscription || null
+          activeSubscription: user.activeSubscription || null,
         };
       });
       setCachedPayments(cacheData);
-      console.log('Cached payment data for', Object.keys(cacheData).length, 'users');
+      console.log(
+        "Cached payment data for",
+        Object.keys(cacheData).length,
+        "users",
+      );
       return prevUsers;
     });
 
@@ -214,7 +288,7 @@ const AdminMembers: React.FC = () => {
   // Calculate the membership end date based on payment date
   // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
   const getMembershipEndDate = (user: User): Date | null => {
-    if (!user.lastPayment || user.lastPayment.status !== 'succeeded') {
+    if (!user.lastPayment || user.lastPayment.status !== "succeeded") {
       return null;
     }
 
@@ -277,16 +351,22 @@ const AdminMembers: React.FC = () => {
     // User has failed payment if their last payment exists but status is not succeeded or pending
     // This matches the display logic that shows "Échoué" for all non-succeeded, non-pending statuses
     if (!user.lastPayment) return false;
-    return user.lastPayment.status !== 'succeeded' && user.lastPayment.status !== 'pending';
+    return (
+      user.lastPayment.status !== "succeeded" &&
+      user.lastPayment.status !== "pending"
+    );
   };
 
   const hasFreeFirstYear = (user: User): boolean => {
-    // User has free first year if:
-    // 1. They have NO successful payment yet (no lastPayment or payment not succeeded)
-    // 2. They have an active subscription in trialing status
+    // Free first year is ONLY for members who joined THIS calendar year
     if (!user.activeSubscription) return false;
-    if (user.activeSubscription.status !== 'trialing') return false;
-    if (user.lastPayment && user.lastPayment.status === 'succeeded') return false;
+    if (user.activeSubscription.status !== "trialing") return false;
+
+    // Check if user joined this year
+    const memberSince = getMemberSinceDate(user);
+    const currentYear = new Date().getFullYear();
+    if (!memberSince || memberSince.getFullYear() !== currentYear) return false;
+
     return true;
   };
 
@@ -295,48 +375,55 @@ const AdminMembers: React.FC = () => {
     // 1. They have an active subscription (active or trialing)
     // 2. The subscription is NOT set to cancel at period end
     if (!user.activeSubscription) return false;
-    if (user.activeSubscription.status !== 'active' && user.activeSubscription.status !== 'trialing') return false;
+    if (
+      user.activeSubscription.status !== "active" &&
+      user.activeSubscription.status !== "trialing"
+    )
+      return false;
     return !user.activeSubscription.cancel_at_period_end;
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
       user.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.hospital?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesSubscription = filterSubscription === 'all' || user.subscription === filterSubscription;
-    
+
+    const matchesSubscription =
+      filterSubscription === "all" || user.subscription === filterSubscription;
+
     const matchesPaymentStatus =
-      filterPaymentStatus === 'all' ||
-      (filterPaymentStatus === 'valid' && isValidRegistration(user)) ||
-      (filterPaymentStatus === 'expired' && hasExpiredPayment(user)) ||
-      (filterPaymentStatus === 'failed' && hasFailedPayment(user)) ||
-      (filterPaymentStatus === 'no-payment' && !user.lastPayment && !hasFreeFirstYear(user)) ||
-      (filterPaymentStatus === 'free-first-year' && hasFreeFirstYear(user)) ||
-      (filterPaymentStatus === 'recurring' && hasRecurringPayment(user)) ||
-      (filterPaymentStatus === 'no-recurring' && !hasRecurringPayment(user));
+      filterPaymentStatus === "all" ||
+      (filterPaymentStatus === "valid" && isValidRegistration(user)) ||
+      (filterPaymentStatus === "expired" && hasExpiredPayment(user)) ||
+      (filterPaymentStatus === "failed" && hasFailedPayment(user)) ||
+      (filterPaymentStatus === "no-payment" &&
+        !user.lastPayment &&
+        !hasFreeFirstYear(user)) ||
+      (filterPaymentStatus === "free-first-year" && hasFreeFirstYear(user)) ||
+      (filterPaymentStatus === "recurring" && hasRecurringPayment(user)) ||
+      (filterPaymentStatus === "no-recurring" && !hasRecurringPayment(user));
 
     return matchesSearch && matchesSubscription && matchesPaymentStatus;
   });
 
   const getSubscriptionLabel = (subscription: string) => {
     const subscriptions: { [key: string]: string } = {
-      'practicing': 'Médecin hospitalier en exercice, Professeur des Universités',
-      'retired': 'Radiologue hospitalier/universitaire retraité',
-      'assistant': 'Radiologue assistant spécialiste'
+      practicing: "Médecin hospitalier en exercice, Professeur des Universités",
+      retired: "Radiologue hospitalier/universitaire retraité",
+      assistant: "Radiologue assistant spécialiste",
     };
     return subscriptions[subscription] || subscription;
   };
 
   const getSubscriptionBadgeColor = (subscription: string) => {
     const colors: { [key: string]: string } = {
-      'practicing': 'bg-blue-100 text-blue-800',
-      'retired': 'bg-green-100 text-green-800',
-      'assistant': 'bg-purple-100 text-purple-800'
+      practicing: "bg-blue-100 text-blue-800",
+      retired: "bg-green-100 text-green-800",
+      assistant: "bg-purple-100 text-purple-800",
     };
-    return colors[subscription] || 'bg-gray-100 text-gray-800';
+    return colors[subscription] || "bg-gray-100 text-gray-800";
   };
 
   const handleUserClick = (userId: number) => {
@@ -357,13 +444,15 @@ const AdminMembers: React.FC = () => {
 
       if (result.success) {
         // Remove user from UI
-        setUsers(prevUsers => prevUsers.filter(u => u.id !== deleteConfirmation.user!.id));
+        setUsers((prevUsers) =>
+          prevUsers.filter((u) => u.id !== deleteConfirmation.user!.id),
+        );
         setDeleteConfirmation({ show: false, user: null });
       } else {
-        setError(result.error || 'Erreur lors de la suppression du membre');
+        setError(result.error || "Erreur lors de la suppression du membre");
       }
-    } catch (err) {
-      setError('Erreur lors de la suppression du membre');
+    } catch {
+      setError("Erreur lors de la suppression du membre");
     } finally {
       setDeleting(false);
     }
@@ -374,40 +463,40 @@ const AdminMembers: React.FC = () => {
   };
 
   const formatDate = (dateInput: string | Date | null | undefined) => {
-    if (!dateInput) return 'Date non disponible';
-    
+    if (!dateInput) return "Date non disponible";
+
     try {
       const date = new Date(dateInput);
-      if (isNaN(date.getTime())) return 'Date invalide';
-      
-      return date.toLocaleDateString('fr-FR', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
+      if (isNaN(date.getTime())) return "Date invalide";
+
+      return date.toLocaleDateString("fr-FR", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
-    } catch (error) {
-      return 'Date invalide';
+    } catch {
+      return "Date invalide";
     }
   };
 
   const parseProfessionalInfo = (infopro: string | null) => {
     if (!infopro) return [];
-    
+
     try {
       const parsed = JSON.parse(infopro);
       const labels: string[] = [];
-      
+
       // Professional info labels mapping
       const labelMap: { [key: string]: string } = {
-        'huTitulaire': 'HU titulaire',
-        'phLiberal': 'PH avec activité libérale',
-        'hospitaloUniversitaireTitulaire': 'Hospitalo-Universitaire titulaire',
-        'adhesionCollegiale': 'Adhésion conjointe à la collégiale de l\'AP-HP',
-        'huLiberal': 'HU Libéral',
-        'hospitaloUniversitaireCCA': 'Hospitalo-Universitaire (CCA, AHU, PHU)',
-        'adhesionAlliance': 'Adhésion conjointe à Alliance Hôpital',
-        'assistantSpecialiste': 'Assistant spécialiste hospitalier',
-        'assistantTempsPartage': 'Assistant temps partagé'
+        huTitulaire: "HU titulaire",
+        phLiberal: "PH avec activité libérale",
+        hospitaloUniversitaireTitulaire: "Hospitalo-Universitaire titulaire",
+        adhesionCollegiale: "Adhésion conjointe à la collégiale de l'AP-HP",
+        huLiberal: "HU Libéral",
+        hospitaloUniversitaireCCA: "Hospitalo-Universitaire (CCA, AHU, PHU)",
+        adhesionAlliance: "Adhésion conjointe à Alliance Hôpital",
+        assistantSpecialiste: "Assistant spécialiste hospitalier",
+        assistantTempsPartage: "Assistant temps partagé",
       };
 
       // Extract all true values
@@ -419,7 +508,7 @@ const AdminMembers: React.FC = () => {
 
       return labels;
     } catch (error) {
-      console.error('Error parsing professional info:', error);
+      console.error("Error parsing professional info:", error);
       return [];
     }
   };
@@ -430,70 +519,85 @@ const AdminMembers: React.FC = () => {
     let usersToExport = users;
 
     // Apply current filters if any are active
-    if (searchTerm || filterSubscription !== 'all' || filterPaymentStatus !== 'all') {
+    if (
+      searchTerm ||
+      filterSubscription !== "all" ||
+      filterPaymentStatus !== "all"
+    ) {
       usersToExport = filteredUsers;
     }
 
     // Prepare CSV headers
     const headers = [
-      'ID',
-      'Prénom',
-      'Nom',
-      'Email',
-      'Établissement',
-      'Adresse',
-      'Type d\'adhésion',
-      'Informations professionnelles',
-      'Admin',
-      'Newsletter',
-      'Date d\'inscription',
-      'Dernière mise à jour',
-      'Montant du paiement',
-      'Date du paiement',
-      'Statut du paiement',
-      'Devise'
+      "ID",
+      "Prénom",
+      "Nom",
+      "Email",
+      "Établissement",
+      "Adresse",
+      "Type d'adhésion",
+      "Informations professionnelles",
+      "Admin",
+      "Newsletter",
+      "Date d'inscription",
+      "Dernière mise à jour",
+      "Montant du paiement",
+      "Date du paiement",
+      "Statut du paiement",
+      "Devise",
     ];
 
     // Prepare CSV rows
-    const rows = usersToExport.map(user => {
-      const professionalLabels = parseProfessionalInfo(user.infopro || null).join('; ');
+    const rows = usersToExport.map((user) => {
+      const professionalLabels = parseProfessionalInfo(
+        user.infopro || null,
+      ).join("; ");
 
       return [
         user.id,
-        user.firstname || '',
-        user.lastname || '',
+        user.firstname || "",
+        user.lastname || "",
         user.email,
-        user.hospital || '',
-        user.address || '',
-        getSubscriptionLabel(user.subscription || ''),
+        user.hospital || "",
+        user.address || "",
+        getSubscriptionLabel(user.subscription || ""),
         professionalLabels,
-        user.isadmin ? 'Oui' : 'Non',
-        user.newsletter ? 'Activée' : 'Désactivée',
+        user.isadmin ? "Oui" : "Non",
+        user.newsletter ? "Activée" : "Désactivée",
         formatDate(user.created_at),
         formatDate(user.updated_at),
-        user.lastPayment?.amount || '',
-        user.lastPayment ? formatDate(user.lastPayment.created) : '',
-        user.lastPayment?.status === 'succeeded' ? 'Réussi' :
-         user.lastPayment?.status === 'pending' ? 'En attente' :
-         user.lastPayment?.status ? 'Échoué' : '',
-        user.lastPayment?.currency || ''
+        user.lastPayment?.amount || "",
+        user.lastPayment ? formatDate(user.lastPayment.created) : "",
+        user.lastPayment?.status === "succeeded"
+          ? "Réussi"
+          : user.lastPayment?.status === "pending"
+            ? "En attente"
+            : user.lastPayment?.status
+              ? "Échoué"
+              : "",
+        user.lastPayment?.currency || "",
       ];
     });
 
     // Convert to CSV string
     const csvContent = [
-      headers.map(header => `"${header}"`).join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+      headers.map((header) => `"${header}"`).join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
 
     // Create blob and download
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
 
-    link.setAttribute('href', url);
-    link.setAttribute('download', `membres_srh_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `membres_srh_${new Date().toISOString().split("T")[0]}.csv`,
+    );
+    link.style.visibility = "hidden";
 
     document.body.appendChild(link);
     link.click();
@@ -522,17 +626,25 @@ const AdminMembers: React.FC = () => {
                 <Users className="h-8 w-8 text-red-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Gestion des Membres</h1>
-                <p className="text-gray-600 mt-1">{users.length} membres inscrits</p>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Gestion des Membres
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  {users.length} membres inscrits
+                </p>
                 {loadingPayments && (
                   <div className="mt-2">
                     <p className="text-sm text-blue-600 mb-1">
-                      Chargement des paiements... {Math.min(loadingProgress.current, loadingProgress.total)}/{loadingProgress.total}
+                      Chargement des paiements...{" "}
+                      {Math.min(loadingProgress.current, loadingProgress.total)}
+                      /{loadingProgress.total}
                     </p>
                     <div className="w-64 bg-gray-200 rounded-full h-1.5">
                       <div
                         className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min((loadingProgress.current / loadingProgress.total) * 100, 100)}%` }}
+                        style={{
+                          width: `${Math.min((loadingProgress.current / loadingProgress.total) * 100, 100)}%`,
+                        }}
                       ></div>
                     </div>
                   </div>
@@ -546,7 +658,9 @@ const AdminMembers: React.FC = () => {
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Rafraîchir les données Stripe"
               >
-                <RefreshCw className={`h-5 w-5 mr-2 ${loadingPayments ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-5 w-5 mr-2 ${loadingPayments ? "animate-spin" : ""}`}
+                />
                 Rafraîchir Stripe
               </button>
               <button
@@ -587,9 +701,15 @@ const AdminMembers: React.FC = () => {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 >
                   <option value="all">Tous les types d'adhésion</option>
-                  <option value="practicing">Médecin hospitalier en exercice, Professeur des Universités</option>
-                  <option value="retired">Radiologue hospitalier/universitaire retraité</option>
-                  <option value="assistant">Radiologue assistant spécialiste</option>
+                  <option value="practicing">
+                    Médecin hospitalier en exercice, Professeur des Universités
+                  </option>
+                  <option value="retired">
+                    Radiologue hospitalier/universitaire retraité
+                  </option>
+                  <option value="assistant">
+                    Radiologue assistant spécialiste
+                  </option>
                 </select>
               </div>
             </div>
@@ -602,13 +722,21 @@ const AdminMembers: React.FC = () => {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 >
                   <option value="all">Tous les statuts de paiement</option>
-                  <option value="valid">Adhésions valides (moins d'1 an)</option>
-                  <option value="expired">Adhésions expirées (plus d'1 an)</option>
+                  <option value="valid">
+                    Adhésions valides (moins d'1 an)
+                  </option>
+                  <option value="expired">
+                    Adhésions expirées (plus d'1 an)
+                  </option>
                   <option value="failed">Paiements échoués</option>
-                  <option value="free-first-year">Première année gratuite</option>
+                  <option value="free-first-year">
+                    Première année gratuite
+                  </option>
                   <option value="no-payment">Aucun paiement</option>
                   <option value="recurring">Paiement récurrent activé</option>
-                  <option value="no-recurring">Paiement récurrent désactivé</option>
+                  <option value="no-recurring">
+                    Paiement récurrent désactivé
+                  </option>
                 </select>
               </div>
             </div>
@@ -634,7 +762,7 @@ const AdminMembers: React.FC = () => {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {user.firstname || ''} {user.lastname || ''}
+                      {user.firstname || ""} {user.lastname || ""}
                     </h3>
                     {user.isadmin && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
@@ -662,7 +790,10 @@ const AdminMembers: React.FC = () => {
                     )}
                     {/* Recurring Payment Badge */}
                     {hasRecurringPayment(user) && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800" title="Paiement récurrent activé">
+                      <span
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                        title="Paiement récurrent activé"
+                      >
                         <Repeat className="h-3 w-3 mr-1" />
                         Récurrent
                       </span>
@@ -672,20 +803,26 @@ const AdminMembers: React.FC = () => {
 
                 {/* Subscription */}
                 <div className="mb-4">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSubscriptionBadgeColor(user.subscription || '')}`}>
-                    {getSubscriptionLabel(user.subscription || '')}
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSubscriptionBadgeColor(user.subscription || "")}`}
+                  >
+                    {getSubscriptionLabel(user.subscription || "")}
                   </span>
                 </div>
 
                 {/* Professional Information */}
                 {(() => {
-                  const professionalLabels = parseProfessionalInfo(user.infopro || null);
+                  const professionalLabels = parseProfessionalInfo(
+                    user.infopro || null,
+                  );
                   if (professionalLabels.length > 0) {
                     return (
                       <div className="mb-4">
                         <div className="flex items-center mb-2">
                           <Briefcase className="h-4 w-4 text-gray-400 mr-2" />
-                          <span className="text-sm font-medium text-gray-700">Informations professionnelles:</span>
+                          <span className="text-sm font-medium text-gray-700">
+                            Informations professionnelles:
+                          </span>
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {professionalLabels.map((label, index) => (
@@ -707,7 +844,9 @@ const AdminMembers: React.FC = () => {
                 {user.hospital && (
                   <div className="flex items-center mb-3">
                     <Building2 className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-700">{user.hospital}</span>
+                    <span className="text-sm text-gray-700">
+                      {user.hospital}
+                    </span>
                   </div>
                 )}
 
@@ -715,15 +854,19 @@ const AdminMembers: React.FC = () => {
                 {user.address && (
                   <div className="flex items-start mb-3">
                     <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{user.address}</span>
+                    <span className="text-sm text-gray-700">
+                      {user.address}
+                    </span>
                   </div>
                 )}
 
                 {/* Newsletter */}
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm text-gray-600">Newsletter:</span>
-                  <span className={`text-sm font-medium ${user.newsletter ? 'text-green-600' : 'text-gray-400'}`}>
-                    {user.newsletter ? 'Activée' : 'Désactivée'}
+                  <span
+                    className={`text-sm font-medium ${user.newsletter ? "text-green-600" : "text-gray-400"}`}
+                  >
+                    {user.newsletter ? "Activée" : "Désactivée"}
                   </span>
                 </div>
 
@@ -732,13 +875,19 @@ const AdminMembers: React.FC = () => {
                   <div className="mb-3">
                     <div className="flex items-center mb-2">
                       <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">Première année gratuite:</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Première année gratuite:
+                      </span>
                     </div>
                     <div className="ml-6 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Prochain paiement:</span>
                         <span className="text-sm text-gray-600">
-                          {formatDate(user.activeSubscription.current_period_end)}
+                          Prochain paiement:
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          {formatDate(
+                            user.activeSubscription.current_period_end,
+                          )}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -760,7 +909,9 @@ const AdminMembers: React.FC = () => {
                   <div className="mb-3">
                     <div className="flex items-center mb-2">
                       <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">Dernier paiement:</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Dernier paiement:
+                      </span>
                     </div>
                     <div className="ml-6 space-y-1">
                       <div className="flex items-center justify-between">
@@ -778,16 +929,20 @@ const AdminMembers: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Statut:</span>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          user.lastPayment.status === 'succeeded'
-                            ? 'bg-green-100 text-green-800'
-                            : user.lastPayment.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {user.lastPayment.status === 'succeeded' ? 'Réussi' :
-                           user.lastPayment.status === 'pending' ? 'En attente' :
-                           'Échoué'}
+                        <span
+                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            user.lastPayment.status === "succeeded"
+                              ? "bg-green-100 text-green-800"
+                              : user.lastPayment.status === "pending"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {user.lastPayment.status === "succeeded"
+                            ? "Réussi"
+                            : user.lastPayment.status === "pending"
+                              ? "En attente"
+                              : "Échoué"}
                         </span>
                       </div>
                     </div>
@@ -796,10 +951,14 @@ const AdminMembers: React.FC = () => {
                   <div className="mb-3">
                     <div className="flex items-center mb-2">
                       <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">Paiement:</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Paiement:
+                      </span>
                     </div>
                     <div className="ml-6">
-                      <span className="text-sm text-gray-500">Aucun paiement trouvé</span>
+                      <span className="text-sm text-gray-500">
+                        Aucun paiement trouvé
+                      </span>
                     </div>
                   </div>
                 )}
@@ -807,7 +966,10 @@ const AdminMembers: React.FC = () => {
                 {/* Edit and Delete Buttons */}
                 <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
                   <button
-                    onClick={(e) => { e.stopPropagation(); navigate(`/profile/edit?id=${user.id}`); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/profile/edit?id=${user.id}`);
+                    }}
                     className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                     title="Modifier ce membre"
                   >
@@ -828,12 +990,19 @@ const AdminMembers: React.FC = () => {
                 <div className="space-y-1 text-xs text-gray-500">
                   <div className="flex items-center">
                     <Calendar className="h-3 w-3 mr-1" />
-                    Membre depuis {getMemberSinceDate(user) ? formatDate(getMemberSinceDate(user)) : formatDate(user.created_at)}
+                    Membre depuis{" "}
+                    {getMemberSinceDate(user)
+                      ? formatDate(getMemberSinceDate(user))
+                      : formatDate(user.created_at)}
                   </div>
                   {getMembershipEndDate(user) && (
-                    <div className={`flex items-center ${getMembershipEndDate(user)! > new Date() ? 'text-green-600' : 'text-orange-600'}`}>
+                    <div
+                      className={`flex items-center ${getMembershipEndDate(user)! > new Date() ? "text-green-600" : "text-orange-600"}`}
+                    >
                       <Calendar className="h-3 w-3 mr-1" />
-                      Adhésion valide jusqu'au {formatDate(getMembershipEndDate(user))}
+                      {getMembershipEndDate(user)! > new Date()
+                        ? `Adhésion valide jusqu'au ${formatDate(getMembershipEndDate(user))}`
+                        : `Adhésion expirée depuis le ${formatDate(getMembershipEndDate(user))}`}
                     </div>
                   )}
                 </div>
@@ -845,7 +1014,9 @@ const AdminMembers: React.FC = () => {
         {filteredUsers.length === 0 && !loading && (
           <div className="text-center py-12">
             <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">Aucun membre trouvé avec ces critères de recherche.</p>
+            <p className="text-gray-600">
+              Aucun membre trouvé avec ces critères de recherche.
+            </p>
           </div>
         )}
       </div>
@@ -863,11 +1034,18 @@ const AdminMembers: React.FC = () => {
                   Confirmer la suppression
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Êtes-vous sûr de vouloir supprimer le membre <strong>{deleteConfirmation.user.firstname} {deleteConfirmation.user.lastname}</strong> ({deleteConfirmation.user.email}) ?
+                  Êtes-vous sûr de vouloir supprimer le membre{" "}
+                  <strong>
+                    {deleteConfirmation.user.firstname}{" "}
+                    {deleteConfirmation.user.lastname}
+                  </strong>{" "}
+                  ({deleteConfirmation.user.email}) ?
                 </p>
                 <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
                   <p className="text-sm text-yellow-800">
-                    <strong>Attention :</strong> Cette action est irréversible. Le membre sera supprimé de la base de données et tous les abonnements Stripe actifs seront annulés.
+                    <strong>Attention :</strong> Cette action est irréversible.
+                    Le membre sera supprimé de la base de données et tous les
+                    abonnements Stripe actifs seront annulés.
                   </p>
                 </div>
               </div>

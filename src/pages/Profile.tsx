@@ -1,12 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { 
-  User, Mail, Building2, MapPin, Calendar, 
-  ArrowLeft, Shield, Briefcase, Bell, BellOff, Edit, CreditCard, Euro
-} from 'lucide-react';
-import { getUserById } from '../services/userService';
-import { getUserLastPayment, getUserSubscriptions, type Payment, type Subscription } from '../services/paymentService';
-import { useAuthStore } from '../stores/authStore';
+import React, { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import {
+  User,
+  Mail,
+  Building2,
+  MapPin,
+  Calendar,
+  ArrowLeft,
+  Shield,
+  Briefcase,
+  Bell,
+  BellOff,
+  Edit,
+  CreditCard,
+  Euro,
+} from "lucide-react";
+import { getUserById } from "../services/userService";
+import {
+  getUserLastPayment,
+  getUserSubscriptions,
+  type Payment,
+  type Subscription,
+} from "../services/paymentService";
+import { useAuthStore } from "../stores/authStore";
 // Date formatting is now handled inline
 
 interface UserProfile {
@@ -31,22 +47,24 @@ const Profile: React.FC = () => {
   const { user: currentUser } = useAuthStore();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [payment, setPayment] = useState<Payment | null>(null);
   const [firstPayment, setFirstPayment] = useState<Payment | null>(null);
-  const [activeSubscription, setActiveSubscription] = useState<Subscription | null>(null);
+  const [activeSubscription, setActiveSubscription] =
+    useState<Subscription | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
 
-  const userId = searchParams.get('id');
+  const userId = searchParams.get("id");
 
   useEffect(() => {
     if (!userId) {
-      setError('Aucun ID utilisateur fourni');
+      setError("Aucun ID utilisateur fourni");
       setLoading(false);
       return;
     }
 
     fetchUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const fetchUserProfile = async () => {
@@ -60,10 +78,10 @@ const Profile: React.FC = () => {
         // Fetch payment data in background
         fetchPaymentData(user.email);
       } else {
-        setError('Utilisateur non trouvé');
+        setError("Utilisateur non trouvé");
       }
-    } catch (err) {
-      setError('Erreur lors du chargement du profil');
+    } catch {
+      setError("Erreur lors du chargement du profil");
     } finally {
       setLoading(false);
     }
@@ -75,7 +93,7 @@ const Profile: React.FC = () => {
       // Fetch both payment and subscription data
       const [paymentResult, subscriptionResult] = await Promise.all([
         getUserLastPayment(email),
-        getUserSubscriptions(email)
+        getUserSubscriptions(email),
       ]);
 
       if (paymentResult.success) {
@@ -85,13 +103,13 @@ const Profile: React.FC = () => {
 
       // Find the active subscription (trialing or active status)
       if (subscriptionResult.success && subscriptionResult.subscriptions) {
-        const activeSub = subscriptionResult.subscriptions.find(sub =>
-          sub.status === 'trialing' || sub.status === 'active'
+        const activeSub = subscriptionResult.subscriptions.find(
+          (sub) => sub.status === "trialing" || sub.status === "active",
         );
         setActiveSubscription(activeSub || null);
       }
     } catch (error) {
-      console.error('Error fetching payment data:', error);
+      console.error("Error fetching payment data:", error);
     } finally {
       setPaymentLoading(false);
     }
@@ -99,41 +117,42 @@ const Profile: React.FC = () => {
 
   const getSubscriptionLabel = (subscription: string) => {
     const subscriptions: { [key: string]: string } = {
-      'practicing': 'Médecin hospitalier en exercice',
-      'retired': 'Radiologue hospitalier/universitaire retraité',
-      'assistant': 'Assistant spécialiste',
-      'first-time': 'Première adhésion'
+      practicing: "Médecin hospitalier en exercice",
+      retired: "Radiologue hospitalier/universitaire retraité",
+      assistant: "Assistant spécialiste",
+      "first-time": "Première adhésion",
     };
     return subscriptions[subscription] || subscription;
   };
 
   const getSubscriptionBadgeColor = (subscription: string) => {
     const colors: { [key: string]: string } = {
-      'practicing': 'bg-blue-100 text-blue-800',
-      'retired': 'bg-green-100 text-green-800',
-      'assistant': 'bg-purple-100 text-purple-800',
-      'first-time': 'bg-yellow-100 text-yellow-800'
+      practicing: "bg-blue-100 text-blue-800",
+      retired: "bg-green-100 text-green-800",
+      assistant: "bg-purple-100 text-purple-800",
+      "first-time": "bg-yellow-100 text-yellow-800",
     };
-    return colors[subscription] || 'bg-gray-100 text-gray-800';
+    return colors[subscription] || "bg-gray-100 text-gray-800";
   };
 
   const formatDate = (dateInput: string | number | Date) => {
     try {
       let date: Date;
-      
+
       // Handle different input types
       if (!dateInput) {
-        return 'Date invalide';
+        return "Date invalide";
       }
-      
-      if (typeof dateInput === 'string') {
+
+      if (typeof dateInput === "string") {
         // Handle ISO string format
         date = new Date(dateInput);
-      } else if (typeof dateInput === 'number') {
+      } else if (typeof dateInput === "number") {
         // Handle Unix timestamp - could be in seconds or milliseconds
         // If the number is less than a reasonable year 2000 timestamp in milliseconds,
         // assume it's in seconds and convert to milliseconds
-        if (dateInput < 946684800000) { // Jan 1, 2000 in milliseconds
+        if (dateInput < 946684800000) {
+          // Jan 1, 2000 in milliseconds
           date = new Date(dateInput * 1000); // Convert seconds to milliseconds
         } else {
           date = new Date(dateInput); // Already in milliseconds
@@ -144,46 +163,47 @@ const Profile: React.FC = () => {
         // Handle object with timestamp or other formats
         date = new Date(dateInput);
       }
-      
-      
+
       // Validate the date
       if (!date || Number.isNaN(date.getTime())) {
-        return 'Date invalide';
+        return "Date invalide";
       }
-      
+
       // Check if the year is reasonable
       const year = date.getFullYear();
       // Be more permissive with future dates since system dates can be set ahead
       if (year < 1990 || year > 2030) {
-        return 'Date invalide';
+        return "Date invalide";
       }
-      
+
       // Return formatted date
-      return date.toLocaleDateString('fr-FR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+      return date.toLocaleDateString("fr-FR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
-      
-    } catch (error) {
-      return 'Date invalide';
+    } catch {
+      return "Date invalide";
     }
   };
 
   const hasFreeFirstYear = (): boolean => {
-    // User has free first year if:
-    // 1. They have NO successful payment yet (no payment or payment not succeeded)
-    // 2. They have an active subscription in trialing status
+    // Free first year is ONLY for members who joined THIS calendar year
     if (!activeSubscription) return false;
-    if (activeSubscription.status !== 'trialing') return false;
-    if (payment && payment.status === 'succeeded') return false;
+    if (activeSubscription.status !== "trialing") return false;
+
+    // Check if user joined this year
+    const memberSince = getMemberSinceDate();
+    const currentYear = new Date().getFullYear();
+    if (!memberSince || memberSince.getFullYear() !== currentYear) return false;
+
     return true;
   };
 
   // Calculate the membership end date based on payment date
   // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
   const getMembershipEndDate = (): Date | null => {
-    if (!payment || payment.status !== 'succeeded') {
+    if (!payment || payment.status !== "succeeded") {
       return null;
     }
 
@@ -236,39 +256,46 @@ const Profile: React.FC = () => {
 
   const getPaymentStatus = () => {
     if (hasFreeFirstYear()) {
-      return { label: 'Première année gratuite', color: 'bg-blue-100 text-blue-800' };
+      return {
+        label: "Première année gratuite",
+        color: "bg-blue-100 text-blue-800",
+      };
     }
 
-    if (!payment) return { label: 'Aucun paiement', color: 'bg-gray-100 text-gray-800' };
+    if (!payment)
+      return { label: "Aucun paiement", color: "bg-gray-100 text-gray-800" };
 
-    if (payment.status !== 'succeeded') {
-      return { label: 'Paiement échoué', color: 'bg-red-100 text-red-800' };
+    if (payment.status !== "succeeded") {
+      return { label: "Paiement échoué", color: "bg-red-100 text-red-800" };
     }
 
     if (isValidRegistration()) {
-      return { label: 'Adhésion valide', color: 'bg-green-100 text-green-800' };
+      return { label: "Adhésion valide", color: "bg-green-100 text-green-800" };
     } else {
-      return { label: 'Adhésion expirée', color: 'bg-orange-100 text-orange-800' };
+      return {
+        label: "Adhésion expirée",
+        color: "bg-orange-100 text-orange-800",
+      };
     }
   };
 
   const parseProfessionalInfo = (infopro: string | null) => {
     if (!infopro) return [];
-    
+
     try {
       const parsed = JSON.parse(infopro);
       const labels: string[] = [];
-      
+
       const labelMap: { [key: string]: string } = {
-        'huTitulaire': 'HU titulaire',
-        'phLiberal': 'PH avec activité libérale',
-        'hospitaloUniversitaireTitulaire': 'Hospitalo-Universitaire titulaire',
-        'adhesionCollegiale': 'Adhésion conjointe à la collégiale de l\'AP-HP',
-        'huLiberal': 'HU Libéral',
-        'hospitaloUniversitaireCCA': 'Hospitalo-Universitaire (CCA, AHU, PHU)',
-        'adhesionAlliance': 'Adhésion conjointe à Alliance Hôpital',
-        'assistantSpecialiste': 'Assistant spécialiste hospitalier',
-        'assistantTempsPartage': 'Assistant temps partagé'
+        huTitulaire: "HU titulaire",
+        phLiberal: "PH avec activité libérale",
+        hospitaloUniversitaireTitulaire: "Hospitalo-Universitaire titulaire",
+        adhesionCollegiale: "Adhésion conjointe à la collégiale de l'AP-HP",
+        huLiberal: "HU Libéral",
+        hospitaloUniversitaireCCA: "Hospitalo-Universitaire (CCA, AHU, PHU)",
+        adhesionAlliance: "Adhésion conjointe à Alliance Hôpital",
+        assistantSpecialiste: "Assistant spécialiste hospitalier",
+        assistantTempsPartage: "Assistant temps partagé",
       };
 
       Object.entries(parsed).forEach(([key, value]) => {
@@ -279,7 +306,7 @@ const Profile: React.FC = () => {
 
       return labels;
     } catch (error) {
-      console.error('Error parsing professional info:', error);
+      console.error("Error parsing professional info:", error);
       return [];
     }
   };
@@ -287,9 +314,9 @@ const Profile: React.FC = () => {
   const handleBack = () => {
     // Go back to admin members if current user is admin, otherwise go to home
     if (currentUser?.isadmin) {
-      navigate('/admin/members');
+      navigate("/admin/members");
     } else {
-      navigate('/');
+      navigate("/");
     }
   };
 
@@ -298,8 +325,9 @@ const Profile: React.FC = () => {
   };
 
   // Check if the current user is viewing their own profile or is an admin
-  const isOwnProfile = currentUser && userProfile && currentUser.id === userProfile.id.toString();
-  const canEdit = isOwnProfile || (currentUser?.isadmin === true);
+  const isOwnProfile =
+    currentUser && userProfile && currentUser.id === userProfile.id.toString();
+  const canEdit = isOwnProfile || currentUser?.isadmin === true;
 
   if (loading) {
     return (
@@ -319,11 +347,14 @@ const Profile: React.FC = () => {
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
             <User className="h-8 w-8 text-red-600" />
           </div>
-          
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Profil non trouvé</h1>
-          
+
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Profil non trouvé
+          </h1>
+
           <p className="text-gray-600 mb-6">
-            {error || 'Le profil demandé n\'existe pas ou n\'est plus disponible.'}
+            {error ||
+              "Le profil demandé n'existe pas ou n'est plus disponible."}
           </p>
 
           <button
@@ -354,17 +385,19 @@ const Profile: React.FC = () => {
               <ArrowLeft className="h-5 w-5 mr-2" />
               Retour
             </button>
-            
+
             <div className="flex items-center">
               <div className="bg-srh-blue p-3 rounded-lg mr-4">
                 <User className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Profil Membre</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Profil Membre
+                </h1>
                 <p className="text-gray-600 mt-1">Informations détaillées</p>
               </div>
             </div>
-            
+
             <div className="flex items-center">
               {canEdit && (
                 <button
@@ -390,7 +423,7 @@ const Profile: React.FC = () => {
               <div className="flex-1">
                 <div className="flex items-center mb-2">
                   <h2 className="text-3xl font-bold text-gray-900 mr-4">
-                    {userProfile.firstname || ''} {userProfile.lastname || ''}
+                    {userProfile.firstname || ""} {userProfile.lastname || ""}
                   </h2>
                   {userProfile.isadmin && (
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
@@ -401,8 +434,8 @@ const Profile: React.FC = () => {
                 </div>
                 <div className="flex items-center">
                   <Mail className="h-5 w-5 text-gray-400 mr-3" />
-                  <a 
-                    href={`mailto:${userProfile.email}`} 
+                  <a
+                    href={`mailto:${userProfile.email}`}
                     className="text-lg text-gray-600 hover:text-srh-blue transition-colors"
                   >
                     {userProfile.email}
@@ -417,9 +450,13 @@ const Profile: React.FC = () => {
               <div className="space-y-6">
                 {/* Subscription Type */}
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Type d'adhésion</h3>
-                  <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${getSubscriptionBadgeColor(userProfile.subscription || '')}`}>
-                    {getSubscriptionLabel(userProfile.subscription || '')}
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Type d'adhésion
+                  </h3>
+                  <span
+                    className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${getSubscriptionBadgeColor(userProfile.subscription || "")}`}
+                  >
+                    {getSubscriptionLabel(userProfile.subscription || "")}
                   </span>
                 </div>
 
@@ -428,7 +465,9 @@ const Profile: React.FC = () => {
                   <div className="bg-gray-50 rounded-lg p-6">
                     <div className="flex items-center mb-4">
                       <Briefcase className="h-5 w-5 text-gray-600 mr-2" />
-                      <h3 className="text-lg font-semibold text-gray-900">Informations professionnelles</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Informations professionnelles
+                      </h3>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {professionalLabels.map((label) => (
@@ -452,10 +491,14 @@ const Profile: React.FC = () => {
                       ) : (
                         <BellOff className="h-5 w-5 text-gray-400 mr-2" />
                       )}
-                      <h3 className="text-lg font-semibold text-gray-900">Newsletter</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Newsletter
+                      </h3>
                     </div>
-                    <span className={`text-sm font-medium ${userProfile.newsletter ? 'text-green-600' : 'text-gray-400'}`}>
-                      {userProfile.newsletter ? 'Activée' : 'Désactivée'}
+                    <span
+                      className={`text-sm font-medium ${userProfile.newsletter ? "text-green-600" : "text-gray-400"}`}
+                    >
+                      {userProfile.newsletter ? "Activée" : "Désactivée"}
                     </span>
                   </div>
                 </div>
@@ -465,18 +508,22 @@ const Profile: React.FC = () => {
               <div className="space-y-6">
                 {/* Contact Information */}
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Informations de contact</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Informations de contact
+                  </h3>
                   <div className="space-y-4">
                     {userProfile.hospital && (
                       <div className="flex items-start">
                         <Building2 className="h-5 w-5 text-gray-400 mr-3 mt-0.5 flex-shrink-0" />
                         <div>
                           <p className="text-sm text-gray-600">Établissement</p>
-                          <p className="text-gray-900">{userProfile.hospital}</p>
+                          <p className="text-gray-900">
+                            {userProfile.hospital}
+                          </p>
                         </div>
                       </div>
                     )}
-                    
+
                     {userProfile.address && (
                       <div className="flex items-start">
                         <MapPin className="h-5 w-5 text-gray-400 mr-3 mt-0.5 flex-shrink-0" />
@@ -491,18 +538,26 @@ const Profile: React.FC = () => {
 
                 {/* Payment Information */}
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Informations de paiement</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Informations de paiement
+                  </h3>
                   {paymentLoading ? (
                     <div className="flex items-center justify-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-srh-blue"></div>
-                      <span className="ml-2 text-sm text-gray-600">Chargement des paiements...</span>
+                      <span className="ml-2 text-sm text-gray-600">
+                        Chargement des paiements...
+                      </span>
                     </div>
                   ) : hasFreeFirstYear() && activeSubscription ? (
                     <div className="space-y-4">
                       {/* Trial Status */}
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Statut de l'adhésion:</span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatus().color}`}>
+                        <span className="text-sm text-gray-600">
+                          Statut de l'adhésion:
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatus().color}`}
+                        >
                           {getPaymentStatus().label}
                         </span>
                       </div>
@@ -514,24 +569,31 @@ const Profile: React.FC = () => {
                             Votre carte a été enregistrée avec succès.
                           </p>
                           <p className="text-xs text-blue-600">
-                            Le premier paiement sera effectué automatiquement à la fin de votre période d'essai gratuite.
+                            Le premier paiement sera effectué automatiquement à
+                            la fin de votre période d'essai gratuite.
                           </p>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Prochain paiement:</span>
+                          <span className="text-sm text-gray-600">
+                            Prochain paiement:
+                          </span>
                           <span className="text-sm font-medium text-gray-900">
                             {formatDate(activeSubscription.current_period_end)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Montant à payer:</span>
+                          <span className="text-sm text-gray-600">
+                            Montant à payer:
+                          </span>
                           <span className="text-sm font-medium text-blue-600 flex items-center">
                             <Euro className="h-3 w-3 mr-1" />
                             {activeSubscription.amount} €
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">ID d'abonnement:</span>
+                          <span className="text-sm text-gray-600">
+                            ID d'abonnement:
+                          </span>
                           <span className="text-xs text-gray-500 font-mono">
                             {activeSubscription.id}
                           </span>
@@ -542,8 +604,12 @@ const Profile: React.FC = () => {
                     <div className="space-y-4">
                       {/* Payment Status */}
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Statut de l'adhésion:</span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatus().color}`}>
+                        <span className="text-sm text-gray-600">
+                          Statut de l'adhésion:
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatus().color}`}
+                        >
                           {getPaymentStatus().label}
                         </span>
                       </div>
@@ -551,20 +617,26 @@ const Profile: React.FC = () => {
                       {/* Payment Details */}
                       <div className="border-t border-gray-200 pt-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Montant:</span>
+                          <span className="text-sm text-gray-600">
+                            Montant:
+                          </span>
                           <span className="text-sm font-medium text-green-600 flex items-center">
                             <Euro className="h-3 w-3 mr-1" />
                             {payment.amount} €
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Date de paiement:</span>
+                          <span className="text-sm text-gray-600">
+                            Date de paiement:
+                          </span>
                           <span className="text-sm text-gray-900">
                             {formatDate(payment.created)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">ID de transaction:</span>
+                          <span className="text-sm text-gray-600">
+                            ID de transaction:
+                          </span>
                           <span className="text-xs text-gray-500 font-mono">
                             {payment.id}
                           </span>
@@ -574,37 +646,50 @@ const Profile: React.FC = () => {
                   ) : (
                     <div className="text-center py-4">
                       <CreditCard className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">Aucun paiement trouvé</p>
-                    </div>
-                  )}
-                  
-                  {/* Payment Action Button */}
-                  {isOwnProfile && !isValidRegistration() && !hasFreeFirstYear() && (
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/profile/edit?id=${userId}#payment`)}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
-                      >
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        Renouveler mon adhésion
-                      </button>
-                      <p className="text-xs text-gray-500 mt-2 text-center">
-                        Votre adhésion a expiré ou n'est pas valide. Cliquez pour la renouveler.
+                      <p className="text-sm text-gray-500">
+                        Aucun paiement trouvé
                       </p>
                     </div>
                   )}
+
+                  {/* Payment Action Button */}
+                  {isOwnProfile &&
+                    !isValidRegistration() &&
+                    !hasFreeFirstYear() && (
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/profile/edit?id=${userId}#payment`)
+                          }
+                          className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
+                        >
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Renouveler mon adhésion
+                        </button>
+                        <p className="text-xs text-gray-500 mt-2 text-center">
+                          Votre adhésion a expiré ou n'est pas valide. Cliquez
+                          pour la renouveler.
+                        </p>
+                      </div>
+                    )}
                 </div>
 
                 {/* Account Information */}
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Informations du compte</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Informations du compte
+                  </h3>
                   <div className="space-y-4">
                     <div className="flex items-center">
                       <Calendar className="h-5 w-5 text-gray-400 mr-3" />
                       <div>
                         <p className="text-sm text-gray-600">Membre depuis</p>
-                        <p className="text-gray-900">{getMemberSinceDate() ? formatDate(getMemberSinceDate()!) : formatDate(userProfile.createdAt)}</p>
+                        <p className="text-gray-900">
+                          {getMemberSinceDate()
+                            ? formatDate(getMemberSinceDate()!)
+                            : formatDate(userProfile.createdAt)}
+                        </p>
                       </div>
                     </div>
 
@@ -612,41 +697,55 @@ const Profile: React.FC = () => {
                       <div className="flex items-center">
                         <Calendar className="h-5 w-5 text-gray-400 mr-3" />
                         <div className="flex-1">
-                          <p className="text-sm text-gray-600">Période d'essai gratuite jusqu'au</p>
+                          <p className="text-sm text-gray-600">
+                            Période d'essai gratuite jusqu'au
+                          </p>
                           <p className="text-gray-900">
                             {formatDate(activeSubscription.current_period_end)}
                           </p>
                           <p className="text-xs text-blue-600 mt-1">
-                            Premier paiement automatique : {activeSubscription.amount}€
+                            Premier paiement automatique :{" "}
+                            {activeSubscription.amount}€
                           </p>
                         </div>
                       </div>
-                    ) : payment && payment.status === 'succeeded' && (
-                      <div className="flex items-center">
-                        <Calendar className="h-5 w-5 text-gray-400 mr-3" />
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-600">Adhésion valide jusqu'au</p>
-                          <p className="text-gray-900">
-                            {getMembershipEndDate() ? formatDate(getMembershipEndDate()!) : 'Non définie'}
-                          </p>
-                          {(() => {
-                            const membershipEnd = getMembershipEndDate();
-                            const now = new Date();
-                            if (membershipEnd && now > membershipEnd) {
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/profile/edit?id=${userId}#payment`)}
-                                  className="mt-2 text-sm text-orange-600 hover:text-orange-700 underline"
-                                >
-                                  Renouvelez votre adhésion
-                                </button>
-                              );
-                            }
-                            return null;
-                          })()}
+                    ) : (
+                      payment &&
+                      payment.status === "succeeded" && (
+                        <div className="flex items-center">
+                          <Calendar className="h-5 w-5 text-gray-400 mr-3" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-600">
+                              Adhésion valide jusqu'au
+                            </p>
+                            <p className="text-gray-900">
+                              {getMembershipEndDate()
+                                ? formatDate(getMembershipEndDate()!)
+                                : "Non définie"}
+                            </p>
+                            {(() => {
+                              const membershipEnd = getMembershipEndDate();
+                              const now = new Date();
+                              if (membershipEnd && now > membershipEnd) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      navigate(
+                                        `/profile/edit?id=${userId}#payment`,
+                                      )
+                                    }
+                                    className="mt-2 text-sm text-orange-600 hover:text-orange-700 underline"
+                                  >
+                                    Renouvelez votre adhésion
+                                  </button>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
                         </div>
-                      </div>
+                      )
                     )}
                   </div>
                 </div>
