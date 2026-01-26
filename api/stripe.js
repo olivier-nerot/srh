@@ -59,6 +59,10 @@ export default async function handler(req, res) {
         return await retryPayment(req, res);
       case "confirm-setup":
         return await confirmSetup(req, res);
+      case "cleanup-duplicate-subscriptions":
+        return await cleanupDuplicateSubscriptions(req, res);
+      case "get-duplicate-subscriptions":
+        return await getDuplicateSubscriptions(req, res);
       default:
         return res.status(400).json({ error: "Invalid action" });
     }
@@ -1387,3 +1391,245 @@ async function fixIncorrectPrices(req, res) {
     });
   }
 }
+
+// Get duplicate subscriptions preview - returns list of duplicates without cancelling
+async function getDuplicateSubscriptions(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const requestOptions = {
+    stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+  };
+
+  try {
+    // Fetch all active/trialing subscriptions
+    const allSubscriptions = [];
+    let hasMore = true;
+    let startingAfter = null;
+
+    while (hasMore) {
+      const params = {
+        limit: 100,
+        status: "all",
+        expand: ["data.customer"],
+      };
+      if (startingAfter) {
+        params.starting_after = startingAfter;
+      }
+
+      const subscriptions = await stripe.subscriptions.list(params, requestOptions);
+      allSubscriptions.push(...subscriptions.data);
+      hasMore = subscriptions.has_more;
+      if (subscriptions.data.length > 0) {
+        startingAfter = subscriptions.data[subscriptions.data.length - 1].id;
+      }
+    }
+
+    // Group by customer email
+    const subscriptionsByEmail = {};
+
+    for (const sub of allSubscriptions) {
+      // Only consider active or trialing subscriptions
+      if (sub.status !== "active" && sub.status !== "trialing") {
+        continue;
+      }
+
+      const customer = sub.customer;
+      const email = typeof customer === "object" ? customer.email : null;
+      const name = typeof customer === "object" ? customer.name : null;
+
+      if (!email) continue;
+
+      if (!subscriptionsByEmail[email]) {
+        subscriptionsByEmail[email] = {
+          email,
+          name,
+          subscriptions: [],
+        };
+      }
+
+      subscriptionsByEmail[email].subscriptions.push({
+        id: sub.id,
+        status: sub.status,
+        created: new Date(sub.created * 1000).toISOString(),
+        amount: sub.items.data[0]?.price?.unit_amount / 100 || sub.items.data[0]?.plan?.amount / 100 || 0,
+        hasPaymentMethod: !!sub.default_payment_method,
+      });
+    }
+
+    // Find members with duplicates and sort subscriptions by date
+    const duplicates = [];
+    let totalToCancel = 0;
+
+    for (const [email, data] of Object.entries(subscriptionsByEmail)) {
+      if (data.subscriptions.length > 1) {
+        // Sort by created date (newest first)
+        data.subscriptions.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+        duplicates.push({
+          email: data.email,
+          name: data.name,
+          count: data.subscriptions.length,
+          toKeep: data.subscriptions[0],
+          toCancel: data.subscriptions.slice(1),
+        });
+
+        totalToCancel += data.subscriptions.length - 1;
+      }
+    }
+
+    // Sort by count descending
+    duplicates.sort((a, b) => b.count - a.count);
+
+    return res.status(200).json({
+      success: true,
+      duplicates,
+      summary: {
+        membersWithDuplicates: duplicates.length,
+        subscriptionsToCancel: totalToCancel,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching duplicate subscriptions:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error fetching duplicate subscriptions",
+      details: error.message,
+    });
+  }
+}
+
+// Cleanup duplicate subscriptions - keeps only the most recent one per customer
+async function cleanupDuplicateSubscriptions(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const requestOptions = {
+    stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+  };
+
+  try {
+    console.log("=== CLEANUP DUPLICATE SUBSCRIPTIONS ===");
+    console.log("Fetching all subscriptions...");
+
+    // Fetch all active/trialing subscriptions
+    const allSubscriptions = [];
+    let hasMore = true;
+    let startingAfter = null;
+
+    while (hasMore) {
+      const params = {
+        limit: 100,
+        status: "all",
+        expand: ["data.customer"],
+      };
+      if (startingAfter) {
+        params.starting_after = startingAfter;
+      }
+
+      const subscriptions = await stripe.subscriptions.list(params, requestOptions);
+      allSubscriptions.push(...subscriptions.data);
+      hasMore = subscriptions.has_more;
+      if (subscriptions.data.length > 0) {
+        startingAfter = subscriptions.data[subscriptions.data.length - 1].id;
+      }
+    }
+
+    console.log(`Found ${allSubscriptions.length} total subscriptions`);
+
+    // Group by customer email
+    const subscriptionsByEmail = {};
+
+    for (const sub of allSubscriptions) {
+      // Only consider active or trialing subscriptions
+      if (sub.status !== "active" && sub.status !== "trialing") {
+        continue;
+      }
+
+      const customer = sub.customer;
+      const email = typeof customer === "object" ? customer.email : null;
+
+      if (!email) continue;
+
+      if (!subscriptionsByEmail[email]) {
+        subscriptionsByEmail[email] = [];
+      }
+
+      subscriptionsByEmail[email].push({
+        id: sub.id,
+        status: sub.status,
+        created: sub.created,
+        default_payment_method: sub.default_payment_method,
+      });
+    }
+
+    // Find and cancel duplicates
+    const report = {
+      membersWithDuplicates: 0,
+      subscriptionsCancelled: 0,
+      errors: [],
+      details: [],
+    };
+
+    for (const [email, subs] of Object.entries(subscriptionsByEmail)) {
+      if (subs.length <= 1) continue;
+
+      report.membersWithDuplicates++;
+
+      // Sort by created date (newest first)
+      subs.sort((a, b) => b.created - a.created);
+
+      // Keep the first (newest), cancel the rest
+      const toKeep = subs[0];
+      const toCancel = subs.slice(1);
+
+      console.log(`\nProcessing ${email}: ${subs.length} subscriptions`);
+      console.log(`  Keeping: ${toKeep.id} (created: ${new Date(toKeep.created * 1000).toISOString()})`);
+
+      for (const sub of toCancel) {
+        try {
+          console.log(`  Cancelling: ${sub.id} (created: ${new Date(sub.created * 1000).toISOString()})`);
+
+          await stripe.subscriptions.cancel(sub.id, requestOptions);
+
+          report.subscriptionsCancelled++;
+          report.details.push({
+            email,
+            cancelledSubscriptionId: sub.id,
+            keptSubscriptionId: toKeep.id,
+            cancelledAt: new Date().toISOString(),
+          });
+
+          console.log(`    ✓ Cancelled successfully`);
+        } catch (error) {
+          console.error(`    ✗ Error cancelling ${sub.id}:`, error.message);
+          report.errors.push({
+            email,
+            subscriptionId: sub.id,
+            error: error.message,
+          });
+        }
+      }
+    }
+
+    console.log("\n=== CLEANUP COMPLETE ===");
+    console.log(`Members with duplicates: ${report.membersWithDuplicates}`);
+    console.log(`Subscriptions cancelled: ${report.subscriptionsCancelled}`);
+    console.log(`Errors: ${report.errors.length}`);
+
+    return res.status(200).json({
+      success: true,
+      report,
+    });
+  } catch (error) {
+    console.error("Error in cleanup script:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error cleaning up duplicate subscriptions",
+      details: error.message,
+    });
+  }
+}
+
