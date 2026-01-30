@@ -912,6 +912,41 @@ async function reactivateSubscription(req, res) {
       stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
     };
 
+    // First, retrieve the subscription to check its current status
+    const existingSubscription = await stripe.subscriptions.retrieve(
+      subscriptionId,
+      requestOptions,
+    );
+
+    // Check if subscription can be reactivated
+    // Only subscriptions with status 'active' or 'trialing' that are scheduled to cancel can be reactivated
+    if (existingSubscription.status === 'canceled') {
+      return res.status(400).json({
+        success: false,
+        error: "Cet abonnement est définitivement annulé et ne peut pas être réactivé. Veuillez créer un nouvel abonnement.",
+        code: "subscription_canceled",
+        status: existingSubscription.status,
+      });
+    }
+
+    if (!['active', 'trialing'].includes(existingSubscription.status)) {
+      return res.status(400).json({
+        success: false,
+        error: `L'abonnement ne peut pas être réactivé car son statut est "${existingSubscription.status}".`,
+        code: "invalid_subscription_status",
+        status: existingSubscription.status,
+      });
+    }
+
+    if (!existingSubscription.cancel_at_period_end) {
+      return res.status(400).json({
+        success: false,
+        error: "L'abonnement est déjà actif et n'a pas besoin d'être réactivé.",
+        code: "subscription_already_active",
+        status: existingSubscription.status,
+      });
+    }
+
     // Reactivate the subscription by removing the cancel_at_period_end flag
     const subscription = await stripe.subscriptions.update(
       subscriptionId,
@@ -984,11 +1019,121 @@ async function retryPayment(req, res) {
         requestOptions
       );
 
+      // Check subscription status first
+      if (subscription.status === 'canceled') {
+        return res.status(400).json({
+          success: false,
+          error: "L'abonnement est annulé. Aucun paiement ne peut être relancé. Un nouvel abonnement doit être créé.",
+          code: "subscription_canceled",
+          subscriptionStatus: subscription.status,
+        });
+      }
+
       if (subscription.latest_invoice && typeof subscription.latest_invoice === 'object') {
         const invoice = subscription.latest_invoice;
 
-        // Check if invoice is open or past_due
+        // Check if invoice is open or draft (retryable)
         if (invoice.status === 'open' || invoice.status === 'draft') {
+          console.log(`Attempting to pay invoice ${invoice.id}`);
+
+          try {
+            const paidInvoice = await stripe.invoices.pay(
+              invoice.id,
+              {},
+              requestOptions
+            );
+
+            return res.status(200).json({
+              success: true,
+              message: "Payment retry successful",
+              invoice: {
+                id: paidInvoice.id,
+                status: paidInvoice.status,
+                amount_paid: paidInvoice.amount_paid / 100,
+              }
+            });
+          } catch (payError) {
+            console.error("Invoice payment failed:", payError.message);
+            return res.status(400).json({
+              success: false,
+              error: "Payment retry failed",
+              details: payError.message,
+              failure_code: payError.code,
+            });
+          }
+        }
+
+        // If invoice is paid, void, or uncollectible, return specific message
+        if (invoice.status === 'paid') {
+          return res.status(400).json({
+            success: false,
+            error: "La dernière facture est déjà payée.",
+            code: "invoice_already_paid",
+            invoiceStatus: invoice.status,
+            subscriptionStatus: subscription.status,
+          });
+        }
+
+        if (invoice.status === 'void') {
+          return res.status(400).json({
+            success: false,
+            error: "La dernière facture a été annulée et ne peut pas être relancée.",
+            code: "invoice_void",
+            invoiceStatus: invoice.status,
+            subscriptionStatus: subscription.status,
+          });
+        }
+
+        if (invoice.status === 'uncollectible') {
+          return res.status(400).json({
+            success: false,
+            error: "La dernière facture a été marquée comme irrécupérable. Veuillez mettre à jour le moyen de paiement et créer un nouvel abonnement.",
+            code: "invoice_uncollectible",
+            invoiceStatus: invoice.status,
+            subscriptionStatus: subscription.status,
+          });
+        }
+      }
+
+      // If we have a subscription but no retryable invoice, return specific message
+      return res.status(404).json({
+        success: false,
+        error: `Aucune facture à relancer pour cet abonnement (statut: ${subscription.status}).`,
+        code: "no_retryable_invoice",
+        subscriptionStatus: subscription.status,
+      });
+    }
+
+    // No subscriptionId provided - search for subscriptions with retryable invoices
+    // Check multiple statuses: past_due, incomplete, unpaid
+    const statusesToCheck = ['past_due', 'incomplete', 'unpaid'];
+
+    for (const status of statusesToCheck) {
+      const subscriptions = await stripe.subscriptions.list(
+        {
+          customer: customer.id,
+          status: status,
+          limit: 1,
+        },
+        requestOptions
+      );
+
+      if (subscriptions.data.length > 0) {
+        const subscription = subscriptions.data[0];
+        console.log(`Found ${status} subscription ${subscription.id}`);
+
+        // Get the latest invoice
+        const invoices = await stripe.invoices.list(
+          {
+            subscription: subscription.id,
+            status: 'open',
+            limit: 1,
+          },
+          requestOptions
+        );
+
+        if (invoices.data.length > 0) {
+          const invoice = invoices.data[0];
           console.log(`Attempting to pay invoice ${invoice.id}`);
 
           try {
@@ -1020,65 +1165,10 @@ async function retryPayment(req, res) {
       }
     }
 
-    // Find any past_due subscriptions for this customer
-    const subscriptions = await stripe.subscriptions.list(
-      {
-        customer: customer.id,
-        status: 'past_due',
-        limit: 1,
-      },
-      requestOptions
-    );
-
-    if (subscriptions.data.length > 0) {
-      const subscription = subscriptions.data[0];
-      console.log(`Found past_due subscription ${subscription.id}`);
-
-      // Get the latest invoice
-      const invoices = await stripe.invoices.list(
-        {
-          subscription: subscription.id,
-          status: 'open',
-          limit: 1,
-        },
-        requestOptions
-      );
-
-      if (invoices.data.length > 0) {
-        const invoice = invoices.data[0];
-        console.log(`Attempting to pay invoice ${invoice.id}`);
-
-        try {
-          const paidInvoice = await stripe.invoices.pay(
-            invoice.id,
-            {},
-            requestOptions
-          );
-
-          return res.status(200).json({
-            success: true,
-            message: "Payment retry successful",
-            invoice: {
-              id: paidInvoice.id,
-              status: paidInvoice.status,
-              amount_paid: paidInvoice.amount_paid / 100,
-            }
-          });
-        } catch (payError) {
-          console.error("Invoice payment failed:", payError.message);
-          return res.status(400).json({
-            success: false,
-            error: "Payment retry failed",
-            details: payError.message,
-            failure_code: payError.code,
-          });
-        }
-      }
-    }
-
     return res.status(404).json({
       success: false,
-      error: "No pending or failed payment found to retry",
+      error: "Aucun paiement en attente ou échoué à relancer. L'abonnement est peut-être déjà actif ou définitivement annulé.",
+      code: "no_pending_payment",
     });
   } catch (error) {
     console.error("Error retrying payment:", error);

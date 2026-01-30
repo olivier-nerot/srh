@@ -107,12 +107,30 @@ const Profile: React.FC = () => {
         setFirstPayment(paymentResult.firstPayment);
       }
 
-      // Find the active subscription (trialing or active status)
+      // Find the most relevant subscription (prioritize active/trialing, then past_due, then any)
       if (subscriptionResult.success && subscriptionResult.subscriptions) {
-        const activeSub = subscriptionResult.subscriptions.find(
-          (sub) => sub.status === "trialing" || sub.status === "active",
-        );
-        setActiveSubscription(activeSub || null);
+        const subscriptions = subscriptionResult.subscriptions;
+        // Priority: trialing > active > past_due > incomplete > unpaid > canceled
+        const priorityOrder = [
+          "trialing",
+          "active",
+          "past_due",
+          "incomplete",
+          "unpaid",
+          "canceled",
+        ];
+        let selectedSub = null;
+
+        for (const status of priorityOrder) {
+          const found = subscriptions.find((sub) => sub.status === status);
+          if (found) {
+            selectedSub = found;
+            break;
+          }
+        }
+
+        // Fallback to first subscription if none found in priority order
+        setActiveSubscription(selectedSub || subscriptions[0] || null);
       }
     } catch (error) {
       console.error("Error fetching payment data:", error);
@@ -701,7 +719,7 @@ const Profile: React.FC = () => {
                             </div>
                           )}
 
-                        {/* Admin retry button for failed payments */}
+                        {/* Admin actions for failed payments */}
                         {payment.status !== "succeeded" &&
                           currentUser?.isadmin && (
                             <div className="mt-4">
@@ -716,24 +734,71 @@ const Profile: React.FC = () => {
                                   {retryMessage.text}
                                 </div>
                               )}
-                              <button
-                                type="button"
-                                onClick={handleRetryPayment}
-                                disabled={retryLoading}
-                                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
-                              >
-                                {retryLoading ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                                    Relance en cours...
-                                  </>
-                                ) : (
-                                  <>
-                                    <CreditCard className="h-4 w-4 mr-2" />
-                                    Relancer le paiement (Admin)
-                                  </>
-                                )}
-                              </button>
+
+                              {/* Check if failure is card-related (retry won't help) */}
+                              {payment.failure_code &&
+                              [
+                                "card_declined",
+                                "expired_card",
+                                "insufficient_funds",
+                                "invalid_cvc",
+                                "incorrect_cvc",
+                                "incorrect_number",
+                                "invalid_expiry_month",
+                                "invalid_expiry_year",
+                                "card_not_supported",
+                                "do_not_honor",
+                                "fraudulent",
+                                "lost_card",
+                                "stolen_card",
+                              ].includes(payment.failure_code) ? (
+                                <div className="space-y-3">
+                                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                                    <p className="text-sm text-amber-800">
+                                      ⚠️ Le paiement a échoué à cause d'un
+                                      problème de carte bancaire. Relancer le
+                                      paiement avec la même carte échouera à
+                                      nouveau.
+                                    </p>
+                                    <p className="text-sm text-amber-700 mt-2">
+                                      L'adhérent doit d'abord mettre à jour son
+                                      moyen de paiement depuis son profil →
+                                      Règlement.
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      navigate(
+                                        `/profile/edit?id=${userProfile?.id}#payment`,
+                                      )
+                                    }
+                                    className="w-full bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
+                                  >
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Aller à la page de paiement
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={handleRetryPayment}
+                                  disabled={retryLoading}
+                                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
+                                >
+                                  {retryLoading ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                      Relance en cours...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CreditCard className="h-4 w-4 mr-2" />
+                                      Relancer le paiement (Admin)
+                                    </>
+                                  )}
+                                </button>
+                              )}
                             </div>
                           )}
                       </div>
