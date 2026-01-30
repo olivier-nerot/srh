@@ -96,6 +96,7 @@ const ProfileEdit: React.FC = () => {
   const [isRecurring, setIsRecurring] = useState<boolean>(true);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [currentPayment, setCurrentPayment] = useState<Payment | null>(null);
+  const [firstPayment, setFirstPayment] = useState<Payment | null>(null);
   const [currentSubscription, setCurrentSubscription] =
     useState<Subscription | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -368,6 +369,7 @@ const ProfileEdit: React.FC = () => {
 
       if (paymentResult.success) {
         setCurrentPayment(paymentResult.lastPayment);
+        setFirstPayment(paymentResult.firstPayment);
       }
 
       if (
@@ -390,14 +392,28 @@ const ProfileEdit: React.FC = () => {
   };
 
   // Check if user is truly in a trial period (new member, no payment yet, waiting for Jan 1st)
-  // A user is in trial ONLY if: subscription is 'trialing' AND no successful payment exists
+  // A user is in trial ONLY if:
+  // 1. Subscription status is 'trialing'
+  // 2. No successful payment has EVER been made (firstPayment is null or not succeeded)
+  // 3. We're still in the current calendar year (trial ends Dec 31st)
   const isInTrialPeriod = (): boolean => {
     if (!currentSubscription || currentSubscription.status !== "trialing") {
       return false;
     }
-    // If there's a successful payment, user is NOT in trial - they've already paid
+    // If there's ANY successful payment (first or current), user is NOT in trial
+    if (firstPayment && firstPayment.status === "succeeded") {
+      return false;
+    }
     if (currentPayment && currentPayment.status === "succeeded") {
       return false;
+    }
+    // Additional check: if firstPayment exists from a previous year, not in trial
+    if (firstPayment) {
+      const firstPaymentYear = new Date(firstPayment.created).getFullYear();
+      const currentYear = new Date().getFullYear();
+      if (firstPaymentYear < currentYear) {
+        return false;
+      }
     }
     return true;
   };
@@ -1092,29 +1108,6 @@ const ProfileEdit: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label
-                      htmlFor="subscription"
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                      Type d'adhésion
-                    </label>
-                    <select
-                      id="subscription"
-                      name="subscription"
-                      value={formData.subscription}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-srh-blue focus:border-transparent"
-                    >
-                      <option value="">Sélectionner un type d'adhésion</option>
-                      {membershipTiers.map((tier) => (
-                        <option key={tier.id} value={tier.id}>
-                          {tier.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
                   <div className="flex items-center space-x-3">
                     <input
                       type="checkbox"
@@ -1529,7 +1522,7 @@ const ProfileEdit: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Subscription Selection */}
+                  {/* Subscription Selection - exclude "first-time" as it's computed automatically */}
                   <div className="bg-gray-50 rounded-lg p-4 mb-6">
                     <h4 className="font-medium text-gray-900 mb-4">
                       Type d'adhésion
@@ -1542,12 +1535,13 @@ const ProfileEdit: React.FC = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-srh-blue focus:border-transparent"
                     >
                       <option value="">Sélectionner un type d'adhésion</option>
-                      {membershipTiers.map((tier) => (
-                        <option key={tier.id} value={tier.id}>
-                          {tier.title} -{" "}
-                          {tier.price === 0 ? "Gratuit" : `${tier.price} €`}
-                        </option>
-                      ))}
+                      {membershipTiers
+                        .filter((tier) => tier.id !== "first-time")
+                        .map((tier) => (
+                          <option key={tier.id} value={tier.id}>
+                            {tier.title} - {`${tier.price} €`}
+                          </option>
+                        ))}
                     </select>
                   </div>
 
