@@ -20,6 +20,8 @@ export interface Subscription {
   customer_email: string;
   cancel_at_period_end: boolean;
   canceled_at: Date | null;
+  card_last4: string | null;
+  card_brand: string | null;
 }
 
 export interface TierData {

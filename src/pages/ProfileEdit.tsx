@@ -100,7 +100,6 @@ const ProfileEdit: React.FC = () => {
   const [currentSubscription, setCurrentSubscription] =
     useState<Subscription | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [showCardUpdate, setShowCardUpdate] = useState(false);
 
   const getSelectedTierData = () => {
     return membershipTiers.find((tier) => tier.id === formData.subscription);
@@ -533,43 +532,6 @@ const ProfileEdit: React.FC = () => {
       } catch {
         alert("Erreur lors de l'annulation de l'abonnement.");
       }
-    }
-  };
-
-  const handleCardUpdate = async () => {
-    if (!currentSubscription || !userProfile) return;
-
-    setIsPaymentLoading(true);
-
-    try {
-      const response = await fetch("/api/stripe?action=update-payment-method", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: userProfile.email,
-          subscriptionId: currentSubscription.id,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        alert("Votre carte bancaire a été mise à jour avec succès.");
-        setShowCardUpdate(false);
-        // Refresh payment data
-        fetchPaymentData(userProfile.email);
-      } else {
-        alert(
-          "Erreur lors de la mise à jour: " +
-            (result.error || "Erreur inconnue"),
-        );
-      }
-    } catch {
-      alert("Erreur lors de la mise à jour de la carte bancaire.");
-    } finally {
-      setIsPaymentLoading(false);
     }
   };
 
@@ -1315,7 +1277,7 @@ const ProfileEdit: React.FC = () => {
                               Gestion de l'abonnement
                             </h5>
                             <div className="flex flex-wrap gap-3">
-                              {/* Show different buttons based on effective subscription status */}
+                              {/* Show cancel button for active subscriptions */}
                               {(getEffectiveSubscriptionStatus() === "active" ||
                                 getEffectiveSubscriptionStatus() ===
                                   "trialing") &&
@@ -1323,26 +1285,13 @@ const ProfileEdit: React.FC = () => {
                                   currentSubscription.cancel_at_period_end ??
                                   false
                                 ) && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setShowCardUpdate(!showCardUpdate)
-                                      }
-                                      className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition-colors"
-                                    >
-                                      {showCardUpdate
-                                        ? "Annuler"
-                                        : "Modifier la carte bancaire"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={handleCancelSubscription}
-                                      className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-colors"
-                                    >
-                                      Annuler l'abonnement automatique
-                                    </button>
-                                  </>
+                                  <button
+                                    type="button"
+                                    onClick={handleCancelSubscription}
+                                    className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-colors"
+                                  >
+                                    Annuler l'abonnement automatique
+                                  </button>
                                 )}
 
                               {/* Show reactivate button if subscription was canceled */}
@@ -1366,35 +1315,6 @@ const ProfileEdit: React.FC = () => {
                                 </button>
                               )}
                             </div>
-
-                            {/* Card Update Form */}
-                            {showCardUpdate && (
-                              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                                <h6 className="font-medium text-gray-900 mb-3">
-                                  Mettre à jour la carte bancaire
-                                </h6>
-                                <StripeCardInput />
-                                <div className="flex gap-3 mt-4">
-                                  <button
-                                    type="button"
-                                    onClick={handleCardUpdate}
-                                    disabled={isPaymentLoading}
-                                    className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50"
-                                  >
-                                    {isPaymentLoading
-                                      ? "Mise à jour..."
-                                      : "Mettre à jour"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowCardUpdate(false)}
-                                    className="text-sm bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors"
-                                  >
-                                    Annuler
-                                  </button>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>
@@ -1626,6 +1546,20 @@ const ProfileEdit: React.FC = () => {
                           </div>
                         </div>
 
+                        {/* Show current card if exists */}
+                        {currentSubscription?.card_last4 && (
+                          <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                            <p className="text-sm text-gray-600">
+                              Carte actuelle:{" "}
+                              {currentSubscription.card_brand?.toUpperCase()}{" "}
+                              •••• {currentSubscription.card_last4}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Entrez une nouvelle carte ci-dessous pour la
+                              remplacer
+                            </p>
+                          </div>
+                        )}
                         <StripeCardInput />
                       </>
                     )}

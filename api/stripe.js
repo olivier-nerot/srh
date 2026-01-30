@@ -585,6 +585,7 @@ async function getSubscriptions(req, res) {
         customer: customer.id,
         status: "all", // Get all statuses (active, past_due, canceled, etc.)
         limit: 100,
+        expand: ['data.default_payment_method'], // Include payment method info
       };
       const subscriptions = await stripe.subscriptions.list(
         subscriptionListParams,
@@ -595,10 +596,17 @@ async function getSubscriptions(req, res) {
 
       // Format and add subscriptions from this customer
       subscriptions.data.forEach((sub) => {
+        // Extract card info from default_payment_method if available
+        const paymentMethod = sub.default_payment_method;
+        const cardInfo = paymentMethod && typeof paymentMethod === 'object' && paymentMethod.card
+          ? { last4: paymentMethod.card.last4, brand: paymentMethod.card.brand }
+          : { last4: null, brand: null };
+
         console.log(`  Subscription ${sub.id}:`, {
           status: sub.status,
           amount: sub.items.data[0]?.price?.unit_amount / 100,
           tier: sub.metadata?.tier,
+          card: cardInfo.last4 ? `${cardInfo.brand} ****${cardInfo.last4}` : 'none',
         });
 
         allSubscriptions.push({
@@ -614,6 +622,8 @@ async function getSubscriptions(req, res) {
           customer_email: customer.email,
           cancel_at_period_end: sub.cancel_at_period_end,
           canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+          card_last4: cardInfo.last4,
+          card_brand: cardInfo.brand,
         });
       });
     }
