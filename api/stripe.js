@@ -63,6 +63,8 @@ export default async function handler(req, res) {
         return await cleanupDuplicateSubscriptions(req, res);
       case "get-duplicate-subscriptions":
         return await getDuplicateSubscriptions(req, res);
+      case "create-subscription-after-payment":
+        return await createSubscriptionAfterPayment(req, res);
       default:
         return res.status(400).json({ error: "Invalid action" });
     }
@@ -362,10 +364,89 @@ async function createPayment(req, res) {
       // First create a price object for this tier if it doesn't exist
       const priceId = await createOrGetPrice(tierData, requestOptions);
 
+      // Check if customer has ANY payment history (charges, payment intents, setup intents)
+      // Trial period ONLY applies to brand new members who have NEVER interacted with Stripe
+      let hasPaymentHistory = false;
+      try {
+        // Check for any charges (successful or not)
+        const charges = await stripe.charges.list(
+          { customer: stripeCustomer.id, limit: 1 },
+          requestOptions
+        );
+        if (charges.data.length > 0) {
+          hasPaymentHistory = true;
+          console.log(`Customer ${stripeCustomer.id} has charge history - no trial period`);
+        }
+
+        // Check for any payment intents (successful or not)
+        if (!hasPaymentHistory) {
+          const paymentIntents = await stripe.paymentIntents.list(
+            { customer: stripeCustomer.id, limit: 1 },
+            requestOptions
+          );
+          if (paymentIntents.data.length > 0) {
+            hasPaymentHistory = true;
+            console.log(`Customer ${stripeCustomer.id} has payment intent history - no trial period`);
+          }
+        }
+
+        // Check for any past subscriptions
+        if (!hasPaymentHistory) {
+          const subscriptions = await stripe.subscriptions.list(
+            { customer: stripeCustomer.id, status: 'all', limit: 1 },
+            requestOptions
+          );
+          if (subscriptions.data.length > 0) {
+            hasPaymentHistory = true;
+            console.log(`Customer ${stripeCustomer.id} has subscription history - no trial period`);
+          }
+        }
+      } catch (historyError) {
+        console.log('Error checking payment history:', historyError.message);
+        // If we can't check history, assume they have history (safer to charge than give free trial)
+        hasPaymentHistory = true;
+      }
+
       // Calculate days until next January 1st (all members renew on the same date)
       const today = new Date();
       const nextJan1 = new Date(today.getFullYear() + 1, 0, 1); // January 1st next year
       const trialPeriod = Math.ceil((nextJan1.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (hasPaymentHistory) {
+        // Existing member: charge immediately, subscription renews on Jan 1st
+        console.log(`Creating subscription WITH immediate payment for existing member`);
+
+        // Create PaymentIntent to charge immediately
+        const paymentIntent = await stripe.paymentIntents.create(
+          {
+            amount: amount,
+            currency: currency,
+            customer: stripeCustomer.id,
+            metadata: {
+              tier: tierData.id,
+              hospital: customer.hospital || "",
+              type: "recurring_subscription_payment",
+            },
+          },
+          requestOptions,
+        );
+
+        return res.status(200).json({
+          success: true,
+          type: "subscription_with_payment",
+          clientSecret: paymentIntent.client_secret,
+          customer: stripeCustomer,
+          // Subscription will be created after payment confirmation via webhook or frontend
+          pendingSubscription: {
+            priceId: priceId,
+            trialPeriod: trialPeriod, // Trial until Jan 1st (but payment already made)
+            tier: tierData.id,
+          },
+        });
+      }
+
+      // Brand new member with NO payment history: create trial subscription
+      console.log(`Creating subscription with trial period for NEW member (${trialPeriod} days)`);
 
       // For subscriptions with trial, we need to create a SetupIntent (not PaymentIntent)
       // to save the payment method WITHOUT charging immediately
@@ -399,6 +480,7 @@ async function createPayment(req, res) {
           tier: tierData.id,
           hospital: customer.hospital || "",
           free_trial: `${trialPeriod} days`,
+          is_first_time_member: "true",
         },
       };
       const subscription = await stripe.subscriptions.create(
@@ -1728,6 +1810,98 @@ async function cleanupDuplicateSubscriptions(req, res) {
     return res.status(500).json({
       success: false,
       error: "Error cleaning up duplicate subscriptions",
+      details: error.message,
+    });
+  }
+}
+
+// Create subscription after payment confirmation (for existing members who pay immediately)
+async function createSubscriptionAfterPayment(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const { email, priceId, trialPeriod, tier, paymentIntentId } = req.body;
+
+    if (!email || !priceId) {
+      return res.status(400).json({
+        error: "Missing required fields: email, priceId",
+      });
+    }
+
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+    };
+
+    // Find customer by email
+    const customers = await stripe.customers.list(
+      { email: email, limit: 1 },
+      requestOptions
+    );
+
+    if (customers.data.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Customer not found",
+      });
+    }
+
+    const customer = customers.data[0];
+
+    // Get payment method from the payment intent
+    let paymentMethodId = null;
+    if (paymentIntentId) {
+      try {
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          paymentIntentId,
+          requestOptions
+        );
+        paymentMethodId = paymentIntent.payment_method;
+      } catch (piError) {
+        console.log("Could not retrieve payment intent:", piError.message);
+      }
+    }
+
+    // Create subscription with trial period until Jan 1st
+    // The customer has already paid, so this is just for tracking renewal
+    const subscriptionParams = {
+      customer: customer.id,
+      items: [{ price: priceId }],
+      trial_period_days: trialPeriod || 335, // Default ~11 months if not specified
+      payment_settings: {
+        save_default_payment_method: "on_subscription",
+        payment_method_types: ['card'],
+      },
+      metadata: {
+        tier: tier || "unknown",
+        created_after_payment: "true",
+        payment_intent_id: paymentIntentId || "",
+      },
+    };
+
+    // Attach payment method if available
+    if (paymentMethodId) {
+      subscriptionParams.default_payment_method = paymentMethodId;
+    }
+
+    const subscription = await stripe.subscriptions.create(
+      subscriptionParams,
+      requestOptions
+    );
+
+    console.log(`Created subscription ${subscription.id} for ${email} after payment confirmation`);
+
+    return res.status(200).json({
+      success: true,
+      subscriptionId: subscription.id,
+      status: subscription.status,
+    });
+  } catch (error) {
+    console.error("Error creating subscription after payment:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error creating subscription",
       details: error.message,
     });
   }

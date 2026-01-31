@@ -194,6 +194,49 @@ const ProfileEdit: React.FC = () => {
           );
         }
 
+        // For existing members: create subscription after payment confirmation
+        if (
+          result.type === "subscription_with_payment" &&
+          result.pendingSubscription
+        ) {
+          try {
+            // Get paymentIntent ID from the confirmation result (only present for card payments, not setup)
+            const paymentIntentId =
+              "paymentIntent" in confirmationResult
+                ? confirmationResult.paymentIntent?.id
+                : undefined;
+
+            const subResponse = await fetch(
+              "/api/stripe?action=create-subscription-after-payment",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email: user.email,
+                  priceId: result.pendingSubscription.priceId,
+                  trialPeriod: result.pendingSubscription.trialPeriod,
+                  tier: result.pendingSubscription.tier,
+                  paymentIntentId: paymentIntentId,
+                }),
+              },
+            );
+            const subResult = await subResponse.json();
+            if (!subResult.success) {
+              console.error(
+                "Failed to create subscription after payment:",
+                subResult.error,
+              );
+              // Payment succeeded but subscription creation failed - still return success
+              // Admin will need to manually create the subscription
+            }
+          } catch (subError) {
+            console.error(
+              "Error creating subscription after payment:",
+              subError,
+            );
+          }
+        }
+
         return {
           success: true,
           data: { ...result, confirmation: confirmationResult },
