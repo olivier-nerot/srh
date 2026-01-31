@@ -7,8 +7,6 @@ import {
   Briefcase,
   AlertCircle,
   CreditCard,
-  Euro,
-  Calendar,
 } from "lucide-react";
 import { getUserById } from "../services/userService";
 import {
@@ -585,148 +583,6 @@ const ProfileEdit: React.FC = () => {
     }
   };
 
-  const handleCancelSubscription = async () => {
-    if (!currentSubscription || !userProfile) return;
-
-    const confirmed = window.confirm(
-      "Êtes-vous sûr de vouloir annuler votre abonnement automatique ? Votre adhésion restera active jusqu'à la fin de la période déjà payée.",
-    );
-
-    if (confirmed) {
-      try {
-        const response = await fetch("/api/stripe?action=cancel-subscription", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: userProfile.email,
-            subscriptionId: currentSubscription.id,
-          }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          alert(
-            "Votre abonnement automatique a été annulé. Votre adhésion reste active jusqu'à la fin de la période payée.",
-          );
-          // Refresh payment data
-          fetchPaymentData(userProfile.email);
-        } else {
-          alert(
-            "Erreur lors de l'annulation: " +
-              (result.error || "Erreur inconnue"),
-          );
-        }
-      } catch {
-        alert("Erreur lors de l'annulation de l'abonnement.");
-      }
-    }
-  };
-
-  const handleMakeRecurring = async () => {
-    if (!userProfile || !getSelectedTierData()) return;
-
-    const confirmed = window.confirm(
-      "Voulez-vous activer le renouvellement automatique de votre adhésion ? Votre carte sera débitée automatiquement chaque année.",
-    );
-
-    if (!confirmed) return;
-
-    setIsPaymentLoading(true);
-
-    try {
-      const selectedTierData = getSelectedTierData();
-
-      const response = await fetch(
-        "/api/stripe?action=create-recurring-subscription",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: userProfile.email,
-            tierData: selectedTierData || {
-              id: formData.subscription,
-              title: membershipTiers.find((t) => t.id === formData.subscription)
-                ?.title,
-              price:
-                membershipTiers.find((t) => t.id === formData.subscription)
-                  ?.price || 0,
-            },
-          }),
-        },
-      );
-
-      const result = await response.json();
-
-      if (result.success) {
-        alert(
-          "Abonnement automatique activé avec succès ! Votre adhésion se renouvellera automatiquement chaque année.",
-        );
-        // Refresh payment data
-        fetchPaymentData(userProfile.email);
-      } else {
-        alert(
-          "Erreur lors de l'activation: " + (result.error || "Erreur inconnue"),
-        );
-      }
-    } catch {
-      alert("Erreur lors de l'activation de l'abonnement automatique.");
-    } finally {
-      setIsPaymentLoading(false);
-    }
-  };
-
-  const handleReactivateSubscription = async () => {
-    if (!currentSubscription || !userProfile) return;
-
-    const confirmed = window.confirm(
-      "Voulez-vous réactiver votre abonnement automatique ? Le renouvellement automatique reprendra à la fin de la période actuelle.",
-    );
-
-    if (!confirmed) return;
-
-    setIsPaymentLoading(true);
-
-    try {
-      const response = await fetch(
-        "/api/stripe?action=reactivate-subscription",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: userProfile.email,
-            subscriptionId: currentSubscription.id,
-          }),
-        },
-      );
-
-      const result = await response.json();
-
-      if (result.success) {
-        alert(
-          "Votre abonnement automatique a été réactivé avec succès ! Le renouvellement reprendra à la fin de la période actuelle.",
-        );
-        // Refresh payment data
-        fetchPaymentData(userProfile.email);
-      } else {
-        alert(
-          "Erreur lors de la réactivation: " +
-            (result.error || "Erreur inconnue"),
-        );
-      }
-    } catch {
-      alert("Erreur lors de la réactivation de l'abonnement.");
-    } finally {
-      setIsPaymentLoading(false);
-    }
-  };
-
   const handleRetryPayment = async () => {
     if (!userProfile) return;
 
@@ -1294,12 +1150,10 @@ const ProfileEdit: React.FC = () => {
                         </span>
                       </div>
                     ) : currentPayment ? (
-                      <div className="space-y-4">
-                        {/* Payment Status */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">
-                            Statut de l'adhésion:
-                          </span>
+                      <div className="space-y-3">
+                        {/* Clean list layout: title left, value right */}
+                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="text-sm text-gray-600">Statut</span>
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatus().color}`}
                           >
@@ -1307,129 +1161,78 @@ const ProfileEdit: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Payment Details */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <span className="text-sm text-gray-600">
-                              {getPaymentStatus().failed
-                                ? "Montant en attente:"
-                                : "Montant payé:"}
-                            </span>
-                            <div
-                              className={`text-lg font-semibold flex items-center ${getPaymentStatus().failed ? "text-red-600" : "text-green-600"}`}
-                            >
-                              <Euro className="h-4 w-4 mr-1" />
-                              {currentPayment.amount} €
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-600">
-                              {getPaymentStatus().failed
-                                ? "Tentative de paiement:"
-                                : "Date de paiement:"}
-                            </span>
-                            <div className="text-sm text-gray-900 flex items-center">
-                              <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                              {formatDate(currentPayment.created)}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-600">
-                              Type d'abonnement:
-                            </span>
-                            <div className="text-sm text-gray-900">
-                              {currentSubscription
-                                ? "Abonnement automatique"
-                                : "Paiement unique"}
-                              {currentSubscription && (
-                                <span
-                                  className={`ml-2 ${getSubscriptionStatusLabel().color}`}
-                                >
-                                  ✓ {getSubscriptionStatusLabel().label}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-600">
-                              Fin d'adhésion:
-                            </span>
-                            <div className="text-sm text-gray-900 flex items-center">
-                              <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                              {getMembershipEndDate()
-                                ? formatDate(getMembershipEndDate()!)
-                                : "Non définie"}
-                            </div>
-                          </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="text-sm text-gray-600">
+                            {getPaymentStatus().failed
+                              ? "Montant en attente"
+                              : "Montant payé"}
+                          </span>
+                          <span
+                            className={`text-sm font-semibold ${getPaymentStatus().failed ? "text-red-600" : "text-green-600"}`}
+                          >
+                            {currentPayment.amount} €
+                          </span>
                         </div>
 
-                        {/* Recurring Payment Advice */}
-                        {!currentSubscription && isValidRegistration() && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                            <div className="flex items-start">
-                              <CreditCard className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-                              <div>
-                                <h5 className="text-sm font-medium text-blue-900">
-                                  Conseil : Activez l'abonnement automatique
-                                </h5>
-                                <p className="text-sm text-blue-800 mt-1">
-                                  Pour ne jamais oublier de renouveler votre
-                                  adhésion, activez l'abonnement automatique.
-                                  Votre carte sera débitée automatiquement
-                                  chaque année à la même date.
-                                </p>
-                              </div>
-                            </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="text-sm text-gray-600">
+                            {getPaymentStatus().failed
+                              ? "Tentative de paiement"
+                              : "Date de paiement"}
+                          </span>
+                          <span className="text-sm text-gray-900">
+                            {formatDate(currentPayment.created)}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="text-sm text-gray-600">
+                            Type de paiement
+                          </span>
+                          <span className="text-sm text-gray-900">
+                            {currentSubscription
+                              ? "Abonnement automatique"
+                              : "Paiement unique"}
+                          </span>
+                        </div>
+
+                        {currentSubscription && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                            <span className="text-sm text-gray-600">
+                              Statut abonnement
+                            </span>
+                            <span
+                              className={`text-sm font-medium ${getSubscriptionStatusLabel().color}`}
+                            >
+                              {getSubscriptionStatusLabel().label}
+                            </span>
                           </div>
                         )}
 
-                        {/* Payment Management Actions */}
-                        {currentSubscription && (
-                          <div className="border-t border-gray-200 pt-4 space-y-3">
-                            <h5 className="font-medium text-gray-900">
-                              Gestion de l'abonnement
-                            </h5>
-                            <div className="flex flex-wrap gap-3">
-                              {/* Show retry payment button for failed payments */}
-                              {getSubscriptionStatusLabel().canRetry && (
-                                <button
-                                  type="button"
-                                  onClick={handleRetryPayment}
-                                  disabled={isPaymentLoading}
-                                  className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition-colors disabled:opacity-50"
-                                >
-                                  {isPaymentLoading
-                                    ? "Relance en cours..."
-                                    : "Relancer le paiement"}
-                                </button>
-                              )}
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-600">
+                            Fin d'adhésion
+                          </span>
+                          <span className="text-sm text-gray-900">
+                            {getMembershipEndDate()
+                              ? formatDate(getMembershipEndDate()!)
+                              : "Non définie"}
+                          </span>
+                        </div>
 
-                              {/* Show cancel button for active subscriptions */}
-                              {getSubscriptionStatusLabel().canCancel && (
-                                <button
-                                  type="button"
-                                  onClick={handleCancelSubscription}
-                                  className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-colors"
-                                >
-                                  Annuler l'abonnement automatique
-                                </button>
-                              )}
-
-                              {/* Show reactivate button if subscription was scheduled to cancel or fully canceled */}
-                              {(currentSubscription.cancel_at_period_end ||
-                                currentSubscription.status === "canceled") && (
-                                <button
-                                  type="button"
-                                  onClick={handleReactivateSubscription}
-                                  disabled={isPaymentLoading}
-                                  className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md transition-colors disabled:opacity-50"
-                                >
-                                  {isPaymentLoading
-                                    ? "Activation..."
-                                    : "Réactiver l'abonnement automatique"}
-                                </button>
-                              )}
-                            </div>
+                        {/* Retry payment button for failed payments only */}
+                        {getSubscriptionStatusLabel().canRetry && (
+                          <div className="pt-4">
+                            <button
+                              type="button"
+                              onClick={handleRetryPayment}
+                              disabled={isPaymentLoading}
+                              className="w-full text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50"
+                            >
+                              {isPaymentLoading
+                                ? "Relance en cours..."
+                                : "Relancer le paiement"}
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1442,84 +1245,6 @@ const ProfileEdit: React.FC = () => {
                       </div>
                     )}
                   </div>
-
-                  {/* Reactivate Subscription - Only for subscriptions scheduled to cancel (not fully canceled) */}
-                  {currentSubscription &&
-                    (currentSubscription.status === "active" ||
-                      currentSubscription.status === "trialing") &&
-                    currentSubscription.cancel_at_period_end &&
-                    isValidRegistration() && (
-                      <div className="border-t border-gray-200 pt-6">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                          Réactiver l'abonnement automatique
-                        </h4>
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <div className="flex items-start">
-                            <CreditCard className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-                            <div className="flex-1">
-                              <h5 className="text-sm font-medium text-blue-900 mb-2">
-                                Réactiver l'abonnement automatique
-                              </h5>
-                              <p className="text-sm text-blue-800 mb-4">
-                                Votre abonnement est programmé pour s'arrêter à
-                                la fin de la période actuelle. Réactivez-le pour
-                                continuer le renouvellement automatique.
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => handleReactivateSubscription()}
-                                disabled={isPaymentLoading}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
-                              >
-                                {isPaymentLoading
-                                  ? "Activation en cours..."
-                                  : "Réactiver l'abonnement automatique"}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                  {/* Create New Subscription - For no subscription or fully canceled subscription */}
-                  {(!currentSubscription ||
-                    currentSubscription.status === "canceled") &&
-                    isValidRegistration() && (
-                      <div className="border-t border-gray-200 pt-6">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                          Activer l'abonnement automatique
-                        </h4>
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <div className="flex items-start">
-                            <CreditCard className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-                            <div className="flex-1">
-                              <h5 className="text-sm font-medium text-blue-900 mb-2">
-                                {currentSubscription?.status === "canceled"
-                                  ? "Créer un nouvel abonnement"
-                                  : "Convertir en abonnement automatique"}
-                              </h5>
-                              <p className="text-sm text-blue-800 mb-4">
-                                {currentSubscription?.status === "canceled"
-                                  ? "Votre ancien abonnement a été définitivement annulé. Créez un nouvel abonnement pour reprendre le renouvellement automatique."
-                                  : "Activez le renouvellement automatique pour ne jamais oublier votre adhésion. Votre carte sera débitée automatiquement chaque année."}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => handleMakeRecurring()}
-                                disabled={isPaymentLoading}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
-                              >
-                                {isPaymentLoading
-                                  ? "Activation en cours..."
-                                  : currentSubscription?.status === "canceled"
-                                    ? "Créer un nouvel abonnement"
-                                    : "Activer l'abonnement automatique"}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
 
                   {/* Payment/Renewal Section - Always show for all users */}
                   <div className="border-t border-gray-200 pt-6">
