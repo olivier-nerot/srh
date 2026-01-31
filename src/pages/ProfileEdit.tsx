@@ -14,6 +14,7 @@ import { getUserById } from "../services/userService";
 import {
   getUserLastPayment,
   getUserSubscriptions,
+  retryPayment,
   type Payment,
   type Subscription,
 } from "../services/paymentService";
@@ -417,20 +418,6 @@ const ProfileEdit: React.FC = () => {
     return true;
   };
 
-  // Get effective subscription status (treats paid 'trialing' as 'active')
-  const getEffectiveSubscriptionStatus = (): string => {
-    if (!currentSubscription) return "";
-    // If subscription is 'trialing' but user has paid, treat as 'active'
-    if (
-      currentSubscription.status === "trialing" &&
-      currentPayment &&
-      currentPayment.status === "succeeded"
-    ) {
-      return "active";
-    }
-    return currentSubscription.status;
-  };
-
   // Calculate the membership end date based on payment date
   // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
   const getMembershipEndDate = (): Date | null => {
@@ -463,19 +450,122 @@ const ProfileEdit: React.FC = () => {
 
   const getPaymentStatus = () => {
     if (!currentPayment)
-      return { label: "Aucun paiement", color: "bg-gray-100 text-gray-800" };
+      return {
+        label: "Aucun paiement",
+        color: "bg-gray-100 text-gray-800",
+        failed: false,
+      };
 
     if (currentPayment.status !== "succeeded") {
-      return { label: "Paiement échoué", color: "bg-red-100 text-red-800" };
+      return {
+        label: "Paiement échoué",
+        color: "bg-red-100 text-red-800",
+        failed: true,
+      };
     }
 
     if (isValidRegistration()) {
-      return { label: "Adhésion valide", color: "bg-green-100 text-green-800" };
+      return {
+        label: "Adhésion valide",
+        color: "bg-green-100 text-green-800",
+        failed: false,
+      };
     } else {
       return {
         label: "Adhésion expirée",
         color: "bg-orange-100 text-orange-800",
+        failed: false,
       };
+    }
+  };
+
+  // Get a user-friendly subscription status label
+  const getSubscriptionStatusLabel = (): {
+    label: string;
+    color: string;
+    canCancel: boolean;
+    canRetry: boolean;
+  } => {
+    if (!currentSubscription) {
+      return { label: "", color: "", canCancel: false, canRetry: false };
+    }
+
+    const status = currentSubscription.status;
+    const cancelAtPeriodEnd = currentSubscription.cancel_at_period_end ?? false;
+
+    switch (status) {
+      case "active":
+        if (cancelAtPeriodEnd) {
+          return {
+            label: "Annulation programmée",
+            color: "text-orange-600",
+            canCancel: false,
+            canRetry: false,
+          };
+        }
+        return {
+          label: "Actif",
+          color: "text-green-600",
+          canCancel: true,
+          canRetry: false,
+        };
+      case "trialing":
+        if (isInTrialPeriod()) {
+          return {
+            label: "Période d'essai",
+            color: "text-blue-600",
+            canCancel: true,
+            canRetry: false,
+          };
+        }
+        return {
+          label: "Actif",
+          color: "text-green-600",
+          canCancel: true,
+          canRetry: false,
+        };
+      case "past_due":
+        return {
+          label: "En attente de paiement",
+          color: "text-red-600",
+          canCancel: true,
+          canRetry: true,
+        };
+      case "unpaid":
+        return {
+          label: "Impayé",
+          color: "text-red-600",
+          canCancel: true,
+          canRetry: true,
+        };
+      case "canceled":
+        return {
+          label: "Annulé",
+          color: "text-gray-600",
+          canCancel: false,
+          canRetry: false,
+        };
+      case "incomplete":
+        return {
+          label: "Incomplet",
+          color: "text-orange-600",
+          canCancel: false,
+          canRetry: true,
+        };
+      case "incomplete_expired":
+        return {
+          label: "Expiré",
+          color: "text-gray-600",
+          canCancel: false,
+          canRetry: false,
+        };
+      default:
+        return {
+          label: "Inconnu",
+          color: "text-gray-600",
+          canCancel: false,
+          canRetry: false,
+        };
     }
   };
 
@@ -632,6 +722,41 @@ const ProfileEdit: React.FC = () => {
       }
     } catch {
       alert("Erreur lors de la réactivation de l'abonnement.");
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
+
+  const handleRetryPayment = async () => {
+    if (!userProfile) return;
+
+    const confirmed = window.confirm(
+      "Voulez-vous relancer le paiement ? Votre carte sera débitée si le paiement réussit.",
+    );
+
+    if (!confirmed) return;
+
+    setIsPaymentLoading(true);
+
+    try {
+      const result = await retryPayment(
+        userProfile.email,
+        currentSubscription?.id,
+      );
+
+      if (result.success) {
+        alert(result.message || "Le paiement a été relancé avec succès !");
+        // Refresh payment data
+        fetchPaymentData(userProfile.email);
+      } else {
+        alert(
+          "Erreur lors de la relance du paiement: " +
+            (result.error || "Erreur inconnue") +
+            (result.details ? `\n\nDétails: ${result.details}` : ""),
+        );
+      }
+    } catch {
+      alert("Erreur lors de la relance du paiement.");
     } finally {
       setIsPaymentLoading(false);
     }
@@ -1186,16 +1311,22 @@ const ProfileEdit: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <span className="text-sm text-gray-600">
-                              Montant payé:
+                              {getPaymentStatus().failed
+                                ? "Montant en attente:"
+                                : "Montant payé:"}
                             </span>
-                            <div className="text-lg font-semibold text-green-600 flex items-center">
+                            <div
+                              className={`text-lg font-semibold flex items-center ${getPaymentStatus().failed ? "text-red-600" : "text-green-600"}`}
+                            >
                               <Euro className="h-4 w-4 mr-1" />
                               {currentPayment.amount} €
                             </div>
                           </div>
                           <div>
                             <span className="text-sm text-gray-600">
-                              Date de paiement:
+                              {getPaymentStatus().failed
+                                ? "Tentative de paiement:"
+                                : "Date de paiement:"}
                             </span>
                             <div className="text-sm text-gray-900 flex items-center">
                               <Calendar className="h-4 w-4 mr-1 text-gray-400" />
@@ -1212,27 +1343,9 @@ const ProfileEdit: React.FC = () => {
                                 : "Paiement unique"}
                               {currentSubscription && (
                                 <span
-                                  className={`ml-2 ${
-                                    getEffectiveSubscriptionStatus() ===
-                                      "active" ||
-                                    getEffectiveSubscriptionStatus() ===
-                                      "trialing"
-                                      ? "text-green-600"
-                                      : getEffectiveSubscriptionStatus() ===
-                                          "canceled"
-                                        ? "text-orange-600"
-                                        : "text-red-600"
-                                  }`}
+                                  className={`ml-2 ${getSubscriptionStatusLabel().color}`}
                                 >
-                                  ✓{" "}
-                                  {getEffectiveSubscriptionStatus() === "active"
-                                    ? "Actif"
-                                    : isInTrialPeriod()
-                                      ? "Période d'essai"
-                                      : getEffectiveSubscriptionStatus() ===
-                                          "canceled"
-                                        ? "Annulé"
-                                        : "Inactif"}
+                                  ✓ {getSubscriptionStatusLabel().label}
                                 </span>
                               )}
                             </div>
@@ -1277,32 +1390,34 @@ const ProfileEdit: React.FC = () => {
                               Gestion de l'abonnement
                             </h5>
                             <div className="flex flex-wrap gap-3">
-                              {/* Show cancel button for active subscriptions */}
-                              {(getEffectiveSubscriptionStatus() === "active" ||
-                                getEffectiveSubscriptionStatus() ===
-                                  "trialing") &&
-                                !(
-                                  currentSubscription.cancel_at_period_end ??
-                                  false
-                                ) && (
-                                  <button
-                                    type="button"
-                                    onClick={handleCancelSubscription}
-                                    className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-colors"
-                                  >
-                                    Annuler l'abonnement automatique
-                                  </button>
-                                )}
+                              {/* Show retry payment button for failed payments */}
+                              {getSubscriptionStatusLabel().canRetry && (
+                                <button
+                                  type="button"
+                                  onClick={handleRetryPayment}
+                                  disabled={isPaymentLoading}
+                                  className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition-colors disabled:opacity-50"
+                                >
+                                  {isPaymentLoading
+                                    ? "Relance en cours..."
+                                    : "Relancer le paiement"}
+                                </button>
+                              )}
 
-                              {/* Show reactivate button if subscription was canceled */}
-                              {(((getEffectiveSubscriptionStatus() ===
-                                "active" ||
-                                getEffectiveSubscriptionStatus() ===
-                                  "trialing") &&
-                                (currentSubscription.cancel_at_period_end ??
-                                  false)) ||
-                                getEffectiveSubscriptionStatus() ===
-                                  "canceled") && (
+                              {/* Show cancel button for active subscriptions */}
+                              {getSubscriptionStatusLabel().canCancel && (
+                                <button
+                                  type="button"
+                                  onClick={handleCancelSubscription}
+                                  className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-colors"
+                                >
+                                  Annuler l'abonnement automatique
+                                </button>
+                              )}
+
+                              {/* Show reactivate button if subscription was scheduled to cancel or fully canceled */}
+                              {(currentSubscription.cancel_at_period_end ||
+                                currentSubscription.status === "canceled") && (
                                 <button
                                   type="button"
                                   onClick={handleReactivateSubscription}
