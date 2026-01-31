@@ -224,19 +224,24 @@ const Profile: React.FC = () => {
     return true;
   };
 
-  // Calculate the membership end date based on payment date
+  // Calculate the membership end date based on payment or subscription
   // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
   const getMembershipEndDate = (): Date | null => {
-    if (!payment || payment.status !== "succeeded") {
-      return null;
+    // First try: use payment date if available
+    if (payment && payment.status === "succeeded") {
+      const paymentDate = new Date(payment.created);
+      const paymentYear = paymentDate.getFullYear();
+      // The payment covers the SAME calendar year
+      // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
+      return new Date(paymentYear, 11, 31); // December 31 of payment year
     }
 
-    const paymentDate = new Date(payment.created);
-    const paymentYear = paymentDate.getFullYear();
+    // Fallback: use subscription period end if available
+    if (activeSubscription && activeSubscription.current_period_end) {
+      return new Date(activeSubscription.current_period_end);
+    }
 
-    // The payment covers the SAME calendar year
-    // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
-    return new Date(paymentYear, 11, 31); // December 31 of payment year
+    return null;
   };
 
   const isValidRegistration = (): boolean => {
@@ -286,10 +291,25 @@ const Profile: React.FC = () => {
       };
     }
 
-    if (!payment)
-      return { label: "Aucun paiement", color: "bg-gray-100 text-gray-800" };
+    // Check if there's a valid subscription even without a standalone payment
+    if (!payment && activeSubscription) {
+      // Active subscription without payment = membership is valid
+      if (
+        activeSubscription.status === "active" ||
+        activeSubscription.status === "trialing"
+      ) {
+        return {
+          label: "Adhésion valide",
+          color: "bg-green-100 text-green-800",
+        };
+      }
+    }
 
-    if (payment.status !== "succeeded") {
+    if (!payment && !activeSubscription) {
+      return { label: "Aucun paiement", color: "bg-gray-100 text-gray-800" };
+    }
+
+    if (payment && payment.status !== "succeeded") {
       return { label: "Paiement échoué", color: "bg-red-100 text-red-800" };
     }
 
@@ -659,7 +679,7 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  ) : payment ? (
+                  ) : payment || activeSubscription ? (
                     <div className="space-y-4">
                       {/* Payment Status */}
                       <div className="flex items-center justify-between">
@@ -673,36 +693,107 @@ const Profile: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* Payment Details */}
+                      {/* Payment/Subscription Details */}
                       <div className="border-t border-gray-200 pt-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">
-                            Montant:
-                          </span>
-                          <span className="text-sm font-medium text-green-600 flex items-center">
-                            <Euro className="h-3 w-3 mr-1" />
-                            {payment.amount} €
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">
-                            Date de paiement:
-                          </span>
-                          <span className="text-sm text-gray-900">
-                            {formatDate(payment.created)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">
-                            ID de transaction:
-                          </span>
-                          <span className="text-xs text-gray-500 font-mono">
-                            {payment.id}
-                          </span>
-                        </div>
+                        {/* Show payment details if payment exists */}
+                        {payment ? (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">
+                                Montant:
+                              </span>
+                              <span className="text-sm font-medium text-green-600 flex items-center">
+                                <Euro className="h-3 w-3 mr-1" />
+                                {payment.amount} €
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">
+                                Date de paiement:
+                              </span>
+                              <span className="text-sm text-gray-900">
+                                {formatDate(payment.created)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">
+                                ID de transaction:
+                              </span>
+                              <span className="text-xs text-gray-500 font-mono">
+                                {payment.id}
+                              </span>
+                            </div>
+                          </>
+                        ) : activeSubscription ? (
+                          /* Show subscription details when no payment but subscription exists */
+                          <>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">
+                                Montant de l'adhésion:
+                              </span>
+                              <span className="text-sm font-medium text-gray-900 flex items-center">
+                                <Euro className="h-3 w-3 mr-1" />
+                                {activeSubscription.amount} €
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">
+                                Fin d'adhésion:
+                              </span>
+                              <span className="text-sm text-gray-900">
+                                {formatDate(
+                                  activeSubscription.current_period_end,
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">
+                                ID d'abonnement:
+                              </span>
+                              <span className="text-xs text-gray-500 font-mono">
+                                {activeSubscription.id}
+                              </span>
+                            </div>
+                          </>
+                        ) : null}
+
+                        {/* Next Payment Date and Subscription Type - show for all active subscriptions */}
+                        {activeSubscription &&
+                          (activeSubscription.status === "active" ||
+                            activeSubscription.status === "trialing") && (
+                            <>
+                              <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                                <span className="text-sm text-gray-600">
+                                  Prochain paiement:
+                                </span>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {formatDate(
+                                    activeSubscription.current_period_end,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <span className="text-sm text-gray-600">
+                                  Type:
+                                </span>
+                                <span
+                                  className={`text-sm font-medium ${
+                                    activeSubscription.cancel_at_period_end
+                                      ? "text-gray-600"
+                                      : "text-blue-600"
+                                  }`}
+                                >
+                                  {activeSubscription.cancel_at_period_end
+                                    ? "Paiement unique"
+                                    : "Abonnement récurrent"}
+                                </span>
+                              </div>
+                            </>
+                          )}
 
                         {/* Failure reason for failed payments */}
-                        {payment.status !== "succeeded" &&
+                        {payment &&
+                          payment.status !== "succeeded" &&
                           payment.failure_message && (
                             <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
                               <p className="text-sm font-medium text-red-800">
@@ -720,7 +811,8 @@ const Profile: React.FC = () => {
                           )}
 
                         {/* Admin actions for failed payments */}
-                        {payment.status !== "succeeded" &&
+                        {payment &&
+                          payment.status !== "succeeded" &&
                           currentUser?.isadmin && (
                             <div className="mt-4">
                               {retryMessage && (

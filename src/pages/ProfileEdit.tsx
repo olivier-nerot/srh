@@ -111,6 +111,7 @@ const ProfileEdit: React.FC = () => {
       firstname: string;
       lastname: string;
       hospital: string;
+      createdAt: Date; // Member creation date from local DB for trial eligibility
     },
     stripe: ReturnType<typeof useStripe>,
     elements: ReturnType<typeof useElements>,
@@ -141,6 +142,7 @@ const ProfileEdit: React.FC = () => {
             email: user.email,
             name: `${user.firstname} ${user.lastname}`,
             hospital: user.hospital,
+            memberCreatedAt: user.createdAt, // Pass local DB creation date for trial eligibility check
           },
           recurring: isRecurring,
           tierData: tierData,
@@ -567,14 +569,16 @@ const ProfileEdit: React.FC = () => {
           canRetry: false,
         };
       case "trialing":
-        if (isInTrialPeriod()) {
+        // Handle cancel_at_period_end for trialing subscriptions too
+        if (cancelAtPeriodEnd) {
           return {
-            label: "Période d'essai",
-            color: "text-blue-600",
-            canCancel: true,
+            label: "Annulation programmée",
+            color: "text-orange-600",
+            canCancel: false,
             canRetry: false,
           };
         }
+        // New member with first year - they ARE subscribed, just with deferred payment
         return {
           label: "Actif",
           color: "text-green-600",
@@ -928,6 +932,7 @@ const ProfileEdit: React.FC = () => {
               firstname: formData.firstname,
               lastname: formData.lastname,
               hospital: formData.hospital,
+              createdAt: userProfile?.createdAt || new Date(), // Use user's creation date from local DB
             },
             stripe,
             elements,
@@ -1350,11 +1355,10 @@ const ProfileEdit: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Next payment date - only show for active recurring subscriptions */}
+                        {/* Next payment date - show for ALL active/trialing subscriptions */}
                         {currentSubscription &&
                           (currentSubscription.status === "active" ||
-                            currentSubscription.status === "trialing") &&
-                          !currentSubscription.cancel_at_period_end && (
+                            currentSubscription.status === "trialing") && (
                             <div className="flex justify-between items-center py-2 border-b border-gray-200">
                               <span className="text-sm text-gray-600">
                                 Prochain paiement

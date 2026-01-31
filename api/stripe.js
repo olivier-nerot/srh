@@ -364,47 +364,66 @@ async function createPayment(req, res) {
       // First create a price object for this tier if it doesn't exist
       const priceId = await createOrGetPrice(tierData, requestOptions);
 
-      // Check if customer has ANY payment history (charges, payment intents, setup intents)
-      // Trial period ONLY applies to brand new members who have NEVER interacted with Stripe
-      let hasPaymentHistory = false;
-      try {
-        // Check for any charges (successful or not)
-        const charges = await stripe.charges.list(
-          { customer: stripeCustomer.id, limit: 1 },
-          requestOptions
-        );
-        if (charges.data.length > 0) {
-          hasPaymentHistory = true;
-          console.log(`Customer ${stripeCustomer.id} has charge history - no trial period`);
-        }
+      // Check if this is an existing member based on LOCAL DATABASE creation date
+      // This is the SOURCE OF TRUTH - not Stripe history which differs between test/production modes
+      const memberCreatedAt = customer.memberCreatedAt ? new Date(customer.memberCreatedAt) : null;
+      const currentYear = new Date().getFullYear();
 
-        // Check for any payment intents (successful or not)
-        if (!hasPaymentHistory) {
-          const paymentIntents = await stripe.paymentIntents.list(
+      let hasPaymentHistory = false;
+
+      // PRIMARY CHECK: If member was created before the current year, they are NOT a new member
+      if (memberCreatedAt) {
+        const creationYear = memberCreatedAt.getFullYear();
+        if (creationYear < currentYear) {
+          hasPaymentHistory = true;
+          console.log(`Member ${customer.email} created in ${creationYear} (before ${currentYear}) - existing member, charge immediately`);
+        } else {
+          console.log(`Member ${customer.email} created in ${creationYear} (current year) - new member, eligible for trial`);
+        }
+      }
+
+      // FALLBACK: If memberCreatedAt not provided, check Stripe history (legacy behavior)
+      if (!hasPaymentHistory && !memberCreatedAt) {
+        console.log(`No memberCreatedAt provided for ${customer.email}, checking Stripe history...`);
+        try {
+          // Check for any charges (successful or not)
+          const charges = await stripe.charges.list(
             { customer: stripeCustomer.id, limit: 1 },
             requestOptions
           );
-          if (paymentIntents.data.length > 0) {
+          if (charges.data.length > 0) {
             hasPaymentHistory = true;
-            console.log(`Customer ${stripeCustomer.id} has payment intent history - no trial period`);
+            console.log(`Customer ${stripeCustomer.id} has charge history - no trial period`);
           }
-        }
 
-        // Check for any past subscriptions
-        if (!hasPaymentHistory) {
-          const subscriptions = await stripe.subscriptions.list(
-            { customer: stripeCustomer.id, status: 'all', limit: 1 },
-            requestOptions
-          );
-          if (subscriptions.data.length > 0) {
-            hasPaymentHistory = true;
-            console.log(`Customer ${stripeCustomer.id} has subscription history - no trial period`);
+          // Check for any payment intents (successful or not)
+          if (!hasPaymentHistory) {
+            const paymentIntents = await stripe.paymentIntents.list(
+              { customer: stripeCustomer.id, limit: 1 },
+              requestOptions
+            );
+            if (paymentIntents.data.length > 0) {
+              hasPaymentHistory = true;
+              console.log(`Customer ${stripeCustomer.id} has payment intent history - no trial period`);
+            }
           }
+
+          // Check for any past subscriptions
+          if (!hasPaymentHistory) {
+            const subscriptions = await stripe.subscriptions.list(
+              { customer: stripeCustomer.id, status: 'all', limit: 1 },
+              requestOptions
+            );
+            if (subscriptions.data.length > 0) {
+              hasPaymentHistory = true;
+              console.log(`Customer ${stripeCustomer.id} has subscription history - no trial period`);
+            }
+          }
+        } catch (historyError) {
+          console.log('Error checking payment history:', historyError.message);
+          // If we can't check history, assume they have history (safer to charge than give free trial)
+          hasPaymentHistory = true;
         }
-      } catch (historyError) {
-        console.log('Error checking payment history:', historyError.message);
-        // If we can't check history, assume they have history (safer to charge than give free trial)
-        hasPaymentHistory = true;
       }
 
       // Calculate days until next January 1st (all members renew on the same date)

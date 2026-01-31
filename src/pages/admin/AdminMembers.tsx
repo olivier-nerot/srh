@@ -11,11 +11,9 @@ import {
   Filter,
   Briefcase,
   CreditCard,
-  Euro,
   Trash2,
   Download,
   RefreshCw,
-  Repeat,
   Send,
   X,
   AlertTriangle,
@@ -410,19 +408,24 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
     setLoadingPayments(false);
   };
 
-  // Calculate the membership end date based on payment date
+  // Calculate the membership end date based on payment or subscription
   // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
   const getMembershipEndDate = (user: User): Date | null => {
-    if (!user.lastPayment || user.lastPayment.status !== "succeeded") {
-      return null;
+    // First try: use payment date if available
+    if (user.lastPayment && user.lastPayment.status === "succeeded") {
+      const paymentDate = new Date(user.lastPayment.created);
+      const paymentYear = paymentDate.getFullYear();
+      // The payment covers the SAME calendar year
+      // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
+      return new Date(paymentYear, 11, 31); // December 31 of payment year
     }
 
-    const paymentDate = new Date(user.lastPayment.created);
-    const paymentYear = paymentDate.getFullYear();
+    // Fallback: use subscription period end if available
+    if (user.activeSubscription && user.activeSubscription.current_period_end) {
+      return new Date(user.activeSubscription.current_period_end);
+    }
 
-    // The payment covers the SAME calendar year
-    // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
-    return new Date(paymentYear, 11, 31); // December 31 of payment year
+    return null;
   };
 
   const isValidRegistration = (user: User): boolean => {
@@ -1068,12 +1071,6 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
                     <h3 className="text-lg font-semibold text-gray-900">
                       {user.firstname || ""} {user.lastname || ""}
                     </h3>
-                    {user.isadmin && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
-                        <Settings className="h-3 w-3 mr-1" />
-                        Admin
-                      </span>
-                    )}
                     <div className="flex items-center mt-2">
                       <Mail className="h-4 w-4 text-gray-400 mr-2" />
                       <a
@@ -1086,20 +1083,11 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    {/* Registration Status Badge - Only show "Valide" */}
-                    {isValidRegistration(user) && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        ✓ Valide
-                      </span>
-                    )}
-                    {/* Recurring Payment Badge */}
-                    {hasRecurringPayment(user) && (
-                      <span
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                        title="Paiement récurrent activé"
-                      >
-                        <Repeat className="h-3 w-3 mr-1" />
-                        Récurrent
+                    {/* Admin Badge */}
+                    {user.isadmin && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <Settings className="h-3 w-3 mr-1" />
+                        Admin
                       </span>
                     )}
                   </div>
@@ -1174,65 +1162,75 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
                   </span>
                 </div>
 
-                {/* Last Payment or Trial Information */}
-                {hasFreeFirstYear(user) && user.activeSubscription ? (
-                  <div className="mb-3">
-                    <div className="flex items-center mb-2">
-                      <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Première année gratuite:
+                {/* Unified Inscription Section */}
+                <div className="mb-3">
+                  <div className="flex items-center mb-2">
+                    <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Inscription:
+                    </span>
+                  </div>
+                  <div className="ml-6 space-y-1">
+                    {/* Statut: Valide ou non */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Statut:</span>
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          isValidRegistration(user)
+                            ? "bg-green-100 text-green-800"
+                            : "bg-orange-100 text-orange-800"
+                        }`}
+                      >
+                        {isValidRegistration(user) ? "Valide" : "Expirée"}
                       </span>
                     </div>
-                    <div className="ml-6 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">
-                          Prochain paiement:
-                        </span>
-                        <span className="text-sm text-gray-600">
-                          {formatDate(
-                            user.activeSubscription.current_period_end,
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Montant:</span>
-                        <span className="text-sm font-medium text-blue-600 flex items-center">
-                          <Euro className="h-3 w-3 mr-1" />
-                          {user.activeSubscription.amount} €
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Statut:</span>
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                          En période d'essai gratuite
-                        </span>
-                      </div>
+                    {/* Récurrent ou non */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Récurrent:</span>
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          hasRecurringPayment(user)
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {hasRecurringPayment(user) ? "Oui" : "Non"}
+                      </span>
                     </div>
-                  </div>
-                ) : user.lastPayment ? (
-                  <div className="mb-3">
-                    <div className="flex items-center mb-2">
-                      <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">
+                    {/* Date dernier paiement */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
                         Dernier paiement:
                       </span>
+                      <span className="text-sm text-gray-600">
+                        {user.lastPayment
+                          ? formatDate(user.lastPayment.created)
+                          : hasFreeFirstYear(user)
+                            ? "1ère année offerte"
+                            : "Aucun"}
+                      </span>
                     </div>
-                    <div className="ml-6 space-y-1">
+                    {/* Prochain paiement - show for all members with active subscription */}
+                    {user.activeSubscription &&
+                      (user.activeSubscription.status === "active" ||
+                        user.activeSubscription.status === "trialing") && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">
+                            Prochain paiement:
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            {formatDate(
+                              user.activeSubscription.current_period_end,
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    {/* Statut du paiement */}
+                    {user.lastPayment && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Montant:</span>
-                        <span className="text-sm font-medium text-green-600 flex items-center">
-                          <Euro className="h-3 w-3 mr-1" />
-                          {user.lastPayment.amount} €
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Date:</span>
                         <span className="text-sm text-gray-600">
-                          {formatDate(user.lastPayment.created)}
+                          Statut paiement:
                         </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Statut:</span>
                         <span
                           className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                             user.lastPayment.status === "succeeded"
@@ -1249,23 +1247,9 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
                               : "Échoué"}
                         </span>
                       </div>
-                    </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="mb-3">
-                    <div className="flex items-center mb-2">
-                      <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Paiement:
-                      </span>
-                    </div>
-                    <div className="ml-6">
-                      <span className="text-sm text-gray-500">
-                        Aucun paiement trouvé
-                      </span>
-                    </div>
-                  </div>
-                )}
+                </div>
 
                 {/* Edit and Delete Buttons */}
                 <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
