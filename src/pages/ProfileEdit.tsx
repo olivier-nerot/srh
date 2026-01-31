@@ -470,19 +470,24 @@ const ProfileEdit: React.FC = () => {
     return true;
   };
 
-  // Calculate the membership end date based on payment date
+  // Calculate the membership end date based on payment or subscription
   // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
   const getMembershipEndDate = (): Date | null => {
-    if (!currentPayment || currentPayment.status !== "succeeded") {
-      return null;
+    // First try: use payment date if available
+    if (currentPayment && currentPayment.status === "succeeded") {
+      const paymentDate = new Date(currentPayment.created);
+      const paymentYear = paymentDate.getFullYear();
+      // The payment covers the SAME calendar year
+      // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
+      return new Date(paymentYear, 11, 31); // December 31 of payment year
     }
 
-    const paymentDate = new Date(currentPayment.created);
-    const paymentYear = paymentDate.getFullYear();
+    // Fallback: use subscription period end if available
+    if (currentSubscription && currentSubscription.current_period_end) {
+      return new Date(currentSubscription.current_period_end);
+    }
 
-    // The payment covers the SAME calendar year
-    // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
-    return new Date(paymentYear, 11, 31); // December 31 of payment year
+    return null;
   };
 
   const isValidRegistration = (): boolean => {
@@ -1267,7 +1272,7 @@ const ProfileEdit: React.FC = () => {
                           Chargement des informations...
                         </span>
                       </div>
-                    ) : currentPayment ? (
+                    ) : currentPayment || currentSubscription ? (
                       <div className="space-y-3">
                         {/* Clean list layout: title left, value right */}
                         <div className="flex justify-between items-center py-2 border-b border-gray-200">
@@ -1279,36 +1284,54 @@ const ProfileEdit: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                          <span className="text-sm text-gray-600">
-                            {getPaymentStatus().failed
-                              ? "Montant en attente"
-                              : "Montant payé"}
-                          </span>
-                          <span
-                            className={`text-sm font-semibold ${getPaymentStatus().failed ? "text-red-600" : "text-green-600"}`}
-                          >
-                            {currentPayment.amount} €
-                          </span>
-                        </div>
+                        {/* Show payment amount and date only if there's a payment */}
+                        {currentPayment && (
+                          <>
+                            <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                              <span className="text-sm text-gray-600">
+                                {getPaymentStatus().failed
+                                  ? "Montant en attente"
+                                  : "Montant payé"}
+                              </span>
+                              <span
+                                className={`text-sm font-semibold ${getPaymentStatus().failed ? "text-red-600" : "text-green-600"}`}
+                              >
+                                {currentPayment.amount} €
+                              </span>
+                            </div>
 
-                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                          <span className="text-sm text-gray-600">
-                            {getPaymentStatus().failed
-                              ? "Tentative de paiement"
-                              : "Date de paiement"}
-                          </span>
-                          <span className="text-sm text-gray-900">
-                            {formatDate(currentPayment.created)}
-                          </span>
-                        </div>
+                            <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                              <span className="text-sm text-gray-600">
+                                {getPaymentStatus().failed
+                                  ? "Tentative de paiement"
+                                  : "Date de paiement"}
+                              </span>
+                              <span className="text-sm text-gray-900">
+                                {formatDate(currentPayment.created)}
+                              </span>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Show subscription amount if no payment but subscription exists */}
+                        {!currentPayment && currentSubscription && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                            <span className="text-sm text-gray-600">
+                              Montant de l'adhésion
+                            </span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {currentSubscription.amount} €
+                            </span>
+                          </div>
+                        )}
 
                         <div className="flex justify-between items-center py-2 border-b border-gray-200">
                           <span className="text-sm text-gray-600">
                             Type de paiement
                           </span>
                           <span className="text-sm text-gray-900">
-                            {currentSubscription
+                            {currentSubscription &&
+                            !currentSubscription.cancel_at_period_end
                               ? "Abonnement automatique"
                               : "Paiement unique"}
                           </span>
