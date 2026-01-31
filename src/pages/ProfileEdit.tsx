@@ -424,6 +424,17 @@ const ProfileEdit: React.FC = () => {
             (sub) => sub.status === "active" || sub.status === "trialing",
           ) || subscriptionResult.subscriptions[0];
         setCurrentSubscription(activeSubscription);
+
+        // Sync isRecurring state with actual subscription status
+        // If subscription is active/trialing and NOT scheduled to cancel, it's recurring
+        const isActiveRecurring =
+          (activeSubscription.status === "active" ||
+            activeSubscription.status === "trialing") &&
+          !activeSubscription.cancel_at_period_end;
+        setIsRecurring(isActiveRecurring);
+      } else {
+        // No subscription = not recurring
+        setIsRecurring(false);
       }
     } catch (error) {
       console.error("Error fetching payment data:", error);
@@ -656,6 +667,70 @@ const ProfileEdit: React.FC = () => {
       }
     } catch {
       alert("Erreur lors de la relance du paiement.");
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
+
+  // Handle changing payment type (recurring <-> one-time)
+  const handlePaymentTypeChange = async (newIsRecurring: boolean) => {
+    // If no active subscription, just update the state (affects next payment only)
+    if (!currentSubscription || !userProfile) {
+      setIsRecurring(newIsRecurring);
+      return;
+    }
+
+    const isCurrentlyRecurring =
+      (currentSubscription.status === "active" ||
+        currentSubscription.status === "trialing") &&
+      !currentSubscription.cancel_at_period_end;
+
+    // If no change needed, just update state
+    if (newIsRecurring === isCurrentlyRecurring) {
+      setIsRecurring(newIsRecurring);
+      return;
+    }
+
+    // Confirm the change with user
+    const confirmMessage = newIsRecurring
+      ? "Voulez-vous activer le renouvellement automatique ? Votre carte sera débitée automatiquement chaque année."
+      : "Voulez-vous désactiver le renouvellement automatique ? Votre adhésion restera active jusqu'à la fin de la période payée.";
+
+    if (!window.confirm(confirmMessage)) {
+      return; // User cancelled, don't change
+    }
+
+    setIsPaymentLoading(true);
+
+    try {
+      const action = newIsRecurring
+        ? "reactivate-subscription"
+        : "cancel-subscription";
+      const response = await fetch(`/api/stripe?action=${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: userProfile.email,
+          subscriptionId: currentSubscription.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setIsRecurring(newIsRecurring);
+        // Refresh to get updated subscription status
+        fetchPaymentData(userProfile.email);
+        alert(
+          newIsRecurring
+            ? "Renouvellement automatique activé avec succès !"
+            : "Renouvellement automatique désactivé. Votre adhésion reste active jusqu'à la fin de la période.",
+        );
+      } else {
+        alert("Erreur: " + (result.error || "Erreur inconnue"));
+      }
+    } catch {
+      alert("Erreur lors de la modification de l'abonnement.");
     } finally {
       setIsPaymentLoading(false);
     }
@@ -1252,6 +1327,23 @@ const ProfileEdit: React.FC = () => {
                           </div>
                         )}
 
+                        {/* Next payment date - only show for active recurring subscriptions */}
+                        {currentSubscription &&
+                          (currentSubscription.status === "active" ||
+                            currentSubscription.status === "trialing") &&
+                          !currentSubscription.cancel_at_period_end && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                              <span className="text-sm text-gray-600">
+                                Prochain paiement
+                              </span>
+                              <span className="text-sm text-gray-900">
+                                {formatDate(
+                                  currentSubscription.current_period_end,
+                                )}
+                              </span>
+                            </div>
+                          )}
+
                         <div className="flex justify-between items-center py-2">
                           <span className="text-sm text-gray-600">
                             Fin d'adhésion
@@ -1387,7 +1479,8 @@ const ProfileEdit: React.FC = () => {
                                 id="one-time"
                                 name="paymentType"
                                 checked={!isRecurring}
-                                onChange={() => setIsRecurring(false)}
+                                onChange={() => handlePaymentTypeChange(false)}
+                                disabled={isPaymentLoading}
                                 className="h-4 w-4 text-srh-blue focus:ring-srh-blue border-gray-300"
                               />
                               <label
@@ -1410,7 +1503,8 @@ const ProfileEdit: React.FC = () => {
                                 id="recurring"
                                 name="paymentType"
                                 checked={isRecurring}
-                                onChange={() => setIsRecurring(true)}
+                                onChange={() => handlePaymentTypeChange(true)}
+                                disabled={isPaymentLoading}
                                 className="h-4 w-4 text-srh-blue focus:ring-srh-blue border-gray-300"
                               />
                               <label
