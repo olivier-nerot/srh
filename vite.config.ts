@@ -1,29 +1,29 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    tailwindcss(),
-    react(),
-  ],
+  plugins: [tailwindcss(), react()],
+  css: {
+    devSourcemap: false,
+  },
   optimizeDeps: {
-    include: ['pdfjs-dist']
+    include: ["pdfjs-dist"],
   },
   worker: {
-    format: 'es'
+    format: "es",
   },
   server: {
     hmr: {
-      port: 5173
+      port: 5173,
     },
     proxy: {
-      '/api': {
-        target: 'http://localhost:3002',
+      "/api": {
+        target: "http://localhost:3002",
         changeOrigin: true,
-        secure: false
-      }
-    }
-  }
-})
+        secure: false,
+      },
+    },
+  },
+});
