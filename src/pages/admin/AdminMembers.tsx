@@ -420,8 +420,13 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
       return new Date(paymentYear, 11, 31); // December 31 of payment year
     }
 
-    // Fallback: use subscription period end if available
-    if (user.activeSubscription && user.activeSubscription.current_period_end) {
+    // Fallback: use subscription period end if available (only for active/trialing subscriptions)
+    if (
+      user.activeSubscription &&
+      user.activeSubscription.current_period_end &&
+      (user.activeSubscription.status === "active" ||
+        user.activeSubscription.status === "trialing")
+    ) {
       return new Date(user.activeSubscription.current_period_end);
     }
 

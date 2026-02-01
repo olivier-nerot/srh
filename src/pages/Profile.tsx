@@ -236,8 +236,13 @@ const Profile: React.FC = () => {
       return new Date(paymentYear, 11, 31); // December 31 of payment year
     }
 
-    // Fallback: use subscription period end if available
-    if (activeSubscription && activeSubscription.current_period_end) {
+    // Fallback: use subscription period end if available (only for active/trialing subscriptions)
+    if (
+      activeSubscription &&
+      activeSubscription.current_period_end &&
+      (activeSubscription.status === "active" ||
+        activeSubscription.status === "trialing")
+    ) {
       return new Date(activeSubscription.current_period_end);
     }
 
