@@ -16,6 +16,7 @@ import {
   type Payment,
   type Subscription,
 } from "../services/paymentService";
+import PaymentHistory from "../components/PaymentHistory";
 import { useAuthStore } from "../stores/authStore";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -95,9 +96,9 @@ const ProfileEdit: React.FC = () => {
   const [isRecurring, setIsRecurring] = useState<boolean>(true);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [currentPayment, setCurrentPayment] = useState<Payment | null>(null);
-  const [firstPayment, setFirstPayment] = useState<Payment | null>(null);
   const [currentSubscription, setCurrentSubscription] =
     useState<Subscription | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<Payment[]>([]);
   const [paymentLoading, setPaymentLoading] = useState(false);
 
   const getSelectedTierData = () => {
@@ -111,7 +112,6 @@ const ProfileEdit: React.FC = () => {
       firstname: string;
       lastname: string;
       hospital: string;
-      createdAt: Date; // Member creation date from local DB for trial eligibility
     },
     stripe: ReturnType<typeof useStripe>,
     elements: ReturnType<typeof useElements>,
@@ -129,7 +129,7 @@ const ProfileEdit: React.FC = () => {
         );
       }
 
-      // Create payment intent on backend first
+      // Create payment intent on backend - IMMEDIATE PAYMENT (no more free trial)
       const response = await fetch("/api/stripe?action=create-payment", {
         method: "POST",
         headers: {
@@ -142,7 +142,6 @@ const ProfileEdit: React.FC = () => {
             email: user.email,
             name: `${user.firstname} ${user.lastname}`,
             hospital: user.hospital,
-            memberCreatedAt: user.createdAt, // Pass local DB creation date for trial eligibility check
           },
           recurring: isRecurring,
           tierData: tierData,
@@ -155,40 +154,20 @@ const ProfileEdit: React.FC = () => {
         throw new Error(result.error || "Payment processing failed");
       }
 
-      // For payments with trial period (1 year free), confirm the card setup (no immediate charge)
-      // This applies to BOTH recurring and one-time payments during the trial period
+      // ALWAYS use confirmCardPayment for immediate payment (no more trial/setup)
       if (result.clientSecret) {
-        let confirmationResult;
-
-        if (result.setupIntentId) {
-          // Payment with trial period (recurring OR one-time) - use confirmCardSetup (no charge)
-          confirmationResult = await stripe.confirmCardSetup(
-            result.clientSecret,
-            {
-              payment_method: {
-                card: cardElement,
-                billing_details: {
-                  name: `${user.firstname} ${user.lastname}`,
-                  email: user.email,
-                },
+        const confirmationResult = await stripe.confirmCardPayment(
+          result.clientSecret,
+          {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: `${user.firstname} ${user.lastname}`,
+                email: user.email,
               },
             },
-          );
-        } else {
-          // Immediate payment (no trial) - use confirmCardPayment (immediate charge)
-          confirmationResult = await stripe.confirmCardPayment(
-            result.clientSecret,
-            {
-              payment_method: {
-                card: cardElement,
-                billing_details: {
-                  name: `${user.firstname} ${user.lastname}`,
-                  email: user.email,
-                },
-              },
-            },
-          );
-        }
+          },
+        );
 
         if (confirmationResult.error) {
           throw new Error(
@@ -196,17 +175,13 @@ const ProfileEdit: React.FC = () => {
           );
         }
 
-        // For existing members: create subscription after payment confirmation
+        // For recurring payments: create subscription after payment confirmation
         if (
           result.type === "subscription_with_payment" &&
           result.pendingSubscription
         ) {
           try {
-            // Get paymentIntent ID from the confirmation result (only present for card payments, not setup)
-            const paymentIntentId =
-              "paymentIntent" in confirmationResult
-                ? confirmationResult.paymentIntent?.id
-                : undefined;
+            const paymentIntentId = confirmationResult.paymentIntent?.id;
 
             const subResponse = await fetch(
               "/api/stripe?action=create-subscription-after-payment",
@@ -216,7 +191,6 @@ const ProfileEdit: React.FC = () => {
                 body: JSON.stringify({
                   email: user.email,
                   priceId: result.pendingSubscription.priceId,
-                  trialPeriod: result.pendingSubscription.trialPeriod,
                   tier: result.pendingSubscription.tier,
                   paymentIntentId: paymentIntentId,
                 }),
@@ -228,8 +202,6 @@ const ProfileEdit: React.FC = () => {
                 "Failed to create subscription after payment:",
                 subResult.error,
               );
-              // Payment succeeded but subscription creation failed - still return success
-              // Admin will need to manually create the subscription
             }
           } catch (subError) {
             console.error(
@@ -237,6 +209,35 @@ const ProfileEdit: React.FC = () => {
               subError,
             );
           }
+        }
+
+        // Update subscription date in database (payment successful)
+        try {
+          const updateResponse = await fetch(
+            `/api/user-management?action=update-subscription-date`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ email: user.email }),
+            },
+          );
+          const updateResult = await updateResponse.json();
+          if (updateResult.success) {
+            console.log(
+              "Subscription date updated in database:",
+              updateResult.subscribedUntil,
+            );
+          } else {
+            console.error(
+              "Failed to update subscription date:",
+              updateResult.error,
+            );
+          }
+        } catch (updateError) {
+          console.error("Error updating subscription date:", updateError);
+          // Don't fail - payment was successful
         }
 
         return {
@@ -299,13 +300,6 @@ const ProfileEdit: React.FC = () => {
       price: 30,
       actualCost: 10,
       description: "Tarif adapté aux assistants spécialistes",
-    },
-    {
-      id: "first-time",
-      title: "Première adhésion (dans l'année de nomination)",
-      price: 0,
-      actualCost: 0,
-      description: "Gratuit pour votre première année d'adhésion",
     },
   ];
 
@@ -412,7 +406,7 @@ const ProfileEdit: React.FC = () => {
 
       if (paymentResult.success) {
         setCurrentPayment(paymentResult.lastPayment);
-        setFirstPayment(paymentResult.firstPayment);
+        setPaymentHistory(paymentResult.paymentHistory || []);
       }
 
       if (
@@ -445,67 +439,57 @@ const ProfileEdit: React.FC = () => {
     }
   };
 
-  // Check if user is truly in a trial period (new member, no payment yet, waiting for Jan 1st)
-  // A user is in trial ONLY if:
-  // 1. Subscription status is 'trialing'
-  // 2. No successful payment has EVER been made (firstPayment is null or not succeeded)
-  // 3. We're still in the current calendar year (trial ends Dec 31st)
-  const isInTrialPeriod = (): boolean => {
-    if (!currentSubscription || currentSubscription.status !== "trialing") {
+  // Helper to check if a date is valid (reasonable year range)
+  const isValidDate = (date: Date): boolean => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
       return false;
     }
-    // If there's ANY successful payment (first or current), user is NOT in trial
-    if (firstPayment && firstPayment.status === "succeeded") {
-      return false;
-    }
-    if (currentPayment && currentPayment.status === "succeeded") {
-      return false;
-    }
-    // Additional check: if firstPayment exists from a previous year, not in trial
-    if (firstPayment) {
-      const firstPaymentYear = new Date(firstPayment.created).getFullYear();
-      const currentYear = new Date().getFullYear();
-      if (firstPaymentYear < currentYear) {
-        return false;
-      }
-    }
-    return true;
+    const year = date.getFullYear();
+    return year >= 1990 && year <= 2050;
   };
 
-  // Calculate the membership end date based on payment or subscription
-  // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
+  // Calculate the membership end date based on DB field or payment
+  // Membership is now valid for 1 year from payment date (no more calendar year)
   const getMembershipEndDate = (): Date | null => {
-    // First try: use payment date if available
-    if (currentPayment && currentPayment.status === "succeeded") {
-      const paymentDate = new Date(currentPayment.created);
-      const paymentYear = paymentDate.getFullYear();
-      // The payment covers the SAME calendar year
-      // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
-      return new Date(paymentYear, 11, 31); // December 31 of payment year
+    // Priority 1: Use subscribedUntil from database if available and valid
+    if (userProfile?.subscribedUntil) {
+      const date = new Date(userProfile.subscribedUntil);
+      if (isValidDate(date)) {
+        return date;
+      }
     }
 
-    // Fallback: use subscription period end if available (only for active/trialing subscriptions)
+    // Priority 2: Calculate from payment date (payment date + 1 year)
+    // This is the PRIMARY method - membership = 1 year from payment
+    if (currentPayment && currentPayment.status === "succeeded") {
+      const paymentDate = new Date(currentPayment.created);
+      if (isValidDate(paymentDate)) {
+        const endDate = new Date(paymentDate);
+        endDate.setFullYear(endDate.getFullYear() + 1);
+        return endDate;
+      }
+    }
+
+    // Priority 3: Use subscription period end if available
     if (
       currentSubscription &&
       currentSubscription.current_period_end &&
       (currentSubscription.status === "active" ||
         currentSubscription.status === "trialing")
     ) {
-      return new Date(currentSubscription.current_period_end);
+      const date = new Date(currentSubscription.current_period_end);
+      if (isValidDate(date)) {
+        return date;
+      }
     }
 
     return null;
   };
 
   const isValidRegistration = (): boolean => {
-    // Check membership end date based on actual payment
+    // Check membership end date based on actual payment or DB field
     const membershipEnd = getMembershipEndDate();
     if (membershipEnd && membershipEnd > new Date()) {
-      return true;
-    }
-
-    // Fallback: check if in trial period (new member, no payment yet, waiting for Jan 1st)
-    if (isInTrialPeriod()) {
       return true;
     }
 
@@ -1294,34 +1278,13 @@ const ProfileEdit: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Show payment amount and date only if there's a payment */}
-                        {currentPayment && (
-                          <>
-                            <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                              <span className="text-sm text-gray-600">
-                                {getPaymentStatus().failed
-                                  ? "Montant en attente"
-                                  : "Montant payé"}
-                              </span>
-                              <span
-                                className={`text-sm font-semibold ${getPaymentStatus().failed ? "text-red-600" : "text-green-600"}`}
-                              >
-                                {currentPayment.amount} €
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                              <span className="text-sm text-gray-600">
-                                {getPaymentStatus().failed
-                                  ? "Tentative de paiement"
-                                  : "Date de paiement"}
-                              </span>
-                              <span className="text-sm text-gray-900">
-                                {formatDate(currentPayment.created)}
-                              </span>
-                            </div>
-                          </>
-                        )}
+                        {/* Payment History */}
+                        <div className="border-b border-gray-200">
+                          <PaymentHistory
+                            payments={paymentHistory}
+                            loading={paymentLoading}
+                          />
+                        </div>
 
                         {/* Show subscription amount if no payment but subscription exists */}
                         {!currentPayment && currentSubscription && (
@@ -1360,32 +1323,42 @@ const ProfileEdit: React.FC = () => {
                           </div>
                         )}
 
+                        {/* Card info - show if available (from subscription or last payment) */}
+                        {(currentSubscription?.card_last4 ||
+                          currentPayment?.card_last4) && (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                            <span className="text-sm text-gray-600">
+                              Carte utilisée
+                            </span>
+                            <span className="text-sm text-gray-900 font-mono">
+                              {(
+                                currentSubscription?.card_brand ||
+                                currentPayment?.card_brand
+                              )?.toUpperCase()}{" "}
+                              ••••{" "}
+                              {currentSubscription?.card_last4 ||
+                                currentPayment?.card_last4}
+                            </span>
+                          </div>
+                        )}
+
                         {/* Next payment date - show for ALL active/trialing subscriptions */}
                         {currentSubscription &&
                           (currentSubscription.status === "active" ||
                             currentSubscription.status === "trialing") && (
-                            <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                            <div className="flex justify-between items-center py-2">
                               <span className="text-sm text-gray-600">
-                                Prochain paiement
+                                Prochain paiement / Fin d'adhésion
                               </span>
                               <span className="text-sm text-gray-900">
-                                {formatDate(
-                                  currentSubscription.current_period_end,
-                                )}
+                                {getMembershipEndDate()
+                                  ? formatDate(getMembershipEndDate()!)
+                                  : formatDate(
+                                      currentSubscription.current_period_end,
+                                    )}
                               </span>
                             </div>
                           )}
-
-                        <div className="flex justify-between items-center py-2">
-                          <span className="text-sm text-gray-600">
-                            Fin d'adhésion
-                          </span>
-                          <span className="text-sm text-gray-900">
-                            {getMembershipEndDate()
-                              ? formatDate(getMembershipEndDate()!)
-                              : "Non définie"}
-                          </span>
-                        </div>
 
                         {/* Retry payment button for failed payments only */}
                         {getSubscriptionStatusLabel().canRetry && (
@@ -1555,13 +1528,19 @@ const ProfileEdit: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Show current card if exists */}
-                        {currentSubscription?.card_last4 && (
+                        {/* Show current card if exists (from subscription or last payment) */}
+                        {(currentSubscription?.card_last4 ||
+                          currentPayment?.card_last4) && (
                           <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
                             <p className="text-sm text-gray-600">
                               Carte actuelle:{" "}
-                              {currentSubscription.card_brand?.toUpperCase()}{" "}
-                              •••• {currentSubscription.card_last4}
+                              {(
+                                currentSubscription?.card_brand ||
+                                currentPayment?.card_brand
+                              )?.toUpperCase()}{" "}
+                              ••••{" "}
+                              {currentSubscription?.card_last4 ||
+                                currentPayment?.card_last4}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
                               Entrez une nouvelle carte ci-dessous pour la

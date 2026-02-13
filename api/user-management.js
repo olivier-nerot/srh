@@ -77,6 +77,8 @@ module.exports = async function handler(req, res) {
         return await verifyOTP(req, res);
       case "profile":
         return await handleProfile(req, res);
+      case "update-subscription-date":
+        return await updateSubscriptionDate(req, res);
       default:
         return res.status(400).json({ error: "Action invalide" });
     }
@@ -835,6 +837,73 @@ async function updateProfile(req, res) {
     return res.status(500).json({
       success: false,
       error: "Erreur lors de la mise à jour du profil: " + error.message,
+    });
+  }
+}
+
+// Update subscription date after successful payment
+async function updateSubscriptionDate(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Méthode non autorisée" });
+  }
+
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: "L'email est requis",
+      });
+    }
+
+    const db = await getDb();
+
+    // Check if user exists
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()))
+      .limit(1);
+
+    if (existingUser.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Utilisateur non trouvé",
+      });
+    }
+
+    // Calculate subscription end date (1 year from now)
+    const subscribedUntil = new Date();
+    subscribedUntil.setFullYear(subscribedUntil.getFullYear() + 1);
+
+    const result = await db
+      .update(users)
+      .set({
+        subscribedUntil: subscribedUntil,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.email, email.toLowerCase()))
+      .returning();
+
+    const updatedUser = result[0];
+
+    console.log(`Updated subscription date for ${email}: valid until ${subscribedUntil.toISOString()}`);
+
+    return res.status(200).json({
+      success: true,
+      subscribedUntil: subscribedUntil.toISOString(),
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        subscribedUntil: updatedUser.subscribedUntil,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating subscription date:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Erreur lors de la mise à jour de la date d'abonnement: " + error.message,
     });
   }
 }

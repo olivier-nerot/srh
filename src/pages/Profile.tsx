@@ -23,6 +23,7 @@ import {
   type Payment,
   type Subscription,
 } from "../services/paymentService";
+import PaymentHistory from "../components/PaymentHistory";
 import { useAuthStore } from "../stores/authStore";
 // Date formatting is now handled inline
 
@@ -51,6 +52,7 @@ const Profile: React.FC = () => {
   const [error, setError] = useState("");
   const [payment, setPayment] = useState<Payment | null>(null);
   const [firstPayment, setFirstPayment] = useState<Payment | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<Payment[]>([]);
   const [activeSubscription, setActiveSubscription] =
     useState<Subscription | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -105,6 +107,7 @@ const Profile: React.FC = () => {
       if (paymentResult.success) {
         setPayment(paymentResult.lastPayment);
         setFirstPayment(paymentResult.firstPayment);
+        setPaymentHistory(paymentResult.paymentHistory || []);
       }
 
       // Find the most relevant subscription (prioritize active/trialing, then past_due, then any)
@@ -195,8 +198,8 @@ const Profile: React.FC = () => {
 
       // Check if the year is reasonable
       const year = date.getFullYear();
-      // Be more permissive with future dates since system dates can be set ahead
-      if (year < 1990 || year > 2030) {
+      // Be more permissive with future dates for subscriptions
+      if (year < 1990 || year > 2050) {
         return "Date invalide";
       }
 
@@ -211,57 +214,83 @@ const Profile: React.FC = () => {
     }
   };
 
-  const hasFreeFirstYear = (): boolean => {
-    // Free first year is ONLY for members who joined THIS calendar year
-    if (!activeSubscription) return false;
-    if (activeSubscription.status !== "trialing") return false;
-
-    // Check if user joined this year
-    const memberSince = getMemberSinceDate();
-    const currentYear = new Date().getFullYear();
-    if (!memberSince || memberSince.getFullYear() !== currentYear) return false;
-
-    return true;
+  // Helper to check if a date is valid (same criteria as formatDate)
+  const isValidDate = (date: Date): boolean => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      return false;
+    }
+    const year = date.getFullYear();
+    return year >= 1990 && year <= 2050;
   };
 
-  // Calculate the membership end date based on payment or subscription
-  // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
+  // Calculate the membership end date based on DB field or payment
+  // Membership is valid for 1 year from PAYMENT date (not subscription period)
   const getMembershipEndDate = (): Date | null => {
-    // First try: use payment date if available
-    if (payment && payment.status === "succeeded") {
-      const paymentDate = new Date(payment.created);
-      const paymentYear = paymentDate.getFullYear();
-      // The payment covers the SAME calendar year
-      // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
-      return new Date(paymentYear, 11, 31); // December 31 of payment year
+    // Priority 1: Use subscribedUntil from database if available
+    if (userProfile?.subscribedUntil) {
+      const date = new Date(userProfile.subscribedUntil);
+      if (isValidDate(date)) {
+        return date;
+      }
     }
 
-    // Fallback: use subscription period end if available (only for active/trialing subscriptions)
+    // Priority 2: Calculate from last successful payment date + 1 year
+    // This is the PRIMARY method - membership = 1 year from payment
+    if (payment && payment.status === "succeeded") {
+      const paymentDate = new Date(payment.created);
+      if (isValidDate(paymentDate)) {
+        const endDate = new Date(paymentDate);
+        endDate.setFullYear(endDate.getFullYear() + 1);
+        return endDate;
+      }
+    }
+
+    // Priority 3: Fallback to subscription period end (only if no payment data)
     if (
       activeSubscription &&
       activeSubscription.current_period_end &&
       (activeSubscription.status === "active" ||
         activeSubscription.status === "trialing")
     ) {
-      return new Date(activeSubscription.current_period_end);
+      const date =
+        activeSubscription.current_period_end instanceof Date
+          ? activeSubscription.current_period_end
+          : new Date(activeSubscription.current_period_end);
+      if (isValidDate(date)) {
+        return date;
+      }
     }
 
     return null;
   };
 
   const isValidRegistration = (): boolean => {
-    // Check membership end date based on actual payment
+    // Check if user has an active subscription (takes priority)
+    if (
+      activeSubscription &&
+      (activeSubscription.status === "active" ||
+        activeSubscription.status === "trialing")
+    ) {
+      return true;
+    }
+
+    // Check membership end date based on actual payment or DB field
     const membershipEnd = getMembershipEndDate();
     if (membershipEnd && membershipEnd > new Date()) {
       return true;
     }
 
-    // Fallback: check if in trial period (new member, no payment yet, waiting for Jan 1st)
-    if (hasFreeFirstYear()) {
-      return true;
-    }
-
     return false;
+  };
+
+  // Check if user has an active recurring subscription
+  const hasActiveRecurringSubscription = (): boolean => {
+    return !!(
+      activeSubscription &&
+      (activeSubscription.status === "active" ||
+        activeSubscription.status === "trialing") &&
+      !activeSubscription.cancel_at_period_end
+    );
   };
 
   // Get the "member since" date, using first payment as fallback if createdAt is wrong
@@ -272,6 +301,7 @@ const Profile: React.FC = () => {
     const now = new Date();
 
     // If createdAt is in the future, it's definitely wrong - use first payment
+    // Note: firstPayment.created is already a Date object (converted in paymentService)
     if (createdAt > now && firstPayment) {
       return new Date(firstPayment.created);
     }
@@ -289,20 +319,10 @@ const Profile: React.FC = () => {
   };
 
   const getPaymentStatus = () => {
-    if (hasFreeFirstYear()) {
-      return {
-        label: "Première année gratuite",
-        color: "bg-blue-100 text-blue-800",
-      };
-    }
-
     // Check if there's a valid subscription even without a standalone payment
     if (!payment && activeSubscription) {
       // Active subscription without payment = membership is valid
-      if (
-        activeSubscription.status === "active" ||
-        activeSubscription.status === "trialing"
-      ) {
+      if (activeSubscription.status === "active") {
         return {
           label: "Adhésion valide",
           color: "bg-green-100 text-green-800",
@@ -632,60 +652,14 @@ const Profile: React.FC = () => {
                         Chargement des paiements...
                       </span>
                     </div>
-                  ) : hasFreeFirstYear() && activeSubscription ? (
-                    <div className="space-y-4">
-                      {/* Trial Status */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">
-                          Statut de l'adhésion:
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatus().color}`}
-                        >
-                          {getPaymentStatus().label}
-                        </span>
-                      </div>
-
-                      {/* Trial Subscription Details */}
-                      <div className="border-t border-gray-200 pt-4 space-y-3">
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
-                          <p className="text-sm text-blue-800 mb-1">
-                            Votre carte a été enregistrée avec succès.
-                          </p>
-                          <p className="text-xs text-blue-600">
-                            Le premier paiement sera effectué automatiquement à
-                            la fin de votre période d'essai gratuite.
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">
-                            Prochain paiement:
-                          </span>
-                          <span className="text-sm font-medium text-gray-900">
-                            {formatDate(activeSubscription.current_period_end)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">
-                            Montant à payer:
-                          </span>
-                          <span className="text-sm font-medium text-blue-600 flex items-center">
-                            <Euro className="h-3 w-3 mr-1" />
-                            {activeSubscription.amount} €
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">
-                            ID d'abonnement:
-                          </span>
-                          <span className="text-xs text-gray-500 font-mono">
-                            {activeSubscription.id}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
                   ) : payment || activeSubscription ? (
                     <div className="space-y-4">
+                      {/* Payment History - First */}
+                      <PaymentHistory
+                        payments={paymentHistory}
+                        loading={paymentLoading}
+                      />
+
                       {/* Payment Status */}
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">
@@ -707,7 +681,15 @@ const Profile: React.FC = () => {
                               <span className="text-sm text-gray-600">
                                 Montant:
                               </span>
-                              <span className="text-sm font-medium text-green-600 flex items-center">
+                              <span
+                                className={`text-sm font-medium flex items-center ${
+                                  payment.status === "succeeded"
+                                    ? "text-green-600"
+                                    : payment.status === "canceled"
+                                      ? "text-orange-600"
+                                      : "text-red-600"
+                                }`}
+                              >
                                 <Euro className="h-3 w-3 mr-1" />
                                 {payment.amount} €
                               </span>
@@ -772,9 +754,12 @@ const Profile: React.FC = () => {
                                   Prochain paiement:
                                 </span>
                                 <span className="text-sm font-medium text-gray-900">
-                                  {formatDate(
-                                    activeSubscription.current_period_end,
-                                  )}
+                                  {/* Use payment date + 1 year for consistency */}
+                                  {getMembershipEndDate()
+                                    ? formatDate(getMembershipEndDate()!)
+                                    : formatDate(
+                                        activeSubscription.current_period_end,
+                                      )}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between mt-2">
@@ -910,26 +895,41 @@ const Profile: React.FC = () => {
                   )}
 
                   {/* Payment Action Button */}
-                  {isOwnProfile &&
-                    !isValidRegistration() &&
-                    !hasFreeFirstYear() && (
-                      <div className="mt-6 pt-4 border-t border-gray-200">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(`/profile/edit?id=${userId}#payment`)
-                          }
-                          className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
-                        >
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          Renouveler mon adhésion
-                        </button>
-                        <p className="text-xs text-gray-500 mt-2 text-center">
-                          Votre adhésion a expiré ou n'est pas valide. Cliquez
-                          pour la renouveler.
-                        </p>
-                      </div>
-                    )}
+                  {isOwnProfile && hasActiveRecurringSubscription() && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(`/profile/edit?id=${userId}#payment`)
+                        }
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Modifier mon adhésion
+                      </button>
+                      <p className="text-xs text-gray-500 mt-2 text-center">
+                        Gérez votre abonnement, modifiez votre carte ou annulez.
+                      </p>
+                    </div>
+                  )}
+                  {isOwnProfile && !isValidRegistration() && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(`/profile/edit?id=${userId}#payment`)
+                        }
+                        className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center"
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Renouveler mon adhésion
+                      </button>
+                      <p className="text-xs text-gray-500 mt-2 text-center">
+                        Votre adhésion a expiré ou n'est pas valide. Cliquez
+                        pour la renouveler.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Account Information */}
@@ -938,6 +938,25 @@ const Profile: React.FC = () => {
                     Informations du compte
                   </h3>
                   <div className="space-y-4">
+                    {/* Admin Status */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <Shield className="h-5 w-5 text-gray-400 mr-3" />
+                        <span className="text-sm text-gray-600">
+                          Statut administrateur
+                        </span>
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          userProfile.isadmin
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {userProfile.isadmin ? "Oui" : "Non"}
+                      </span>
+                    </div>
+
                     <div className="flex items-center">
                       <Calendar className="h-5 w-5 text-gray-400 mr-3" />
                       <div>
@@ -950,59 +969,44 @@ const Profile: React.FC = () => {
                       </div>
                     </div>
 
-                    {hasFreeFirstYear() && activeSubscription ? (
+                    {/* Show membership end date = last payment date + 1 year */}
+                    {getMembershipEndDate() && (
                       <div className="flex items-center">
                         <Calendar className="h-5 w-5 text-gray-400 mr-3" />
                         <div className="flex-1">
                           <p className="text-sm text-gray-600">
-                            Période d'essai gratuite jusqu'au
+                            Adhésion valide jusqu'au
                           </p>
                           <p className="text-gray-900">
-                            {formatDate(activeSubscription.current_period_end)}
+                            {formatDate(getMembershipEndDate()!)}
                           </p>
-                          <p className="text-xs text-blue-600 mt-1">
-                            Premier paiement automatique :{" "}
-                            {activeSubscription.amount}€
-                          </p>
+                          {(() => {
+                            const membershipEnd = getMembershipEndDate();
+                            const now = new Date();
+                            // Only show renewal link if membership is expired AND no active recurring subscription
+                            if (
+                              membershipEnd &&
+                              now > membershipEnd &&
+                              !hasActiveRecurringSubscription()
+                            ) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    navigate(
+                                      `/profile/edit?id=${userId}#payment`,
+                                    )
+                                  }
+                                  className="mt-2 text-sm text-orange-600 hover:text-orange-700 underline"
+                                >
+                                  Renouvelez votre adhésion
+                                </button>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
-                    ) : (
-                      payment &&
-                      payment.status === "succeeded" && (
-                        <div className="flex items-center">
-                          <Calendar className="h-5 w-5 text-gray-400 mr-3" />
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-600">
-                              Adhésion valide jusqu'au
-                            </p>
-                            <p className="text-gray-900">
-                              {getMembershipEndDate()
-                                ? formatDate(getMembershipEndDate()!)
-                                : "Non définie"}
-                            </p>
-                            {(() => {
-                              const membershipEnd = getMembershipEndDate();
-                              const now = new Date();
-                              if (membershipEnd && now > membershipEnd) {
-                                return (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      navigate(
-                                        `/profile/edit?id=${userId}#payment`,
-                                      )
-                                    }
-                                    className="mt-2 text-sm text-orange-600 hover:text-orange-700 underline"
-                                  >
-                                    Renouvelez votre adhésion
-                                  </button>
-                                );
-                              }
-                              return null;
-                            })()}
-                          </div>
-                        </div>
-                      )
                     )}
                   </div>
                 </div>

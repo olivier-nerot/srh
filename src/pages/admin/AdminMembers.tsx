@@ -102,14 +102,6 @@ Cela peut être dû à une carte expirée, un solde insuffisant ou un problème 
 
 Nous vous invitons à mettre à jour votre moyen de paiement en vous connectant à votre espace membre. Une fois votre carte mise à jour, votre paiement sera automatiquement relancé.`,
     },
-    "free-first-year": {
-      subject: "Bienvenue au SRH - Votre première année gratuite",
-      body: `Bienvenue au Syndicat des Radiologues Hospitaliers !
-
-Vous bénéficiez actuellement de votre première année d'adhésion gratuite. Profitez-en pour découvrir tous les avantages de votre adhésion.
-
-Votre premier paiement sera automatiquement prélevé à la fin de cette période d'essai. Vous pouvez consulter la date exacte dans votre espace membre.`,
-    },
     "no-payment": {
       subject: "Finalisez votre adhésion au SRH",
       body: `Nous avons remarqué que votre inscription au Syndicat des Radiologues Hospitaliers n'est pas encore finalisée.
@@ -126,23 +118,13 @@ Votre prochain paiement sera automatiquement prélevé à la date d'échéance. 
 
 Si vous souhaitez modifier vos préférences de paiement, connectez-vous à votre espace membre.`,
     },
-    "no-recurring": {
-      subject: "Activez le renouvellement automatique - SRH",
-      body: `Votre adhésion au Syndicat des Radiologues Hospitaliers n'est pas configurée en renouvellement automatique.
+    "one-time": {
+      subject: "Rappel - Renouvellement de votre adhésion SRH",
+      body: `Votre adhésion au Syndicat des Radiologues Hospitaliers a été réglée par paiement unique.
 
-Pour éviter toute interruption de votre adhésion, nous vous recommandons d'activer le paiement récurrent dans votre espace membre.
+N'oubliez pas de renouveler votre adhésion avant la date d'expiration pour continuer à bénéficier de tous les avantages réservés aux membres.
 
-Cette option vous permet de ne pas avoir à vous soucier du renouvellement chaque année.`,
-    },
-    "payment-method-issue": {
-      subject: "Action requise - Mise à jour de votre moyen de paiement SRH",
-      body: `Suite à un problème technique de notre côté, votre paiement d'adhésion prévu le 1er janvier 2026 n'a pas pu être effectué.
-
-Nous vous prions de bien vouloir mettre à jour votre moyen de paiement en vous connectant à votre espace membre.
-
-Une fois votre carte mise à jour, votre paiement sera automatiquement relancé.
-
-Nous vous présentons nos excuses pour ce désagrément et vous remercions de votre compréhension.`,
+Vous pouvez également opter pour le paiement récurrent dans votre espace membre pour ne plus avoir à vous soucier du renouvellement.`,
     },
   };
 
@@ -193,8 +175,9 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
   const isLoadingPaymentsRef = useRef(false);
   const hasLoadedPaymentsRef = useRef(false);
 
-  // Cache key for sessionStorage
-  const PAYMENT_CACHE_KEY = "srh_admin_payments_cache";
+  // Cache key for sessionStorage - include Stripe mode to separate test/live data
+  const isTestMode = import.meta.env.VITE_STRIPE_TESTMODE === "true";
+  const PAYMENT_CACHE_KEY = `srh_admin_payments_cache_${isTestMode ? "test" : "live"}`;
 
   const getCachedPayments = (): Record<
     string,
@@ -409,25 +392,47 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
   };
 
   // Calculate the membership end date based on payment or subscription
-  // SRH memberships are calendar year based: payment in year X = valid until Dec 31, X
+  // Membership is valid for 1 year from payment date
+  // Helper to check if a date is valid (reasonable year range)
+  const isValidDate = (date: Date): boolean => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      return false;
+    }
+    const year = date.getFullYear();
+    return year >= 1990 && year <= 2050;
+  };
+
   const getMembershipEndDate = (user: User): Date | null => {
-    // First try: use payment date if available
-    if (user.lastPayment && user.lastPayment.status === "succeeded") {
-      const paymentDate = new Date(user.lastPayment.created);
-      const paymentYear = paymentDate.getFullYear();
-      // The payment covers the SAME calendar year
-      // e.g., payment on Jan 15, 2025 = valid until Dec 31, 2025
-      return new Date(paymentYear, 11, 31); // December 31 of payment year
+    // Priority 1: Use subscribedUntil from database if available and valid
+    if (user.subscribedUntil) {
+      const date = new Date(user.subscribedUntil);
+      if (isValidDate(date)) {
+        return date;
+      }
     }
 
-    // Fallback: use subscription period end if available (only for active/trialing subscriptions)
+    // Priority 2: Calculate from payment date (payment date + 1 year)
+    // This is the PRIMARY method - membership = 1 year from payment
+    if (user.lastPayment && user.lastPayment.status === "succeeded") {
+      const paymentDate = new Date(user.lastPayment.created);
+      if (isValidDate(paymentDate)) {
+        const endDate = new Date(paymentDate);
+        endDate.setFullYear(endDate.getFullYear() + 1);
+        return endDate;
+      }
+    }
+
+    // Priority 3: Use subscription period end if available (only for active/trialing subscriptions)
     if (
       user.activeSubscription &&
       user.activeSubscription.current_period_end &&
       (user.activeSubscription.status === "active" ||
         user.activeSubscription.status === "trialing")
     ) {
-      return new Date(user.activeSubscription.current_period_end);
+      const date = new Date(user.activeSubscription.current_period_end);
+      if (isValidDate(date)) {
+        return date;
+      }
     }
 
     return null;
@@ -437,11 +442,6 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
     // Check membership end date based on actual payment
     const membershipEnd = getMembershipEndDate(user);
     if (membershipEnd && membershipEnd > new Date()) {
-      return true;
-    }
-
-    // Fallback: check if in trial period (new member, no payment yet)
-    if (hasFreeFirstYear(user)) {
       return true;
     }
 
@@ -464,12 +464,14 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
     const now = new Date();
 
     // If created_at is in the future, it's definitely wrong - use first payment
+    // Note: paymentService already converts Stripe timestamps to Date objects
     if (createdAt && createdAt > now && user.firstPayment) {
       return new Date(user.firstPayment.created);
     }
 
     // If first payment exists and is earlier than created_at, use first payment
     // (this means the user was migrated/recreated after their first payment)
+    // Note: paymentService already converts Stripe timestamps to Date objects
     if (user.firstPayment && createdAt) {
       const firstPaymentDate = new Date(user.firstPayment.created);
       if (firstPaymentDate < createdAt) {
@@ -490,19 +492,6 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
     );
   };
 
-  const hasFreeFirstYear = (user: User): boolean => {
-    // Free first year is ONLY for members who joined THIS calendar year
-    if (!user.activeSubscription) return false;
-    if (user.activeSubscription.status !== "trialing") return false;
-
-    // Check if user joined this year
-    const memberSince = getMemberSinceDate(user);
-    const currentYear = new Date().getFullYear();
-    if (!memberSince || memberSince.getFullYear() !== currentYear) return false;
-
-    return true;
-  };
-
   const hasRecurringPayment = (user: User): boolean => {
     // User has recurring payment if:
     // 1. They have an active subscription (active or trialing)
@@ -516,19 +505,21 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
     return !user.activeSubscription.cancel_at_period_end;
   };
 
-  const hasPaymentMethodIssue = (user: User): boolean => {
-    // User has payment method issue if they have a subscription that requires a payment method
-    // This is typically indicated by trialing status with no successful payment
-    if (!user.activeSubscription) return false;
-    if (user.activeSubscription.status !== "trialing") return false;
-    // If they have a successful payment, they don't have a payment method issue
-    if (user.lastPayment && user.lastPayment.status === "succeeded")
+  const hasOneTimePayment = (user: User): boolean => {
+    // User has one-time payment if:
+    // 1. They have made at least one successful payment
+    // 2. AND they do NOT have an active recurring subscription
+    if (!user.lastPayment || user.lastPayment.status !== "succeeded")
       return false;
-    // Check if user is NOT a new member (not first year free)
-    const memberSince = getMemberSinceDate(user);
-    const currentYear = new Date().getFullYear();
-    if (memberSince && memberSince.getFullYear() === currentYear) return false;
-    return true;
+    // If no subscription, it's one-time
+    if (!user.activeSubscription) return true;
+    // If subscription is canceled or set to cancel, it's effectively one-time
+    if (
+      user.activeSubscription.status === "canceled" ||
+      user.activeSubscription.cancel_at_period_end
+    )
+      return true;
+    return false;
   };
 
   const fetchDuplicates = async () => {
@@ -678,14 +669,9 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
       (filterPaymentStatus === "valid" && isValidRegistration(user)) ||
       (filterPaymentStatus === "expired" && hasExpiredPayment(user)) ||
       (filterPaymentStatus === "failed" && hasFailedPayment(user)) ||
-      (filterPaymentStatus === "no-payment" &&
-        !user.lastPayment &&
-        !hasFreeFirstYear(user)) ||
-      (filterPaymentStatus === "free-first-year" && hasFreeFirstYear(user)) ||
+      (filterPaymentStatus === "no-payment" && !user.lastPayment) ||
       (filterPaymentStatus === "recurring" && hasRecurringPayment(user)) ||
-      (filterPaymentStatus === "no-recurring" && !hasRecurringPayment(user)) ||
-      (filterPaymentStatus === "payment-method-issue" &&
-        hasPaymentMethodIssue(user));
+      (filterPaymentStatus === "one-time" && hasOneTimePayment(user));
 
     return matchesSearch && matchesSubscription && matchesPaymentStatus;
   });
@@ -1038,17 +1024,9 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
                     Adhésions expirées (plus d'1 an)
                   </option>
                   <option value="failed">Paiements échoués</option>
-                  <option value="free-first-year">
-                    Première année gratuite
-                  </option>
                   <option value="no-payment">Aucun paiement</option>
-                  <option value="recurring">Paiement récurrent activé</option>
-                  <option value="no-recurring">
-                    Paiement récurrent désactivé
-                  </option>
-                  <option value="payment-method-issue">
-                    ⚠️ Problème moyen de paiement
-                  </option>
+                  <option value="recurring">Paiement récurrent</option>
+                  <option value="one-time">Paiement unique</option>
                 </select>
               </div>
             </div>
@@ -1179,15 +1157,24 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
                     {/* Statut: Valide ou non */}
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Statut:</span>
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          isValidRegistration(user)
-                            ? "bg-green-100 text-green-800"
-                            : "bg-orange-100 text-orange-800"
-                        }`}
-                      >
-                        {isValidRegistration(user) ? "Valide" : "Expirée"}
-                      </span>
+                      {/* Show loading if payment data not yet loaded */}
+                      {loadingProgress.current < loadingProgress.total &&
+                      !user.lastPayment &&
+                      !user.activeSubscription ? (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                          Chargement...
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            isValidRegistration(user)
+                              ? "bg-green-100 text-green-800"
+                              : "bg-orange-100 text-orange-800"
+                          }`}
+                        >
+                          {isValidRegistration(user) ? "Valide" : "Expirée"}
+                        </span>
+                      )}
                     </div>
                     {/* Récurrent ou non */}
                     <div className="flex items-center justify-between">
@@ -1210,9 +1197,7 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
                       <span className="text-sm text-gray-600">
                         {user.lastPayment
                           ? formatDate(user.lastPayment.created)
-                          : hasFreeFirstYear(user)
-                            ? "1ère année offerte"
-                            : "Aucun"}
+                          : "Aucun"}
                       </span>
                     </div>
                     {/* Prochain paiement - show for all members with active subscription */}
@@ -1224,9 +1209,11 @@ Nous vous présentons nos excuses pour ce désagrément et vous remercions de vo
                             Prochain paiement:
                           </span>
                           <span className="text-sm text-gray-600">
-                            {formatDate(
-                              user.activeSubscription.current_period_end,
-                            )}
+                            {getMembershipEndDate(user)
+                              ? formatDate(getMembershipEndDate(user)!)
+                              : formatDate(
+                                  user.activeSubscription.current_period_end,
+                                )}
                           </span>
                         </div>
                       )}

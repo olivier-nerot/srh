@@ -7,6 +7,8 @@ export interface Payment {
   description?: string;
   failure_code?: string;
   failure_message?: string;
+  card_last4?: string | null;
+  card_brand?: string | null;
 }
 
 export interface Subscription {
@@ -134,7 +136,8 @@ export async function getUserSubscriptions(email: string): Promise<{
     const result = await response.json();
 
     if (result.success && result.subscriptions) {
-      // Convert date strings back to Date objects
+      // Convert ISO date strings to Date objects
+      // Note: Backend already converts Stripe timestamps to Date objects
       result.subscriptions = result.subscriptions.map(
         (sub: SubscriptionApiResponse) => ({
           ...sub,
@@ -159,6 +162,7 @@ export async function getUserLastPayment(email: string): Promise<{
   success: boolean;
   lastPayment: Payment | null;
   firstPayment: Payment | null;
+  paymentHistory: Payment[];
   error?: string;
 }> {
   try {
@@ -176,6 +180,7 @@ export async function getUserLastPayment(email: string): Promise<{
         success: false,
         lastPayment: null,
         firstPayment: null,
+        paymentHistory: [],
         error: `API error: ${response.status} ${response.statusText}`,
       };
     }
@@ -183,19 +188,30 @@ export async function getUserLastPayment(email: string): Promise<{
     const result = await response.json();
 
     if (result.success && result.lastPayment) {
-      // Convert the created date string back to Date object
+      // Convert ISO date string to Date object
+      // Note: Backend already converts Stripe timestamps to Date objects
       result.lastPayment.created = new Date(result.lastPayment.created);
     }
 
     if (result.success && result.firstPayment) {
-      // Convert the created date string back to Date object
+      // Convert ISO date string to Date object
+      // Note: Backend already converts Stripe timestamps to Date objects
       result.firstPayment.created = new Date(result.firstPayment.created);
     }
+
+    // Convert payment history dates
+    const paymentHistory: Payment[] = (result.paymentHistory || []).map(
+      (p: Payment) => ({
+        ...p,
+        created: new Date(p.created),
+      }),
+    );
 
     return {
       success: result.success,
       lastPayment: result.lastPayment || null,
       firstPayment: result.firstPayment || null,
+      paymentHistory: paymentHistory,
       error: result.error,
     };
   } catch (error) {
@@ -204,6 +220,7 @@ export async function getUserLastPayment(email: string): Promise<{
       success: false,
       lastPayment: null,
       firstPayment: null,
+      paymentHistory: [],
       error: "Erreur lors de la récupération des informations de paiement",
     };
   }

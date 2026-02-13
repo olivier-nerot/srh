@@ -80,14 +80,6 @@ const JadhereAuSrh: React.FC = () => {
     useState<RegisteredUserData | null>(null);
   const [isRecurring, setIsRecurring] = useState<boolean>(true);
 
-  // Calculate next January 1st dynamically
-  const getNextJan1Year = () => {
-    const today = new Date();
-    const nextJan1 = new Date(today.getFullYear() + 1, 0, 1);
-    return nextJan1.getFullYear();
-  };
-  const nextJan1Year = getNextJan1Year();
-
   // Redirect logged-in users to profile edit payment tab
   useEffect(() => {
     if (user) {
@@ -318,8 +310,8 @@ const JadhereAuSrh: React.FC = () => {
           : getSelectedTierData()?.price === 0
             ? "Finaliser mon adhésion gratuite"
             : isRecurring
-              ? "Finaliser mon abonnement (première année gratuite)"
-              : "Finaliser mon adhésion (première année gratuite)"}
+              ? `Finaliser et payer ${getSelectedTierData()?.price} €`
+              : `Finaliser et payer ${getSelectedTierData()?.price} €`}
       </Button>
     );
   };
@@ -348,7 +340,7 @@ const JadhereAuSrh: React.FC = () => {
 
       // Skip validation - let Stripe handle it during confirmCardPayment
 
-      // Create payment intent or subscription on backend first
+      // Create payment intent on backend - IMMEDIATE PAYMENT (no more free trial)
       const response = await fetch("/api/stripe?action=create-payment", {
         method: "POST",
         headers: {
@@ -364,7 +356,6 @@ const JadhereAuSrh: React.FC = () => {
           },
           recurring: isRecurring,
           tierData: tierData,
-          // trial_period_days calculated automatically by backend (until next Jan 1st)
         }),
       });
 
@@ -374,41 +365,20 @@ const JadhereAuSrh: React.FC = () => {
         throw new Error(result.error || "Payment processing failed");
       }
 
-      // Confirm the payment with Stripe using the clientSecret
-      // For payments with trial period (1 year free), use confirmCardSetup (no immediate charge)
-      // This applies to BOTH recurring and one-time payments during the trial period
+      // Confirm the payment with Stripe - ALWAYS use confirmCardPayment (immediate charge)
       if (result.clientSecret) {
-        let confirmationResult;
-
-        if (result.setupIntentId) {
-          // Payment with trial period (recurring OR one-time) - use confirmCardSetup (no charge)
-          confirmationResult = await stripe.confirmCardSetup(
-            result.clientSecret,
-            {
-              payment_method: {
-                card: cardElement,
-                billing_details: {
-                  name: `${user.firstname} ${user.lastname}`,
-                  email: user.email,
-                },
+        const confirmationResult = await stripe.confirmCardPayment(
+          result.clientSecret,
+          {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: `${user.firstname} ${user.lastname}`,
+                email: user.email,
               },
             },
-          );
-        } else {
-          // Immediate payment (no trial) - use confirmCardPayment (immediate charge)
-          confirmationResult = await stripe.confirmCardPayment(
-            result.clientSecret,
-            {
-              payment_method: {
-                card: cardElement,
-                billing_details: {
-                  name: `${user.firstname} ${user.lastname}`,
-                  email: user.email,
-                },
-              },
-            },
-          );
-        }
+          },
+        );
 
         if (confirmationResult.error) {
           throw new Error(
@@ -416,42 +386,64 @@ const JadhereAuSrh: React.FC = () => {
           );
         }
 
-        // CRITICAL: After confirmCardSetup succeeds, we MUST call confirm-setup
-        // to attach the payment method to the subscription. Without this,
-        // the subscription will have no payment method and future payments will fail!
-        if (result.setupIntentId) {
-          console.log(
-            "Confirming setup and attaching payment method to subscription...",
-          );
-          const confirmSetupResponse = await fetch(
-            `/api/stripe?action=confirm-setup`,
+        // For recurring payments, create the subscription after payment confirmation
+        if (isRecurring && result.pendingSubscription) {
+          console.log("Creating subscription after payment confirmation...");
+          const subscriptionResponse = await fetch(
+            `/api/stripe?action=create-subscription-after-payment`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                setupIntentId: result.setupIntentId,
-                subscriptionId: result.subscriptionId,
-                customerId: result.customer?.id,
+                email: user.email,
+                priceId: result.pendingSubscription.priceId,
+                tier: result.pendingSubscription.tier,
+                paymentIntentId: result.paymentIntentId,
               }),
             },
           );
 
-          const confirmSetupResult = await confirmSetupResponse.json();
-          if (!confirmSetupResult.success) {
+          const subscriptionResult = await subscriptionResponse.json();
+          if (!subscriptionResult.success) {
             console.error(
-              "Failed to attach payment method:",
-              confirmSetupResult.error,
+              "Failed to create subscription:",
+              subscriptionResult.error,
             );
-            // Don't fail the whole operation, but log the error
-            // The user's registration is still valid, we just need to fix the payment method later
+            // Don't fail - payment was successful, subscription can be created later
           } else {
+            console.log("Subscription created:", subscriptionResult);
+          }
+        }
+
+        // Update subscription date in database (payment successful)
+        try {
+          const updateResponse = await fetch(
+            `/api/user-management?action=update-subscription-date`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ email: user.email }),
+            },
+          );
+          const updateResult = await updateResponse.json();
+          if (updateResult.success) {
             console.log(
-              "Payment method attached successfully:",
-              confirmSetupResult,
+              "Subscription date updated in database:",
+              updateResult.subscribedUntil,
+            );
+          } else {
+            console.error(
+              "Failed to update subscription date:",
+              updateResult.error,
             );
           }
+        } catch (updateError) {
+          console.error("Error updating subscription date:", updateError);
+          // Don't fail - payment was successful
         }
 
         return {
@@ -537,13 +529,16 @@ const JadhereAuSrh: React.FC = () => {
                 {(registeredUser?.selectedTier?.price ?? 0) > 0 && (
                   <>
                     <p className="text-sm text-green-600">
-                      Première année gratuite, puis coût réel après déduction
-                      fiscale : {registeredUser?.selectedTier?.actualCost} €
+                      Paiement effectué. Coût réel après déduction fiscale :{" "}
+                      {registeredUser?.selectedTier?.actualCost} €
                       {registeredUser?.isRecurring ? "/an" : ""}
+                    </p>
+                    <p className="text-sm text-blue-600 font-medium">
+                      ✓ Adhésion valide pendant 1 an
                     </p>
                     {registeredUser?.isRecurring && (
                       <p className="text-sm text-blue-600 font-medium">
-                        🔄 Abonnement annuel automatique activé
+                        🔄 Renouvellement automatique activé
                       </p>
                     )}
                   </>
@@ -638,35 +633,15 @@ const JadhereAuSrh: React.FC = () => {
             <Euro className="h-6 w-6 text-green-600 mr-3" />
             <div>
               <h3 className="text-lg font-semibold text-green-900 mb-2">
-                Gratuit jusqu'au 1er janvier {nextJan1Year}
-              </h3>
-              <p className="text-green-800">
-                <strong>
-                  Votre adhésion est entièrement gratuite jusqu'au 1er janvier{" "}
-                  {nextJan1Year}, quel que soit le tarif choisi.
-                </strong>
-                <br />
-                Le prélèvement ne sera effectué qu'à partir du 1er janvier{" "}
-                {nextJan1Year}. Tous les adhérents renouvellent leur adhésion à
-                la même date pour faciliter la gestion.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
-          <div className="flex items-center">
-            <Euro className="h-6 w-6 text-green-600 mr-3" />
-            <div>
-              <h3 className="text-lg font-semibold text-green-900 mb-2">
                 Avantage fiscal
               </h3>
               <p className="text-green-800">
                 <strong>
                   66% de votre cotisation est déductible de vos impôts.
-                </strong>
+                </strong>{" "}
                 Le coût réel après déduction fiscale est considérablement
-                réduit.
+                réduit. Votre adhésion est valide pendant un an à partir de la
+                date de paiement.
               </p>
             </div>
           </div>
@@ -1005,8 +980,7 @@ const JadhereAuSrh: React.FC = () => {
                           )}
                           {isRecurring && (
                             <div className="text-sm text-blue-600 mt-2 font-medium">
-                              🔄 Paiement automatique annuel activé (premier
-                              paiement le 1er janvier {nextJan1Year})
+                              🔄 Renouvellement automatique activé
                             </div>
                           )}
                         </div>
@@ -1035,9 +1009,8 @@ const JadhereAuSrh: React.FC = () => {
                                       Paiement unique
                                     </span>
                                     <div className="text-gray-500">
-                                      Premier paiement le 1er janvier{" "}
-                                      {nextJan1Year}, puis adhésion pour l'année
-                                      suivante uniquement
+                                      Paiement immédiat, adhésion valide pendant
+                                      1 an
                                     </div>
                                   </label>
                                 </div>
@@ -1058,10 +1031,9 @@ const JadhereAuSrh: React.FC = () => {
                                       Abonnement annuel automatique
                                     </span>
                                     <div className="text-gray-500">
-                                      Premier paiement le 1er janvier{" "}
-                                      {nextJan1Year}, puis renouvellement
-                                      automatique chaque 1er janvier (résiliable
-                                      à tout moment)
+                                      Paiement immédiat, puis renouvellement
+                                      automatique chaque année (résiliable à
+                                      tout moment)
                                     </div>
                                     <div className="text-green-600 text-xs mt-1">
                                       ✨ Recommandé - Ne ratez jamais votre

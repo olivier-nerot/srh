@@ -65,6 +65,10 @@ export default async function handler(req, res) {
         return await getDuplicateSubscriptions(req, res);
       case "create-subscription-after-payment":
         return await createSubscriptionAfterPayment(req, res);
+      case "preview-trialing-migration":
+        return await previewTrialingMigration(req, res);
+      case "execute-trialing-migration":
+        return await executeTrialingMigration(req, res);
       default:
         return res.status(400).json({ error: "Invalid action" });
     }
@@ -204,6 +208,8 @@ async function getPayments(req, res) {
 
       // Add charges from this customer
       charges.data.forEach(charge => {
+        // Extract card info from payment_method_details
+        const cardDetails = charge.payment_method_details?.card;
         allPayments.push({
           type: 'charge',
           id: charge.id,
@@ -216,26 +222,27 @@ async function getPayments(req, res) {
           // Include failure information for failed charges
           failure_code: charge.failure_code || null,
           failure_message: charge.failure_message || null,
+          // Include card info
+          card_last4: cardDetails?.last4 || null,
+          card_brand: cardDetails?.brand || null,
         });
       });
 
-      // Add payment intents from this customer (excluding canceled)
+      // Add payment intents from this customer (all statuses for history)
       paymentIntents.data.forEach(pi => {
-        if (pi.status !== 'canceled') {
-          allPayments.push({
-            type: 'payment_intent',
-            id: pi.id,
-            amount: pi.amount / 100,
-            currency: pi.currency,
-            status: pi.status,
-            created: pi.created,
-            description: pi.description,
-            customerId: customer.id,
-            // Include failure information for failed payment intents
-            failure_code: pi.last_payment_error?.code || null,
-            failure_message: pi.last_payment_error?.message || null,
-          });
-        }
+        allPayments.push({
+          type: 'payment_intent',
+          id: pi.id,
+          amount: pi.amount / 100,
+          currency: pi.currency,
+          status: pi.status,
+          created: pi.created,
+          description: pi.description,
+          customerId: customer.id,
+          // Include failure information for failed payment intents
+          failure_code: pi.last_payment_error?.code || null,
+          failure_message: pi.last_payment_error?.message || null,
+        });
       });
     }
 
@@ -280,6 +287,8 @@ async function getPayments(req, res) {
       description: mostRecent.description,
       failure_code: mostRecent.failure_code,
       failure_message: mostRecent.failure_message,
+      card_last4: mostRecent.card_last4,
+      card_brand: mostRecent.card_brand,
     };
 
     // Format the first payment data (for "member since")
@@ -292,10 +301,35 @@ async function getPayments(req, res) {
       description: oldestSuccessful.description,
     } : null;
 
+    // Format all payments for history - deduplicate by keeping only charges for succeeded
+    // (payment_intents create charges when successful, so we'd have duplicates)
+    // For failed/canceled payments, keep payment_intents (they don't have charges)
+    const paymentHistory = allPayments
+      .filter(p => {
+        // Keep all charges (these are actual successful payments)
+        if (p.type === 'charge') return true;
+        // Keep payment_intents only if NOT succeeded (failed, canceled, etc.)
+        if (p.type === 'payment_intent' && p.status !== 'succeeded') return true;
+        return false;
+      })
+      .map(p => ({
+        id: p.id,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        created: new Date(p.created * 1000),
+        description: p.description,
+        card_last4: p.card_last4,
+        card_brand: p.card_brand,
+        failure_code: p.failure_code,
+        failure_message: p.failure_message,
+      }));
+
     return res.status(200).json({
       success: true,
       lastPayment: lastPayment,
       firstPayment: firstPayment,
+      paymentHistory: paymentHistory,
     });
   } catch (error) {
     console.error("Error fetching payments for email:", req.query.email, error);
@@ -307,7 +341,7 @@ async function getPayments(req, res) {
   }
 }
 
-// Create payment functionality (from create-payment.js)
+// Create payment functionality - IMMEDIATE PAYMENT (no free trial)
 async function createPayment(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -358,223 +392,54 @@ async function createPayment(req, res) {
       );
     }
 
-    if (recurring) {
-      // Create a subscription for recurring payments
+    // Calculate membership end date (1 year from now)
+    const validUntil = new Date();
+    validUntil.setFullYear(validUntil.getFullYear() + 1);
 
-      // First create a price object for this tier if it doesn't exist
-      const priceId = await createOrGetPrice(tierData, requestOptions);
+    // ALWAYS create PaymentIntent for immediate payment (no more free trial)
+    console.log(`Creating PaymentIntent for immediate payment - ${customer.email}`);
 
-      // Check if this is an existing member based on LOCAL DATABASE creation date
-      // This is the SOURCE OF TRUTH - not Stripe history which differs between test/production modes
-      const memberCreatedAt = customer.memberCreatedAt ? new Date(customer.memberCreatedAt) : null;
-      const currentYear = new Date().getFullYear();
-
-      let hasPaymentHistory = false;
-
-      // PRIMARY CHECK: If member was created before the current year, they are NOT a new member
-      if (memberCreatedAt) {
-        const creationYear = memberCreatedAt.getFullYear();
-        if (creationYear < currentYear) {
-          hasPaymentHistory = true;
-          console.log(`Member ${customer.email} created in ${creationYear} (before ${currentYear}) - existing member, charge immediately`);
-        } else {
-          console.log(`Member ${customer.email} created in ${creationYear} (current year) - new member, eligible for trial`);
-        }
-      }
-
-      // FALLBACK: If memberCreatedAt not provided, check Stripe history (legacy behavior)
-      if (!hasPaymentHistory && !memberCreatedAt) {
-        console.log(`No memberCreatedAt provided for ${customer.email}, checking Stripe history...`);
-        try {
-          // Check for any charges (successful or not)
-          const charges = await stripe.charges.list(
-            { customer: stripeCustomer.id, limit: 1 },
-            requestOptions
-          );
-          if (charges.data.length > 0) {
-            hasPaymentHistory = true;
-            console.log(`Customer ${stripeCustomer.id} has charge history - no trial period`);
-          }
-
-          // Check for any payment intents (successful or not)
-          if (!hasPaymentHistory) {
-            const paymentIntents = await stripe.paymentIntents.list(
-              { customer: stripeCustomer.id, limit: 1 },
-              requestOptions
-            );
-            if (paymentIntents.data.length > 0) {
-              hasPaymentHistory = true;
-              console.log(`Customer ${stripeCustomer.id} has payment intent history - no trial period`);
-            }
-          }
-
-          // Check for any past subscriptions
-          if (!hasPaymentHistory) {
-            const subscriptions = await stripe.subscriptions.list(
-              { customer: stripeCustomer.id, status: 'all', limit: 1 },
-              requestOptions
-            );
-            if (subscriptions.data.length > 0) {
-              hasPaymentHistory = true;
-              console.log(`Customer ${stripeCustomer.id} has subscription history - no trial period`);
-            }
-          }
-        } catch (historyError) {
-          console.log('Error checking payment history:', historyError.message);
-          // If we can't check history, assume they have history (safer to charge than give free trial)
-          hasPaymentHistory = true;
-        }
-      }
-
-      // Calculate days until next January 1st (all members renew on the same date)
-      const today = new Date();
-      const nextJan1 = new Date(today.getFullYear() + 1, 0, 1); // January 1st next year
-      const trialPeriod = Math.ceil((nextJan1.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (hasPaymentHistory) {
-        // Existing member: charge immediately, subscription renews on Jan 1st
-        console.log(`Creating subscription WITH immediate payment for existing member`);
-
-        // Create PaymentIntent to charge immediately
-        const paymentIntent = await stripe.paymentIntents.create(
-          {
-            amount: amount,
-            currency: currency,
-            customer: stripeCustomer.id,
-            metadata: {
-              tier: tierData.id,
-              hospital: customer.hospital || "",
-              type: "recurring_subscription_payment",
-            },
-          },
-          requestOptions,
-        );
-
-        return res.status(200).json({
-          success: true,
-          type: "subscription_with_payment",
-          clientSecret: paymentIntent.client_secret,
-          customer: stripeCustomer,
-          // Subscription will be created after payment confirmation via webhook or frontend
-          pendingSubscription: {
-            priceId: priceId,
-            trialPeriod: trialPeriod, // Trial until Jan 1st (but payment already made)
-            tier: tierData.id,
-          },
-        });
-      }
-
-      // Brand new member with NO payment history: create trial subscription
-      console.log(`Creating subscription with trial period for NEW member (${trialPeriod} days)`);
-
-      // For subscriptions with trial, we need to create a SetupIntent (not PaymentIntent)
-      // to save the payment method WITHOUT charging immediately
-      const setupIntent = await stripe.setupIntents.create(
-        {
-          customer: stripeCustomer.id,
-          payment_method_types: ['card'],
-          metadata: {
-            tier: tierData.id,
-            hospital: customer.hospital || "",
-            trial_period_days: trialPeriod.toString(),
-          },
-        },
-        requestOptions,
-      );
-
-      // Create the subscription without immediate payment
-      const subscriptionParams = {
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: amount,
+        currency: currency,
         customer: stripeCustomer.id,
-        items: [
-          {
-            price: priceId,
-          },
-        ],
-        trial_period_days: trialPeriod,
-        payment_settings: {
-          save_default_payment_method: "on_subscription",
-          payment_method_types: ['card'],
-        },
         metadata: {
           tier: tierData.id,
           hospital: customer.hospital || "",
-          free_trial: `${trialPeriod} days`,
-          is_first_time_member: "true",
+          payment_type: recurring ? "recurring" : "one_time",
+          valid_until: validUntil.toISOString(),
         },
-      };
-      const subscription = await stripe.subscriptions.create(
-        subscriptionParams,
-        requestOptions,
-      );
+      },
+      requestOptions,
+    );
 
-      return res.status(200).json({
-        success: true,
-        type: "subscription",
-        subscriptionId: subscription.id,
-        clientSecret: setupIntent.client_secret, // Return SetupIntent secret, not PaymentIntent
-        setupIntentId: setupIntent.id,
-        customer: stripeCustomer,
-        trial_end: new Date(Date.now() + trialPeriod * 24 * 60 * 60 * 1000).toISOString(),
-      });
-    } else {
-      // One-time payment delayed until next January 1st
-      // All members renew on the same date for easier management
-
-      // Calculate days until next January 1st
-      const today = new Date();
-      const nextJan1 = new Date(today.getFullYear() + 1, 0, 1); // January 1st next year
-      const trialPeriod = Math.ceil((nextJan1.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      // Create SetupIntent to save payment method without charging
-      const setupIntent = await stripe.setupIntents.create(
-        {
-          customer: stripeCustomer.id,
-          payment_method_types: ['card'],
-          metadata: {
-            tier: tierData.id,
-            hospital: customer.hospital || "",
-            type: "one_time_membership_delayed",
-            amount: amount.toString(),
-            currency: currency,
-            trial_period_days: trialPeriod.toString(),
-          },
-        },
-        requestOptions,
-      );
-
-      // Create a single-payment subscription with trial (auto-cancels after first payment)
-      // This is the only way to schedule a one-time payment for the future in Stripe
+    if (recurring) {
+      // For recurring payments: get or create price for subscription
       const priceId = await createOrGetPrice(tierData, requestOptions);
 
-      const subscription = await stripe.subscriptions.create(
-        {
-          customer: stripeCustomer.id,
-          items: [{ price: priceId }],
-          trial_period_days: trialPeriod,
-          cancel_at_period_end: true, // Auto-cancel after first payment
-          payment_settings: {
-            save_default_payment_method: "on_subscription",
-            payment_method_types: ['card'],
-          },
-          metadata: {
-            tier: tierData.id,
-            hospital: customer.hospital || "",
-            type: "one_time_membership_delayed",
-            free_trial: `${trialPeriod} days`,
-          },
-        },
-        requestOptions,
-      );
-
       return res.status(200).json({
         success: true,
-        type: "one_time_delayed",
-        subscriptionId: subscription.id,
-        clientSecret: setupIntent.client_secret,
-        setupIntentId: setupIntent.id,
+        type: "subscription_with_payment",
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
         customer: stripeCustomer,
-        trial_end: new Date(Date.now() + trialPeriod * 24 * 60 * 60 * 1000).toISOString(),
-        willCancelAfterPayment: true,
+        validUntil: validUntil.toISOString(),
+        // Subscription will be created after payment confirmation
+        pendingSubscription: {
+          priceId: priceId,
+          tier: tierData.id,
+        },
+      });
+    } else {
+      // One-time payment: just return the payment intent
+      return res.status(200).json({
+        success: true,
+        type: "one_time_payment",
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        customer: stripeCustomer,
+        validUntil: validUntil.toISOString(),
       });
     }
   } catch (error) {
@@ -695,13 +560,29 @@ async function getSubscriptions(req, res) {
 
       console.log(`Customer ${customer.id} (${customer.email}): ${subscriptions.data.length} subscriptions`);
 
+      // Try to get customer's default payment method if subscriptions don't have one
+      let customerCardInfo = { last4: null, brand: null };
+      if (customer.invoice_settings?.default_payment_method) {
+        try {
+          const customerPM = await stripe.paymentMethods.retrieve(
+            customer.invoice_settings.default_payment_method,
+            requestOptions
+          );
+          if (customerPM.card) {
+            customerCardInfo = { last4: customerPM.card.last4, brand: customerPM.card.brand };
+          }
+        } catch (e) {
+          console.log(`Could not retrieve customer payment method: ${e.message}`);
+        }
+      }
+
       // Format and add subscriptions from this customer
       subscriptions.data.forEach((sub) => {
         // Extract card info from default_payment_method if available
         const paymentMethod = sub.default_payment_method;
-        const cardInfo = paymentMethod && typeof paymentMethod === 'object' && paymentMethod.card
+        let cardInfo = paymentMethod && typeof paymentMethod === 'object' && paymentMethod.card
           ? { last4: paymentMethod.card.last4, brand: paymentMethod.card.brand }
-          : { last4: null, brand: null };
+          : customerCardInfo; // Fallback to customer's default payment method
 
         console.log(`  Subscription ${sub.id}:`, {
           status: sub.status,
@@ -926,7 +807,8 @@ async function updatePaymentMethod(req, res) {
   }
 }
 
-// Create recurring subscription from one-time payment
+// Create recurring subscription from one-time payment - NO TRIAL PERIOD
+// This is used when a member with one-time payment wants to switch to recurring
 async function createRecurringSubscription(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -963,7 +845,11 @@ async function createRecurringSubscription(req, res) {
     // Create a price object for this tier if it doesn't exist
     const priceId = await createOrGetPrice(tierData, requestOptions);
 
-    // Create the subscription with 1-year trial period
+    // Calculate valid until date (1 year from now)
+    const validUntil = new Date();
+    validUntil.setFullYear(validUntil.getFullYear() + 1);
+
+    // Create the subscription with immediate payment (no trial period)
     const subscriptionParams = {
       customer: stripeCustomer.id,
       items: [
@@ -974,11 +860,12 @@ async function createRecurringSubscription(req, res) {
       payment_behavior: "default_incomplete",
       payment_settings: { save_default_payment_method: "on_subscription" },
       expand: ["latest_invoice.payment_intent"],
-      trial_period_days: 365, // 1-year free trial
+      // NO trial_period_days - payment is immediate
       metadata: {
         tier: tierData.id,
         converted_from_onetime: "true",
-        free_trial: "365 days",
+        payment_type: "recurring",
+        valid_until: validUntil.toISOString(),
       },
     };
     const subscription = await stripe.subscriptions.create(
@@ -992,6 +879,7 @@ async function createRecurringSubscription(req, res) {
       subscriptionId: subscription.id,
       clientSecret: subscription.latest_invoice.payment_intent.client_secret,
       customer: stripeCustomer,
+      validUntil: validUntil.toISOString(),
     });
   } catch (error) {
     console.error("Error creating recurring subscription:", error);
@@ -1834,14 +1722,15 @@ async function cleanupDuplicateSubscriptions(req, res) {
   }
 }
 
-// Create subscription after payment confirmation (for existing members who pay immediately)
+// Create subscription after payment confirmation - NO TRIAL PERIOD
+// The subscription starts immediately and renews in 1 year
 async function createSubscriptionAfterPayment(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const { email, priceId, trialPeriod, tier, paymentIntentId } = req.body;
+    const { email, priceId, tier, paymentIntentId } = req.body;
 
     if (!email || !priceId) {
       return res.status(400).json({
@@ -1882,19 +1771,28 @@ async function createSubscriptionAfterPayment(req, res) {
       }
     }
 
-    // Create subscription with trial period until Jan 1st
-    // The customer has already paid, so this is just for tracking renewal
+    // Calculate valid until date (1 year from now)
+    const validUntil = new Date();
+    validUntil.setFullYear(validUntil.getFullYear() + 1);
+
+    // Create subscription - first payment already made via PaymentIntent
+    // Use billing_cycle_anchor to schedule next payment in 1 year
+    const billingAnchor = Math.floor(validUntil.getTime() / 1000); // Unix timestamp
+
     const subscriptionParams = {
       customer: customer.id,
       items: [{ price: priceId }],
-      trial_period_days: trialPeriod || 335, // Default ~11 months if not specified
+      // Anchor billing to 1 year from now (next payment date)
+      billing_cycle_anchor: billingAnchor,
+      proration_behavior: 'none', // Don't charge for the "free" period
       payment_settings: {
         save_default_payment_method: "on_subscription",
         payment_method_types: ['card'],
       },
       metadata: {
         tier: tier || "unknown",
-        created_after_payment: "true",
+        payment_type: "recurring",
+        valid_until: validUntil.toISOString(),
         payment_intent_id: paymentIntentId || "",
       },
     };
@@ -1909,18 +1807,204 @@ async function createSubscriptionAfterPayment(req, res) {
       requestOptions
     );
 
-    console.log(`Created subscription ${subscription.id} for ${email} after payment confirmation`);
+    console.log(`Created subscription ${subscription.id} for ${email} - status: ${subscription.status}`);
 
     return res.status(200).json({
       success: true,
       subscriptionId: subscription.id,
       status: subscription.status,
+      validUntil: validUntil.toISOString(),
     });
   } catch (error) {
     console.error("Error creating subscription after payment:", error);
     return res.status(500).json({
       success: false,
       error: "Error creating subscription",
+      details: error.message,
+    });
+  }
+}
+
+// Preview trialing subscriptions migration
+// Lists all "trialing" subscriptions and determines what will happen to each
+async function previewTrialingMigration(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+    };
+
+    // Get all trialing subscriptions
+    const subscriptions = await stripe.subscriptions.list(
+      {
+        status: "trialing",
+        limit: 100,
+      },
+      requestOptions
+    );
+
+    const results = {
+      total: subscriptions.data.length,
+      toKeep: [],
+      toCancel: [],
+    };
+
+    for (const subscription of subscriptions.data) {
+      // Get customer info
+      const customer = await stripe.customers.retrieve(
+        subscription.customer,
+        requestOptions
+      );
+
+      // Check if customer has any successful payments in the last year
+      const oneYearAgo = Math.floor(Date.now() / 1000) - (365 * 24 * 60 * 60);
+      const payments = await stripe.paymentIntents.list(
+        {
+          customer: subscription.customer,
+          limit: 10,
+        },
+        requestOptions
+      );
+
+      const hasRecentPayment = payments.data.some(
+        (payment) =>
+          payment.status === "succeeded" && payment.created > oneYearAgo
+      );
+
+      const subscriptionInfo = {
+        subscriptionId: subscription.id,
+        email: customer.email || "unknown",
+        name: customer.name || customer.email || "unknown",
+        createdAt: new Date(subscription.created * 1000).toISOString(),
+        hasRecentPayment,
+        recentPaymentCount: payments.data.filter(
+          (p) => p.status === "succeeded" && p.created > oneYearAgo
+        ).length,
+      };
+
+      if (hasRecentPayment) {
+        // Member has paid, keep their membership valid
+        results.toKeep.push(subscriptionInfo);
+      } else {
+        // No recent payment, subscription will be cancelled
+        results.toCancel.push(subscriptionInfo);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      preview: results,
+      message: `Found ${results.total} trialing subscriptions: ${results.toKeep.length} to keep (with recent payment), ${results.toCancel.length} to cancel (no payment)`,
+    });
+  } catch (error) {
+    console.error("Error previewing trialing migration:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error previewing trialing migration",
+      details: error.message,
+    });
+  }
+}
+
+// Execute trialing subscriptions migration
+// Cancels trialing subscriptions without recent payment
+async function executeTrialingMigration(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed. Use POST." });
+  }
+
+  try {
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+    };
+
+    // Get all trialing subscriptions
+    const subscriptions = await stripe.subscriptions.list(
+      {
+        status: "trialing",
+        limit: 100,
+      },
+      requestOptions
+    );
+
+    const results = {
+      total: subscriptions.data.length,
+      kept: [],
+      cancelled: [],
+      errors: [],
+    };
+
+    for (const subscription of subscriptions.data) {
+      try {
+        // Get customer info
+        const customer = await stripe.customers.retrieve(
+          subscription.customer,
+          requestOptions
+        );
+
+        // Check if customer has any successful payments in the last year
+        const oneYearAgo = Math.floor(Date.now() / 1000) - (365 * 24 * 60 * 60);
+        const payments = await stripe.paymentIntents.list(
+          {
+            customer: subscription.customer,
+            limit: 10,
+          },
+          requestOptions
+        );
+
+        const hasRecentPayment = payments.data.some(
+          (payment) =>
+            payment.status === "succeeded" && payment.created > oneYearAgo
+        );
+
+        const subscriptionInfo = {
+          subscriptionId: subscription.id,
+          email: customer.email || "unknown",
+          name: customer.name || customer.email || "unknown",
+        };
+
+        // Check if we should cancel all trialing subscriptions
+        const cancelAll = req.query.cancelAll === "true";
+
+        if (hasRecentPayment && !cancelAll) {
+          // Member has paid - keep membership, just update status
+          // We don't cancel, the subscription can stay as-is
+          results.kept.push({
+            ...subscriptionInfo,
+            reason: "Has recent payment - membership valid",
+          });
+        } else {
+          // Cancel the subscription (either no payment, or cancelAll=true)
+          await stripe.subscriptions.cancel(subscription.id, requestOptions);
+          results.cancelled.push({
+            ...subscriptionInfo,
+            reason: hasRecentPayment
+              ? "Has payment - subscription cancelled (membership still valid via payment date)"
+              : "No payment found - subscription cancelled",
+            hadPayment: hasRecentPayment,
+          });
+        }
+      } catch (subError) {
+        results.errors.push({
+          subscriptionId: subscription.id,
+          error: subError.message,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      results,
+      message: `Migration complete: ${results.kept.length} kept, ${results.cancelled.length} cancelled, ${results.errors.length} errors`,
+    });
+  } catch (error) {
+    console.error("Error executing trialing migration:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Error executing trialing migration",
       details: error.message,
     });
   }
