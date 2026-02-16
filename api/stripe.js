@@ -392,9 +392,8 @@ async function createPayment(req, res) {
       );
     }
 
-    // Calculate membership end date (1 year from now)
-    const validUntil = new Date();
-    validUntil.setFullYear(validUntil.getFullYear() + 1);
+    // Membership valid until December 31st of current year
+    const validUntil = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59, 999);
 
     // ALWAYS create PaymentIntent for immediate payment (no more free trial)
     console.log(`Creating PaymentIntent for immediate payment - ${customer.email}`);
@@ -1771,13 +1770,13 @@ async function createSubscriptionAfterPayment(req, res) {
       }
     }
 
-    // Calculate valid until date (1 year from now)
-    const validUntil = new Date();
-    validUntil.setFullYear(validUntil.getFullYear() + 1);
+    // Membership valid until December 31st of current year
+    const validUntil = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59, 999);
 
     // Create subscription - first payment already made via PaymentIntent
-    // Use billing_cycle_anchor to schedule next payment in 1 year
-    const billingAnchor = Math.floor(validUntil.getTime() / 1000); // Unix timestamp
+    // Next billing on January 1st of next year
+    const nextJan1 = new Date(new Date().getFullYear() + 1, 0, 1, 0, 0, 0);
+    const billingAnchor = Math.floor(nextJan1.getTime() / 1000); // Unix timestamp
 
     const subscriptionParams = {
       customer: customer.id,

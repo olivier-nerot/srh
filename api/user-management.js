@@ -873,9 +873,8 @@ async function updateSubscriptionDate(req, res) {
       });
     }
 
-    // Calculate subscription end date (1 year from now)
-    const subscribedUntil = new Date();
-    subscribedUntil.setFullYear(subscribedUntil.getFullYear() + 1);
+    // Subscription valid until December 31st of current year
+    const subscribedUntil = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59, 999);
 
     const result = await db
       .update(users)
