@@ -921,7 +921,6 @@ const ProfileEdit: React.FC = () => {
               firstname: formData.firstname,
               lastname: formData.lastname,
               hospital: formData.hospital,
-              createdAt: userProfile?.createdAt || new Date(), // Use user's creation date from local DB
             },
             stripe,
             elements,
@@ -1303,25 +1302,26 @@ const ProfileEdit: React.FC = () => {
                             Type de paiement
                           </span>
                           <span className="text-sm text-gray-900">
-                            {currentSubscription &&
-                            !currentSubscription.cancel_at_period_end
+                            {isRecurring
                               ? "Abonnement automatique"
                               : "Paiement unique"}
                           </span>
                         </div>
 
-                        {currentSubscription && (
-                          <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                            <span className="text-sm text-gray-600">
-                              Statut abonnement
-                            </span>
-                            <span
-                              className={`text-sm font-medium ${getSubscriptionStatusLabel().color}`}
-                            >
-                              {getSubscriptionStatusLabel().label}
-                            </span>
-                          </div>
-                        )}
+                        {/* Only show subscription status if there's an active/trialing subscription or scheduled cancellation */}
+                        {currentSubscription &&
+                          currentSubscription.status !== "canceled" && (
+                            <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                              <span className="text-sm text-gray-600">
+                                Statut abonnement
+                              </span>
+                              <span
+                                className={`text-sm font-medium ${getSubscriptionStatusLabel().color}`}
+                              >
+                                {getSubscriptionStatusLabel().label}
+                              </span>
+                            </div>
+                          )}
 
                         {/* Card info - show if available (from subscription or last payment) */}
                         {(currentSubscription?.card_last4 ||
