@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { setCorsHeaders } from "./lib/cors.js";
+import { setCorsHeaders } from "./_lib/cors.js";
 
 // Use VITE_STRIPE_TESTMODE to determine which Stripe keys to use
 const isTestMode = process.env.VITE_STRIPE_TESTMODE === "true";
