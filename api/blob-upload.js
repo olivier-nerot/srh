@@ -1,7 +1,7 @@
 const { handleUpload } = require('@vercel/blob/client');
-const { setCorsHeaders } = require('./lib/cors');
-const { getDb } = require('./lib/turso');
-const { documents } = require('./lib/schema');
+const { setCorsHeaders } = require('./_lib/cors');
+const { getDb } = require('./_lib/turso');
+const { documents } = require('./_lib/schema');
 
 module.exports = async function handler(req, res) {
   // Enable CORS

@@ -1,5 +1,5 @@
-const { testConnection: tursoTestConnection } = require('./lib/turso');
-const { setCorsHeaders } = require('./lib/cors');
+const { testConnection: tursoTestConnection } = require('./_lib/turso');
+const { setCorsHeaders } = require('./_lib/cors');
 
 module.exports = async function handler(req, res) {
   // Enable CORS

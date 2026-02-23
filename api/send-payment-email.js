@@ -1,5 +1,5 @@
 const { Resend } = require('resend');
-const { setCorsHeaders } = require('./lib/cors');
+const { setCorsHeaders } = require('./_lib/cors');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 

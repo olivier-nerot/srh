@@ -7,7 +7,7 @@
  * Schedule: Daily at 9:00 AM UTC (10:00 AM CET / 11:00 AM CEST)
  */
 
-const { getDb } = require('../lib/turso');
+const { getDb } = require('../_lib/turso');
 const { eq, and } = require('drizzle-orm');
 const { sqliteTable, text, integer } = require('drizzle-orm/sqlite-core');
 const { Resend } = require('resend');

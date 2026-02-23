@@ -1,7 +1,7 @@
-const { getDb } = require('./lib/turso');
-const { setCorsHeaders } = require('./lib/cors');
+const { getDb } = require('./_lib/turso');
+const { setCorsHeaders } = require('./_lib/cors');
 const { eq, asc, desc } = require('drizzle-orm');
-const { publications, jotextes, faq, rapports, liens } = require('./lib/schema');
+const { publications, jotextes, faq, rapports, liens } = require('./_lib/schema');
 
 module.exports = async function handler(req, res) {
   // Enable CORS

@@ -1,8 +1,8 @@
-const { getDb } = require('./lib/turso');
+const { getDb } = require('./_lib/turso');
 const { eq, ne, gte, desc, and } = require('drizzle-orm');
 const { Resend } = require('resend');
-const { setCorsHeaders } = require('./lib/cors');
-const { users, publications, newsletterQueue, newsletterRecipients } = require('./lib/schema');
+const { setCorsHeaders } = require('./_lib/cors');
+const { users, publications, newsletterQueue, newsletterRecipients } = require('./_lib/schema');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 

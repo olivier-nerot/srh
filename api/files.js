@@ -1,8 +1,8 @@
 const { put } = require('@vercel/blob');
-const { setCorsHeaders } = require('./lib/cors');
-const { getDb } = require('./lib/turso');
+const { setCorsHeaders } = require('./_lib/cors');
+const { getDb } = require('./_lib/turso');
 const { eq, inArray } = require('drizzle-orm');
-const { documents } = require('./lib/schema');
+const { documents } = require('./_lib/schema');
 const fs = require('fs');
 const path = require('path');
 
