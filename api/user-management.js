@@ -50,6 +50,8 @@ module.exports = async function handler(req, res) {
         return await handleProfile(req, res);
       case "update-subscription-date":
         return await updateSubscriptionDate(req, res);
+      case "fix-subscription-dates":
+        return await fixSubscriptionDates(req, res);
       default:
         return res.status(400).json({ error: "Action invalide" });
     }
@@ -877,6 +879,115 @@ async function updateSubscriptionDate(req, res) {
     return res.status(500).json({
       success: false,
       error: "Erreur lors de la mise à jour de la date d'abonnement: " + error.message,
+    });
+  }
+}
+
+// One-time migration: fix all subscribedUntil dates to Dec 31st of the payment year
+// Old logic was "payment date + 1 year", new logic is "Dec 31st of payment year"
+// If subscribedUntil is already Dec 31 → already correct, skip
+// If subscribedUntil is another date → old "+1 year" logic → set to Dec 31 of (year - 1)
+async function fixSubscriptionDates(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Méthode non autorisée" });
+  }
+
+  try {
+    const { adminEmail, dryRun } = req.body;
+
+    if (!adminEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "adminEmail requis",
+      });
+    }
+
+    const db = await getDb();
+
+    // Verify the caller is an admin
+    const admin = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, adminEmail.toLowerCase()))
+      .limit(1);
+
+    if (admin.length === 0 || !admin[0].isadmin) {
+      return res.status(403).json({
+        success: false,
+        error: "Accès réservé aux administrateurs",
+      });
+    }
+
+    // Get all users with a subscribedUntil value
+    const allUsers = await db.select().from(users);
+
+    const fixes = [];
+    const alreadyCorrect = [];
+    const noSubscription = [];
+
+    for (const user of allUsers) {
+      if (!user.subscribedUntil) {
+        noSubscription.push({ id: user.id, email: user.email });
+        continue;
+      }
+
+      const date = new Date(user.subscribedUntil);
+      const month = date.getMonth(); // 0-indexed, 11 = December
+      const day = date.getDate();
+
+      // Already Dec 31 → correct
+      if (month === 11 && day === 31) {
+        alreadyCorrect.push({
+          id: user.id,
+          email: user.email,
+          subscribedUntil: date.toISOString(),
+        });
+        continue;
+      }
+
+      // Old "+1 year" logic: the payment was made in (year - 1)
+      // Correct value = Dec 31 of (year - 1)
+      const paymentYear = date.getFullYear() - 1;
+      const correctedDate = new Date(paymentYear, 11, 31, 23, 59, 59, 999);
+
+      fixes.push({
+        id: user.id,
+        email: user.email,
+        oldDate: date.toISOString(),
+        newDate: correctedDate.toISOString(),
+        paymentYear,
+      });
+
+      // Apply the fix unless dry run
+      if (!dryRun) {
+        await db
+          .update(users)
+          .set({
+            subscribedUntil: correctedDate,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, user.id));
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      dryRun: !!dryRun,
+      summary: {
+        total: allUsers.length,
+        fixed: fixes.length,
+        alreadyCorrect: alreadyCorrect.length,
+        noSubscription: noSubscription.length,
+      },
+      fixes,
+      alreadyCorrect,
+      noSubscription,
+    });
+  } catch (error) {
+    console.error("Error fixing subscription dates:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Erreur lors de la correction des dates: " + error.message,
     });
   }
 }

@@ -380,7 +380,7 @@ Vous pouvez également opter pour le paiement récurrent dans votre espace membr
   };
 
   // Calculate the membership end date based on payment or subscription
-  // Membership is valid for 1 year from payment date
+  // Membership is valid until December 31st of the payment year
   // Helper to check if a date is valid (reasonable year range)
   const isValidDate = (date: Date): boolean => {
     if (!(date instanceof Date) || isNaN(date.getTime())) {
@@ -399,14 +399,12 @@ Vous pouvez également opter pour le paiement récurrent dans votre espace membr
       }
     }
 
-    // Priority 2: Calculate from payment date (payment date + 1 year)
-    // This is the PRIMARY method - membership = 1 year from payment
+    // Priority 2: Calculate from payment date
+    // Membership is valid until December 31st of the payment year
     if (user.lastPayment && user.lastPayment.status === "succeeded") {
       const paymentDate = new Date(user.lastPayment.created);
       if (isValidDate(paymentDate)) {
-        const endDate = new Date(paymentDate);
-        endDate.setFullYear(endDate.getFullYear() + 1);
-        return endDate;
+        return new Date(paymentDate.getFullYear(), 11, 31, 23, 59, 59, 999);
       }
     }
 

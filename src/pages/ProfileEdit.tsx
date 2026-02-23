@@ -446,7 +446,7 @@ const ProfileEdit: React.FC = () => {
   };
 
   // Calculate the membership end date based on DB field or payment
-  // Membership is now valid for 1 year from payment date (no more calendar year)
+  // Membership is valid until December 31st of the payment year
   const getMembershipEndDate = (): Date | null => {
     // Priority 1: Use subscribedUntil from database if available and valid
     if (userProfile?.subscribedUntil) {
@@ -456,14 +456,12 @@ const ProfileEdit: React.FC = () => {
       }
     }
 
-    // Priority 2: Calculate from payment date (payment date + 1 year)
-    // This is the PRIMARY method - membership = 1 year from payment
+    // Priority 2: Calculate from payment date
+    // Membership is valid until December 31st of the payment year
     if (currentPayment && currentPayment.status === "succeeded") {
       const paymentDate = new Date(currentPayment.created);
       if (isValidDate(paymentDate)) {
-        const endDate = new Date(paymentDate);
-        endDate.setFullYear(endDate.getFullYear() + 1);
-        return endDate;
+        return new Date(paymentDate.getFullYear(), 11, 31, 23, 59, 59, 999);
       }
     }
 

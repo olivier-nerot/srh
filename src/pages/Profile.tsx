@@ -224,7 +224,7 @@ const Profile: React.FC = () => {
   };
 
   // Calculate the membership end date based on DB field or payment
-  // Membership is valid for 1 year from PAYMENT date (not subscription period)
+  // Membership is valid until December 31st of the payment year
   const getMembershipEndDate = (): Date | null => {
     // Priority 1: Use subscribedUntil from database if available
     if (userProfile?.subscribedUntil) {
@@ -234,14 +234,12 @@ const Profile: React.FC = () => {
       }
     }
 
-    // Priority 2: Calculate from last successful payment date + 1 year
-    // This is the PRIMARY method - membership = 1 year from payment
+    // Priority 2: Calculate from last successful payment date
+    // Membership is valid until December 31st of the payment year
     if (payment && payment.status === "succeeded") {
       const paymentDate = new Date(payment.created);
       if (isValidDate(paymentDate)) {
-        const endDate = new Date(paymentDate);
-        endDate.setFullYear(endDate.getFullYear() + 1);
-        return endDate;
+        return new Date(paymentDate.getFullYear(), 11, 31, 23, 59, 59, 999);
       }
     }
 
@@ -754,7 +752,7 @@ const Profile: React.FC = () => {
                                   Prochain paiement:
                                 </span>
                                 <span className="text-sm font-medium text-gray-900">
-                                  {/* Use payment date + 1 year for consistency */}
+                                  {/* Use membership end date (Dec 31st of payment year) */}
                                   {getMembershipEndDate()
                                     ? formatDate(getMembershipEndDate()!)
                                     : formatDate(
@@ -969,7 +967,7 @@ const Profile: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Show membership end date = last payment date + 1 year */}
+                    {/* Show membership end date = Dec 31st of payment year */}
                     {getMembershipEndDate() && (
                       <div className="flex items-center">
                         <Calendar className="h-5 w-5 text-gray-400 mr-3" />
