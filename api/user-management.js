@@ -1,33 +1,9 @@
 const { getDb } = require("./lib/turso");
 const { eq, and, gt, isNull, asc, desc } = require("drizzle-orm");
-const { sqliteTable, text, integer } = require("drizzle-orm/sqlite-core");
 const { Resend } = require("resend");
-
-// Define users table directly
-const users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  email: text("email").notNull().unique(),
-  firstname: text("firstname"),
-  lastname: text("lastname"),
-  infopro: text("infopro"),
-  isadmin: integer("isadmin", { mode: "boolean" }).default(false),
-  newsletter: integer("newsletter", { mode: "boolean" }).default(false),
-  hospital: text("hospital"),
-  address: text("address"),
-  subscription: text("subscription"),
-  subscribedUntil: integer("subscribed_until", { mode: "timestamp_ms" }),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-});
-
-// Define OTP table
-const otps = sqliteTable("otps", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  email: text("email").notNull(),
-  otp: text("otp").notNull(),
-  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-});
+const { setCorsHeaders } = require("./lib/cors");
+const { checkRateLimit } = require("./lib/rate-limit");
+const { users, otps } = require("./lib/schema");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -38,12 +14,7 @@ function generateOTP() {
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS",
-  );
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -401,7 +372,6 @@ async function deleteUser(req, res) {
             for (const subscription of subscriptions.data) {
               if (['active', 'trialing', 'past_due'].includes(subscription.status)) {
                 await stripe.subscriptions.cancel(subscription.id, requestOptions);
-                console.log(`Canceled subscription ${subscription.id} for user ${user.email}`);
               }
             }
           }
@@ -497,6 +467,17 @@ async function loginUser(req, res) {
       });
     }
 
+    // Rate limit: max 5 OTP requests per email per 15 minutes
+    const ip = req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown";
+    const emailLimit = checkRateLimit(`otp:${email.toLowerCase()}`, 5);
+    const ipLimit = checkRateLimit(`otp-ip:${ip}`, 10);
+    if (emailLimit.limited || ipLimit.limited) {
+      return res.status(429).json({
+        success: false,
+        error: "Trop de tentatives. Veuillez réessayer dans quelques minutes.",
+      });
+    }
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -532,20 +513,6 @@ async function loginUser(req, res) {
       expiresAt: expiresAt,
       createdAt: new Date(),
     };
-
-    console.log("=== OTP INSERT DEBUG ===");
-    console.log(
-      "expiresAt type:",
-      typeof otpData.expiresAt,
-      "value:",
-      otpData.expiresAt,
-    );
-    console.log(
-      "createdAt type:",
-      typeof otpData.createdAt,
-      "value:",
-      otpData.createdAt,
-    );
 
     await db.insert(otps).values(otpData);
 
@@ -606,6 +573,15 @@ async function verifyOTP(req, res) {
         success: false,
         error:
           "L'email et le code OTP sont requis et doivent être des chaînes de caractères",
+      });
+    }
+
+    // Rate limit: max 5 OTP verifications per email per 15 minutes
+    const verifyLimit = checkRateLimit(`verify:${email.toLowerCase()}`, 5);
+    if (verifyLimit.limited) {
+      return res.status(429).json({
+        success: false,
+        error: "Trop de tentatives de vérification. Veuillez réessayer dans quelques minutes.",
       });
     }
 
@@ -886,8 +862,6 @@ async function updateSubscriptionDate(req, res) {
       .returning();
 
     const updatedUser = result[0];
-
-    console.log(`Updated subscription date for ${email}: valid until ${subscribedUntil.toISOString()}`);
 
     return res.status(200).json({
       success: true,

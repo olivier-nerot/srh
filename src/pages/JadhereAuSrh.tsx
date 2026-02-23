@@ -388,7 +388,6 @@ const JadhereAuSrh: React.FC = () => {
 
         // For recurring payments, create the subscription after payment confirmation
         if (isRecurring && result.pendingSubscription) {
-          console.log("Creating subscription after payment confirmation...");
           const subscriptionResponse = await fetch(
             `/api/stripe?action=create-subscription-after-payment`,
             {
@@ -412,8 +411,6 @@ const JadhereAuSrh: React.FC = () => {
               subscriptionResult.error,
             );
             // Don't fail - payment was successful, subscription can be created later
-          } else {
-            console.log("Subscription created:", subscriptionResult);
           }
         }
 
@@ -431,10 +428,7 @@ const JadhereAuSrh: React.FC = () => {
           );
           const updateResult = await updateResponse.json();
           if (updateResult.success) {
-            console.log(
-              "Subscription date updated in database:",
-              updateResult.subscribedUntil,
-            );
+            // Subscription date updated successfully
           } else {
             console.error(
               "Failed to update subscription date:",

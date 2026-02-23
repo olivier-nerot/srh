@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import Layout from "./components/layout/Layout";
-// Removed direct turso import - now using API
 import HomePage from "./pages/HomePage";
 import QuiSommesNous from "./pages/QuiSommesNous";
 import Presentation from "./pages/Presentation";
@@ -19,13 +18,15 @@ import Privacy from "./pages/Privacy";
 import Article from "./pages/Article";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
-import AdminMembers from "./pages/admin/AdminMembers";
-import AdminPublications from "./pages/admin/AdminPublications";
-import AdminNewsletter from "./pages/admin/AdminNewsletter";
 import AdminRoute from "./components/auth/AdminRoute";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import FAQ from "./pages/FAQ";
 import Documents from "./pages/Documents";
+
+// Lazy-loaded admin pages (code splitting)
+const AdminMembers = lazy(() => import("./pages/admin/AdminMembers"));
+const AdminPublications = lazy(() => import("./pages/admin/AdminPublications"));
+const AdminNewsletter = lazy(() => import("./pages/admin/AdminNewsletter"));
 
 function App() {
   useEffect(() => {
@@ -33,7 +34,7 @@ function App() {
     fetch("/api/utils?utilType=test-connection")
       .then((res) => res.json())
       .then(() => {}) // Connection test successful
-      .catch((err) => console.error("Connection test failed:", err));
+      .catch(() => {});
   }, []);
 
   return (
@@ -79,12 +80,22 @@ function App() {
             path="/admin/*"
             element={
               <AdminRoute>
-                <Routes>
-                  <Route path="members" element={<AdminMembers />} />
-                  <Route path="publications" element={<AdminPublications />} />
-                  <Route path="newsletter" element={<AdminNewsletter />} />
-                  {/* Add more admin routes here */}
-                </Routes>
+                <Suspense
+                  fallback={
+                    <div className="flex justify-center items-center min-h-[50vh]">
+                      Chargement...
+                    </div>
+                  }
+                >
+                  <Routes>
+                    <Route path="members" element={<AdminMembers />} />
+                    <Route
+                      path="publications"
+                      element={<AdminPublications />}
+                    />
+                    <Route path="newsletter" element={<AdminNewsletter />} />
+                  </Routes>
+                </Suspense>
               </AdminRoute>
             }
           />

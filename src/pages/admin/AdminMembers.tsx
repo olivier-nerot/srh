@@ -247,11 +247,7 @@ Vous pouvez également opter pour le paiement récurrent dans votre espace membr
           setUsers(usersWithCachedPayments);
           setLoading(false);
           hasLoadedPaymentsRef.current = true;
-          console.log(
-            "Using cached payment data for",
-            Object.keys(cachedPayments).length,
-            "users",
-          );
+          // Using cached payment data
         } else {
           // No cache - set users without payment data and load in background
           const usersWithoutPayments = result.users.map((user: User) => ({
@@ -278,9 +274,6 @@ Vous pouvez également opter pour le paiement récurrent dans votre espace membr
   const loadPaymentsInBackground = async (userList: User[]) => {
     // Guard: prevent multiple simultaneous calls
     if (isLoadingPaymentsRef.current || hasLoadedPaymentsRef.current) {
-      console.log(
-        "Payment loading already in progress or completed, skipping...",
-      );
       return;
     }
 
@@ -377,11 +370,6 @@ Vous pouvez également opter pour le paiement récurrent dans votre espace membr
         };
       });
       setCachedPayments(cacheData);
-      console.log(
-        "Cached payment data for",
-        Object.keys(cacheData).length,
-        "users",
-      );
       return prevUsers;
     });
 

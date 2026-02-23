@@ -1,64 +1,8 @@
 const { getDb } = require('./lib/turso');
 const { eq, ne, gte, desc, and } = require('drizzle-orm');
-const { sqliteTable, text, integer } = require('drizzle-orm/sqlite-core');
 const { Resend } = require('resend');
-
-// Define tables directly
-const users = sqliteTable('users', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  email: text('email').notNull().unique(),
-  firstname: text('firstname'),
-  lastname: text('lastname'),
-  infopro: text('infopro'),
-  isadmin: integer('isadmin', { mode: 'boolean' }).default(false),
-  newsletter: integer('newsletter', { mode: 'boolean' }).default(false),
-  hospital: text('hospital'),
-  address: text('address'),
-  subscription: text('subscription'),
-  subscribedUntil: integer('subscribed_until', { mode: 'timestamp_ms' }),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-});
-
-const publications = sqliteTable('publications', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  title: text('title').notNull(),
-  content: text('content'),
-  tags: text('tags', { mode: 'json' }).$type(),
-  pubdate: integer('pubdate', { mode: 'timestamp_ms' }).notNull(),
-  subscribersonly: integer('subscribersonly', { mode: 'boolean' }).notNull().default(false),
-  homepage: integer('homepage', { mode: 'boolean' }).notNull().default(true),
-  picture: text('picture'),
-  attachmentIds: text('attachment_ids', { mode: 'json' }).$type(),
-  type: text('type', { enum: ['publication', 'communique', 'jo', 'rapport'] }).notNull().default('publication'),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-});
-
-const newsletterQueue = sqliteTable('newsletter_queue', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  title: text('title').notNull(),
-  content: text('content').notNull(),
-  selectedPublicationIds: text('selected_publication_ids', { mode: 'json' }).$type(),
-  status: text('status', { enum: ['draft', 'pending', 'sending', 'completed', 'failed'] }).notNull().default('draft'),
-  totalRecipients: integer('total_recipients').notNull(),
-  sentCount: integer('sent_count').notNull().default(0),
-  failedCount: integer('failed_count').notNull().default(0),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-  completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
-});
-
-const newsletterRecipients = sqliteTable('newsletter_recipients', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  newsletterId: integer('newsletter_id').notNull(),
-  userId: integer('user_id').notNull(),
-  email: text('email').notNull(),
-  status: text('status', { enum: ['pending', 'sent', 'failed'] }).notNull().default('pending'),
-  sentAt: integer('sent_at', { mode: 'timestamp_ms' }),
-  errorMessage: text('error_message'),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-});
+const { setCorsHeaders } = require('./lib/cors');
+const { users, publications, newsletterQueue, newsletterRecipients } = require('./lib/schema');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -194,9 +138,7 @@ function generateEmailTemplate(title, content, selectedPublications, userEmail, 
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();

@@ -225,10 +225,7 @@ const ProfileEdit: React.FC = () => {
           );
           const updateResult = await updateResponse.json();
           if (updateResult.success) {
-            console.log(
-              "Subscription date updated in database:",
-              updateResult.subscribedUntil,
-            );
+            // Subscription date updated successfully
           } else {
             console.error(
               "Failed to update subscription date:",

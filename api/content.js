@@ -1,70 +1,11 @@
 const { getDb } = require('./lib/turso');
+const { setCorsHeaders } = require('./lib/cors');
 const { eq, asc, desc } = require('drizzle-orm');
-const { sqliteTable, text, integer } = require('drizzle-orm/sqlite-core');
-
-// Define tables directly
-const publications = sqliteTable('publications', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  title: text('title').notNull(),
-  content: text('content').notNull(),
-  tags: text('tags', { mode: 'json' }),
-  pubdate: integer('pubdate').notNull(),
-  subscribersonly: integer('subscribersonly', { mode: 'boolean' }).notNull(),
-  homepage: integer('homepage', { mode: 'boolean' }).notNull(),
-  picture: text('picture'),
-  attachmentIds: text('attachment_ids', { mode: 'json' }),
-  type: text('type').notNull(),
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
-
-const jotextes = sqliteTable('jotextes', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull(),
-  content: text('content').notNull(),
-  year: text('year'),
-  document: integer('document'),
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
-
-const faq = sqliteTable('faq', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  question: text('question').notNull(),
-  answer: text('answer').notNull(),
-  tags: text('tags', { mode: 'json' }),
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
-
-const rapports = sqliteTable('rapports', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull(),
-  content: text('content').notNull(),
-  year: text('year'),
-  document: integer('document'),
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
-
-const liens = sqliteTable('liens', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  icon: text('icon').notNull(),
-  title: text('title').notNull(),
-  description: text('description').notNull(),
-  category: text('category').notNull(),
-  url: text('url').notNull(),
-  logo: text('logo'),
-  picture: text('picture'), // Base64 encoded logo image
-  createdAt: integer('created_at').notNull(),
-  updatedAt: integer('updated_at').notNull(),
-});
+const { publications, jotextes, faq, rapports, liens } = require('./lib/schema');
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();

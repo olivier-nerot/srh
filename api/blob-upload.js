@@ -1,28 +1,11 @@
 const { handleUpload } = require('@vercel/blob/client');
+const { setCorsHeaders } = require('./lib/cors');
 const { getDb } = require('./lib/turso');
-const { sqliteTable, text, integer } = require('drizzle-orm/sqlite-core');
-
-// Define documents table directly (same as in files.js)
-const documents = sqliteTable('documents', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  title: text('title').notNull(),
-  description: text('description'),
-  fileName: text('file_name').notNull(),
-  filePath: text('file_path').notNull(),
-  fileSize: integer('file_size'),
-  mimeType: text('mime_type'),
-  category: text('category').notNull(),
-  isPublic: integer('is_public', { mode: 'boolean' }).default(true),
-  uploadedBy: integer('uploaded_by'),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-});
+const { documents } = require('./lib/schema');
 
 module.exports = async function handler(req, res) {
   // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();

@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { setCorsHeaders } from "./lib/cors.js";
 
 // Use VITE_STRIPE_TESTMODE to determine which Stripe keys to use
 const isTestMode = process.env.VITE_STRIPE_TESTMODE === "true";
@@ -7,21 +8,13 @@ const stripeSecretKey = isTestMode
     process.env.STRIPE_TEST_SECRET_API_KEY
   : process.env.VITE_STRIPE_SECRET_API_KEY || process.env.STRIPE_SECRET_API_KEY;
 
-console.log("=== BACKEND STRIPE DEBUG ===");
-console.log("VITE_STRIPE_TESTMODE:", process.env.VITE_STRIPE_TESTMODE);
-console.log("Test mode enabled:", isTestMode);
-console.log("Using test key:", stripeSecretKey?.startsWith("sk_test_"));
-console.log("Using live key:", stripeSecretKey?.startsWith("sk_live_"));
-
 const stripe = new Stripe(stripeSecretKey, {
   apiVersion: "2024-11-20.acacia",
 });
 
 export default async function handler(req, res) {
   // Enable CORS
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -116,7 +109,6 @@ async function getPayments(req, res) {
         exactMatch.data.forEach(c => customersSet.set(c.id, c));
       }
     } catch (err) {
-      console.log('Exact email search failed:', err.message);
     }
 
     // Strategy 2: Lowercase email match (if different from exact)
@@ -130,7 +122,6 @@ async function getPayments(req, res) {
           lowerMatch.data.forEach(c => customersSet.set(c.id, c));
         }
       } catch (err) {
-        console.log('Lowercase email search failed:', err.message);
       }
     }
 
@@ -156,20 +147,9 @@ async function getPayments(req, res) {
       }
     } catch (searchError) {
       // Search API might not be available in all Stripe versions or connected accounts
-      console.log('Search API not available:', searchError.message);
     }
 
     const customers = Array.from(customersSet.values());
-
-    console.log(`\n=== Customer Search for ${email} ===`);
-    console.log(`Search strategies: exact="${email}", lower="${emailLower}"`);
-    console.log(`Customers found: ${customers.length}`);
-    if (customers.length > 0) {
-      console.log('Customer emails found:', customers.map(c => c.email));
-    }
-    if (customers.length > 1) {
-      console.log('Multiple customers found! IDs:', customers.map(c => c.id));
-    }
 
     if (customers.length === 0) {
       return res.status(200).json({
@@ -185,7 +165,6 @@ async function getPayments(req, res) {
 
     // Iterate through ALL customer records
     for (const customer of customers) {
-      console.log(`\n=== Checking customer ${customer.id} ===`);
 
       // Fetch charges for this customer
       const chargeParams = {
@@ -204,7 +183,6 @@ async function getPayments(req, res) {
         requestOptions,
       );
 
-      console.log(`Charges: ${charges.data.length}, Payment Intents: ${paymentIntents.data.length}`);
 
       // Add charges from this customer
       charges.data.forEach(charge => {
@@ -246,7 +224,6 @@ async function getPayments(req, res) {
       });
     }
 
-    console.log(`\n=== Total payments found across all customers: ${allPayments.length} ===`);
 
     if (allPayments.length === 0) {
       return res.status(200).json({
@@ -267,15 +244,6 @@ async function getPayments(req, res) {
     const oldestSuccessful = successfulPayments.length > 0
       ? successfulPayments[successfulPayments.length - 1]
       : null;
-
-    // Debug logging to see what status is being returned
-    console.log(`Payment status for ${email}:`, {
-      id: mostRecent.id,
-      type: mostRecent.type,
-      status: mostRecent.status,
-      amount: mostRecent.amount,
-      created: new Date(mostRecent.created * 1000)
-    });
 
     // Format the payment data
     const lastPayment = {
@@ -396,7 +364,6 @@ async function createPayment(req, res) {
     const validUntil = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59, 999);
 
     // ALWAYS create PaymentIntent for immediate payment (no more free trial)
-    console.log(`Creating PaymentIntent for immediate payment - ${customer.email}`);
 
     const paymentIntent = await stripe.paymentIntents.create(
       {
@@ -488,7 +455,6 @@ async function getSubscriptions(req, res) {
         exactMatch.data.forEach(c => customersSet.set(c.id, c));
       }
     } catch (err) {
-      console.log('Exact email search failed:', err.message);
     }
 
     // Strategy 2: Lowercase email match
@@ -502,7 +468,6 @@ async function getSubscriptions(req, res) {
           lowerMatch.data.forEach(c => customersSet.set(c.id, c));
         }
       } catch (err) {
-        console.log('Lowercase email search failed:', err.message);
       }
     }
 
@@ -525,7 +490,6 @@ async function getSubscriptions(req, res) {
         });
       }
     } catch (searchError) {
-      console.log('Search API not available for subscriptions:', searchError.message);
     }
 
     const customers = Array.from(customersSet.values());
@@ -541,8 +505,6 @@ async function getSubscriptions(req, res) {
     // Collect subscriptions from ALL matching customers
     const allSubscriptions = [];
 
-    console.log(`\n=== Subscriptions search for ${email} ===`);
-    console.log(`Found ${customers.length} customer records to check`);
 
     // Iterate through ALL customer records
     for (const customer of customers) {
@@ -557,7 +519,6 @@ async function getSubscriptions(req, res) {
         requestOptions,
       );
 
-      console.log(`Customer ${customer.id} (${customer.email}): ${subscriptions.data.length} subscriptions`);
 
       // Try to get customer's default payment method if subscriptions don't have one
       let customerCardInfo = { last4: null, brand: null };
@@ -571,7 +532,6 @@ async function getSubscriptions(req, res) {
             customerCardInfo = { last4: customerPM.card.last4, brand: customerPM.card.brand };
           }
         } catch (e) {
-          console.log(`Could not retrieve customer payment method: ${e.message}`);
         }
       }
 
@@ -582,13 +542,6 @@ async function getSubscriptions(req, res) {
         let cardInfo = paymentMethod && typeof paymentMethod === 'object' && paymentMethod.card
           ? { last4: paymentMethod.card.last4, brand: paymentMethod.card.brand }
           : customerCardInfo; // Fallback to customer's default payment method
-
-        console.log(`  Subscription ${sub.id}:`, {
-          status: sub.status,
-          amount: sub.items.data[0]?.price?.unit_amount / 100,
-          tier: sub.metadata?.tier,
-          card: cardInfo.last4 ? `${cardInfo.brand} ****${cardInfo.last4}` : 'none',
-        });
 
         allSubscriptions.push({
           id: sub.id,
@@ -617,7 +570,6 @@ async function getSubscriptions(req, res) {
       });
     }
 
-    console.log(`Total subscriptions found: ${allSubscriptions.length}`);
 
     return res.status(200).json({
       success: true,
@@ -654,7 +606,6 @@ async function createOrGetPrice(tierData, requestOptions) {
       // IMPORTANT: Validate that the existing price matches our expected amount
       // This prevents reusing incorrectly created prices
       if (existingPrice.unit_amount === expectedAmount) {
-        console.log(`✓ Using existing price ${existingPrice.id} for tier ${tierData.id}: ${tierData.price}€`);
         return existingPrice.id;
       } else {
         console.warn(`⚠️  Price mismatch for tier ${tierData.id}:`, {
@@ -662,7 +613,6 @@ async function createOrGetPrice(tierData, requestOptions) {
           found: `${existingPrice.unit_amount / 100}€ (${existingPrice.unit_amount} cents)`,
           price_id: existingPrice.id
         });
-        console.log(`Creating new price with correct amount for tier ${tierData.id}`);
         // Don't return the wrong price - create a new one instead
       }
     }
@@ -693,9 +643,7 @@ async function createOrGetPrice(tierData, requestOptions) {
       },
     };
 
-    console.log(`Creating new Stripe price for tier ${tierData.id}: ${tierData.price}€`);
     const price = await stripe.prices.create(priceCreateParams, requestOptions);
-    console.log(`✓ Created price ${price.id}`);
 
     return price.id;
   } catch (error) {
@@ -1007,7 +955,6 @@ async function retryPayment(req, res) {
     }
 
     const customer = customers.data[0];
-    console.log(`Retrying payment for customer ${customer.id} (${email})`);
 
     // If subscriptionId is provided, try to pay the latest invoice for that subscription
     if (subscriptionId) {
@@ -1032,7 +979,6 @@ async function retryPayment(req, res) {
 
         // Check if invoice is open or draft (retryable)
         if (invoice.status === 'open' || invoice.status === 'draft') {
-          console.log(`Attempting to pay invoice ${invoice.id}`);
 
           try {
             const paidInvoice = await stripe.invoices.pay(
@@ -1118,7 +1064,6 @@ async function retryPayment(req, res) {
 
       if (subscriptions.data.length > 0) {
         const subscription = subscriptions.data[0];
-        console.log(`Found ${status} subscription ${subscription.id}`);
 
         // Get the latest invoice
         const invoices = await stripe.invoices.list(
@@ -1132,7 +1077,6 @@ async function retryPayment(req, res) {
 
         if (invoices.data.length > 0) {
           const invoice = invoices.data[0];
-          console.log(`Attempting to pay invoice ${invoice.id}`);
 
           try {
             const paidInvoice = await stripe.invoices.pay(
@@ -1203,9 +1147,6 @@ async function confirmSetup(req, res) {
       requestOptions
     );
 
-    console.log(`\n=== Confirming setup intent ${setupIntentId} ===`);
-    console.log(`Status: ${setupIntent.status}`);
-    console.log(`Payment method: ${setupIntent.payment_method}`);
 
     if (setupIntent.status !== 'succeeded') {
       return res.status(400).json({
@@ -1232,7 +1173,6 @@ async function confirmSetup(req, res) {
     }
 
     // 1. Set the payment method as the customer's default for invoices
-    console.log(`Setting payment method ${paymentMethodId} as default for customer ${customerIdToUse}`);
     await stripe.customers.update(
       customerIdToUse,
       {
@@ -1255,7 +1195,6 @@ async function confirmSetup(req, res) {
     let subscriptionsUpdated = 0;
     for (const sub of subscriptions.data) {
       if (sub.status === 'trialing' || sub.status === 'active') {
-        console.log(`Updating subscription ${sub.id} (status: ${sub.status})`);
         await stripe.subscriptions.update(
           sub.id,
           {
@@ -1267,9 +1206,6 @@ async function confirmSetup(req, res) {
       }
     }
 
-    console.log(`✓ Payment method attached successfully`);
-    console.log(`  - Customer default updated`);
-    console.log(`  - ${subscriptionsUpdated} subscription(s) updated`);
 
     return res.status(200).json({
       success: true,
@@ -1294,7 +1230,6 @@ async function fixIncorrectPrices(req, res) {
     return res.status(405).json({ error: "Method not allowed. Use POST." });
   }
 
-  console.log('\n=== FIXING INCORRECT SUBSCRIPTION PRICES ===\n');
 
   const report = {
     subscriptionsChecked: 0,
@@ -1320,7 +1255,6 @@ async function fixIncorrectPrices(req, res) {
 
     // For each tier, find and fix incorrect prices
     for (const [tier, expectedPrice] of Object.entries(expectedPrices)) {
-      console.log(`\n--- Processing ${tier} tier (expected: ${expectedPrice}€) ---`);
 
       // Find all prices for this tier
       const allPrices = await stripe.prices.list(
@@ -1332,16 +1266,13 @@ async function fixIncorrectPrices(req, res) {
         p => p.metadata?.tier === tier || p.lookup_key?.includes(tier)
       );
 
-      console.log(`Found ${tierPrices.length} prices for ${tier} tier`);
 
       // Identify correct and incorrect prices
       const correctPrices = tierPrices.filter(p => p.unit_amount === expectedPrice * 100 && p.active);
       const incorrectPrices = tierPrices.filter(p => p.unit_amount !== expectedPrice * 100 && p.active);
 
-      console.log(`  Correct: ${correctPrices.length}, Incorrect: ${incorrectPrices.length}`);
 
       if (incorrectPrices.length === 0) {
-        console.log(`  ✓ No incorrect prices found for ${tier}`);
         continue;
       }
 
@@ -1349,10 +1280,8 @@ async function fixIncorrectPrices(req, res) {
       let correctPriceId;
       if (correctPrices.length > 0) {
         correctPriceId = correctPrices[0].id;
-        console.log(`  ✓ Using existing correct price: ${correctPriceId}`);
       } else {
         // Create a new correct price
-        console.log(`  Creating new correct price for ${tier}: ${expectedPrice}€`);
 
         const newPrice = await stripe.prices.create({
           unit_amount: expectedPrice * 100,
@@ -1374,12 +1303,10 @@ async function fixIncorrectPrices(req, res) {
 
         correctPriceId = newPrice.id;
         report.pricesCreated++;
-        console.log(`  ✓ Created price: ${correctPriceId}`);
       }
 
       // Find and update subscriptions using incorrect prices
       for (const incorrectPrice of incorrectPrices) {
-        console.log(`\n  Processing incorrect price ${incorrectPrice.id} (${incorrectPrice.unit_amount / 100}€)`);
 
         const subscriptions = await stripe.subscriptions.list({
           price: incorrectPrice.id,
@@ -1387,18 +1314,15 @@ async function fixIncorrectPrices(req, res) {
           limit: 100
         }, requestOptions);
 
-        console.log(`    Found ${subscriptions.data.length} subscriptions using this price`);
         report.subscriptionsChecked += subscriptions.data.length;
 
         for (const subscription of subscriptions.data) {
           try {
             // Only update active or trialing subscriptions
             if (subscription.status !== 'active' && subscription.status !== 'trialing') {
-              console.log(`    - ${subscription.id}: Skipped (status: ${subscription.status})`);
               continue;
             }
 
-            console.log(`    - ${subscription.id}: Updating from ${incorrectPrice.unit_amount / 100}€ to ${expectedPrice}€`);
 
             // Get customer email for reporting
             const customer = await stripe.customers.retrieve(subscription.customer, requestOptions);
@@ -1433,7 +1357,6 @@ async function fixIncorrectPrices(req, res) {
               status: subscription.status
             });
 
-            console.log(`    ✓ Updated successfully`);
           } catch (error) {
             console.error(`    ✗ Error updating ${subscription.id}:`, error.message);
             report.errors.push({
@@ -1444,7 +1367,6 @@ async function fixIncorrectPrices(req, res) {
         }
 
         // Archive the incorrect price (don't delete - Stripe doesn't allow it)
-        console.log(`    Archiving incorrect price ${incorrectPrice.id}`);
         try {
           await stripe.prices.update(
             incorrectPrice.id,
@@ -1452,19 +1374,12 @@ async function fixIncorrectPrices(req, res) {
             requestOptions
           );
           report.pricesArchived++;
-          console.log(`    ✓ Price archived`);
         } catch (error) {
           console.error(`    ✗ Error archiving price:`, error.message);
         }
       }
     }
 
-    console.log('\n=== FIX COMPLETE ===\n');
-    console.log(`Subscriptions checked: ${report.subscriptionsChecked}`);
-    console.log(`Subscriptions fixed: ${report.subscriptionsFixed}`);
-    console.log(`Prices created: ${report.pricesCreated}`);
-    console.log(`Prices archived: ${report.pricesArchived}`);
-    console.log(`Errors: ${report.errors.length}`);
 
     return res.status(200).json({
       success: true,
@@ -1599,8 +1514,6 @@ async function cleanupDuplicateSubscriptions(req, res) {
   };
 
   try {
-    console.log("=== CLEANUP DUPLICATE SUBSCRIPTIONS ===");
-    console.log("Fetching all subscriptions...");
 
     // Fetch all active/trialing subscriptions
     const allSubscriptions = [];
@@ -1625,7 +1538,6 @@ async function cleanupDuplicateSubscriptions(req, res) {
       }
     }
 
-    console.log(`Found ${allSubscriptions.length} total subscriptions`);
 
     // Group by customer email
     const subscriptionsByEmail = {};
@@ -1673,12 +1585,9 @@ async function cleanupDuplicateSubscriptions(req, res) {
       const toKeep = subs[0];
       const toCancel = subs.slice(1);
 
-      console.log(`\nProcessing ${email}: ${subs.length} subscriptions`);
-      console.log(`  Keeping: ${toKeep.id} (created: ${new Date(toKeep.created * 1000).toISOString()})`);
 
       for (const sub of toCancel) {
         try {
-          console.log(`  Cancelling: ${sub.id} (created: ${new Date(sub.created * 1000).toISOString()})`);
 
           await stripe.subscriptions.cancel(sub.id, requestOptions);
 
@@ -1690,7 +1599,6 @@ async function cleanupDuplicateSubscriptions(req, res) {
             cancelledAt: new Date().toISOString(),
           });
 
-          console.log(`    ✓ Cancelled successfully`);
         } catch (error) {
           console.error(`    ✗ Error cancelling ${sub.id}:`, error.message);
           report.errors.push({
@@ -1702,10 +1610,6 @@ async function cleanupDuplicateSubscriptions(req, res) {
       }
     }
 
-    console.log("\n=== CLEANUP COMPLETE ===");
-    console.log(`Members with duplicates: ${report.membersWithDuplicates}`);
-    console.log(`Subscriptions cancelled: ${report.subscriptionsCancelled}`);
-    console.log(`Errors: ${report.errors.length}`);
 
     return res.status(200).json({
       success: true,
@@ -1766,7 +1670,6 @@ async function createSubscriptionAfterPayment(req, res) {
         );
         paymentMethodId = paymentIntent.payment_method;
       } catch (piError) {
-        console.log("Could not retrieve payment intent:", piError.message);
       }
     }
 
@@ -1806,7 +1709,6 @@ async function createSubscriptionAfterPayment(req, res) {
       requestOptions
     );
 
-    console.log(`Created subscription ${subscription.id} for ${email} - status: ${subscription.status}`);
 
     return res.status(200).json({
       success: true,
