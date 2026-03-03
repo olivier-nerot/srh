@@ -412,19 +412,23 @@ const ProfileEdit: React.FC = () => {
         subscriptionResult.subscriptions.length > 0
       ) {
         // Get the most recent active or trialing subscription
-        const activeSubscription =
-          subscriptionResult.subscriptions.find(
-            (sub) => sub.status === "active" || sub.status === "trialing",
-          ) || subscriptionResult.subscriptions[0];
-        setCurrentSubscription(activeSubscription);
+        // Do NOT fallback to canceled subscriptions - they can't be reactivated
+        const activeSubscription = subscriptionResult.subscriptions.find(
+          (sub) => sub.status === "active" || sub.status === "trialing",
+        );
 
-        // Sync isRecurring state with actual subscription status
-        // If subscription is active/trialing and NOT scheduled to cancel, it's recurring
-        const isActiveRecurring =
-          (activeSubscription.status === "active" ||
-            activeSubscription.status === "trialing") &&
-          !activeSubscription.cancel_at_period_end;
-        setIsRecurring(isActiveRecurring);
+        if (activeSubscription) {
+          setCurrentSubscription(activeSubscription);
+
+          // Sync isRecurring state with actual subscription status
+          // If subscription is active/trialing and NOT scheduled to cancel, it's recurring
+          const isActiveRecurring = !activeSubscription.cancel_at_period_end;
+          setIsRecurring(isActiveRecurring);
+        } else {
+          // No manageable subscription - treat as no subscription
+          setCurrentSubscription(null);
+          setIsRecurring(false);
+        }
       } else {
         // No subscription = not recurring
         setIsRecurring(false);
