@@ -46,6 +46,8 @@ export default async function handler(req, res) {
         return await updatePaymentMethod(req, res);
       case "create-recurring-subscription":
         return await createRecurringSubscription(req, res);
+      case "convert-to-recurring":
+        return await convertToRecurring(req, res);
       case "fix-incorrect-prices":
         return await fixIncorrectPrices(req, res);
       case "retry-payment":
@@ -833,6 +835,113 @@ async function createRecurringSubscription(req, res) {
     return res.status(500).json({
       success: false,
       error: "Error creating recurring subscription",
+      details: error.message,
+    });
+  }
+}
+
+// Convert one-time payment to recurring subscription (deferred billing)
+async function convertToRecurring(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const { email, tierData } = req.body;
+
+    if (!email || !tierData) {
+      return res.status(400).json({ error: "Email and tierData are required" });
+    }
+
+    const requestOptions = {
+      stripeAccount: process.env.VITE_STRIPE_COMPANY_ID,
+    };
+
+    // Find existing customer
+    const existingCustomers = await stripe.customers.list(
+      { email: email, limit: 1 },
+      requestOptions,
+    );
+
+    if (existingCustomers.data.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Client Stripe introuvable.",
+      });
+    }
+
+    const customer = existingCustomers.data[0];
+
+    // Find a payment method: check default, then look at recent successful payments
+    let paymentMethodId = customer.invoice_settings?.default_payment_method
+      || customer.default_source;
+
+    if (!paymentMethodId) {
+      // Look for payment method from recent successful payment
+      const recentPayments = await stripe.paymentIntents.list(
+        { customer: customer.id, limit: 5 },
+        requestOptions,
+      );
+      const successfulPayment = recentPayments.data.find(
+        (pi) => pi.status === "succeeded" && pi.payment_method,
+      );
+      if (successfulPayment) {
+        paymentMethodId = successfulPayment.payment_method;
+      }
+    }
+
+    if (!paymentMethodId) {
+      return res.status(400).json({
+        success: false,
+        error: "Aucun moyen de paiement enregistré. Veuillez d'abord effectuer un paiement par carte.",
+      });
+    }
+
+    // Get or create price for tier
+    const priceId = await createOrGetPrice(tierData, requestOptions);
+
+    // Membership valid until Dec 31st of current year
+    const validUntil = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59, 999);
+
+    // Next billing on January 1st of next year
+    const nextJan1 = new Date(new Date().getFullYear() + 1, 0, 1, 0, 0, 0);
+    const billingAnchor = Math.floor(nextJan1.getTime() / 1000);
+
+    const subscriptionParams = {
+      customer: customer.id,
+      items: [{ price: priceId }],
+      billing_cycle_anchor: billingAnchor,
+      proration_behavior: "none",
+      default_payment_method: paymentMethodId,
+      payment_settings: {
+        save_default_payment_method: "on_subscription",
+        payment_method_types: ["card"],
+      },
+      metadata: {
+        tier: tierData.id,
+        payment_type: "recurring",
+        converted_from_onetime: "true",
+        valid_until: validUntil.toISOString(),
+      },
+    };
+
+    const subscription = await stripe.subscriptions.create(
+      subscriptionParams,
+      requestOptions,
+    );
+
+    return res.status(200).json({
+      success: true,
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      nextBillingDate: nextJan1.toISOString(),
+      validUntil: validUntil.toISOString(),
+    });
+  } catch (error) {
+    console.error("Error converting to recurring:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Erreur lors de la conversion en abonnement automatique.",
       details: error.message,
     });
   }

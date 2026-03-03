@@ -671,9 +671,66 @@ const ProfileEdit: React.FC = () => {
 
   // Handle changing payment type (recurring <-> one-time)
   const handlePaymentTypeChange = async (newIsRecurring: boolean) => {
-    // If no active subscription, just update the state (affects next payment only)
-    if (!currentSubscription || !userProfile) {
+    if (!userProfile) {
       setIsRecurring(newIsRecurring);
+      return;
+    }
+
+    // No active subscription: convert one-time to recurring via Stripe
+    if (!currentSubscription) {
+      if (!newIsRecurring) {
+        // Already no subscription = already "one-time"
+        setIsRecurring(false);
+        return;
+      }
+
+      const tierData = getSelectedTierData();
+      if (!tierData) {
+        alert(
+          "Impossible de determiner votre type d'adhesion. Veuillez selectionner un type.",
+        );
+        return;
+      }
+
+      const nextYear = new Date().getFullYear() + 1;
+      if (
+        !window.confirm(
+          `Activer le renouvellement automatique ? Votre carte sera debitee automatiquement le 1er janvier ${nextYear}.`,
+        )
+      ) {
+        return;
+      }
+
+      setIsPaymentLoading(true);
+      try {
+        const response = await fetch(
+          "/api/stripe?action=convert-to-recurring",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: userProfile.email,
+              tierData,
+            }),
+          },
+        );
+
+        const result = await response.json();
+
+        if (result.success) {
+          setIsRecurring(true);
+          fetchPaymentData(userProfile.email);
+          alert(
+            `Renouvellement automatique active ! Prochain debit prevu le 1er janvier ${nextYear}.`,
+          );
+        } else {
+          alert("Erreur: " + (result.error || "Erreur inconnue"));
+        }
+      } catch {
+        alert("Erreur lors de l'activation de l'abonnement automatique.");
+      } finally {
+        setIsPaymentLoading(false);
+      }
       return;
     }
 
