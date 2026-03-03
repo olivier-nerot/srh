@@ -1,11 +1,16 @@
 const { Resend } = require('resend');
 const { setCorsHeaders } = require('./_lib/cors');
+const { getDb } = require('./_lib/turso');
+const { users, newsletterQueue, newsletterRecipients } = require('./_lib/schema');
+const { eq, and } = require('drizzle-orm');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Generate HTML email template for payment update request
+const DAILY_EMAIL_LIMIT = 100;
+const RATE_LIMIT_MS = 500;
+
+// Generate HTML email template for admin emails (payment requests, etc.)
 function generatePaymentEmailTemplate(subject, body, recipientEmail, recipientName) {
-  // Always use production domain for emails
   const baseUrl = process.env.PRODUCTION_URL || 'https://srh-info.org';
   const profileUrl = `${baseUrl}/login`;
 
@@ -60,7 +65,6 @@ function generatePaymentEmailTemplate(subject, body, recipientEmail, recipientNa
 }
 
 module.exports = async function handler(req, res) {
-  // Enable CORS
   setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
@@ -82,71 +86,93 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Subject and body are required' });
     }
 
-    // Validate Resend API key
     if (!process.env.RESEND_API_KEY) {
       return res.status(500).json({ error: 'Email service not configured' });
     }
 
-    const results = {
-      sent: [],
-      failed: [],
-    };
+    // Test mode: send 1 email directly, no queue
+    if (testMode) {
+      const recipient = recipients[0];
+      const htmlContent = generatePaymentEmailTemplate(
+        subject,
+        body,
+        recipient.email,
+        recipient.name
+      );
 
-    // In test mode, only send to the first recipient
-    const recipientsToSend = testMode ? [recipients[0]] : recipients;
-
-    // Send emails one by one to personalize each one
-    for (const recipient of recipientsToSend) {
       try {
-        const htmlContent = generatePaymentEmailTemplate(
-          subject,
-          body,
-          recipient.email,
-          recipient.name
-        );
-
         const { data, error } = await resend.emails.send({
-          from: 'SRH <no-reply@srh-info.org>',
+          from: process.env.RESEND_EMAIL || 'SRH <no-reply@srh-info.org>',
           to: recipient.email,
           subject: subject,
           html: htmlContent,
         });
 
         if (error) {
-          console.error(`Failed to send email to ${recipient.email}:`, error);
-          results.failed.push({
-            email: recipient.email,
+          return res.status(200).json({
+            success: false,
+            testMode: true,
             error: error.message,
-          });
-        } else {
-          console.log(`Email sent to ${recipient.email}:`, data?.id);
-          results.sent.push({
-            email: recipient.email,
-            id: data?.id,
           });
         }
 
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        return res.status(200).json({
+          success: true,
+          testMode: true,
+          results: { sent: [{ email: recipient.email, id: data?.id }], failed: [] },
+          summary: { total: 1, sent: 1, failed: 0 },
+        });
       } catch (emailError) {
-        console.error(`Error sending to ${recipient.email}:`, emailError);
-        results.failed.push({
-          email: recipient.email,
+        return res.status(200).json({
+          success: false,
+          testMode: true,
           error: emailError.message,
         });
       }
     }
 
+    // Normal mode: queue emails for batch sending
+    const db = await getDb();
+    const now = new Date();
+
+    // Create queue entry
+    const [queueEntry] = await db.insert(newsletterQueue).values({
+      title: subject,
+      content: body,
+      selectedPublicationIds: null,
+      type: 'admin-email',
+      status: 'pending',
+      totalRecipients: recipients.length,
+      sentCount: 0,
+      failedCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    }).returning();
+
+    // Create recipient entries
+    const recipientValues = recipients.map(r => ({
+      newsletterId: queueEntry.id,
+      userId: r.id || 0,
+      email: r.email,
+      status: 'pending',
+      createdAt: now,
+    }));
+
+    await db.insert(newsletterRecipients).values(recipientValues);
+
+    // Send first batch immediately
+    const firstBatchLimit = Math.min(DAILY_EMAIL_LIMIT, recipients.length);
+    const sendResult = await sendFirstBatch(db, queueEntry, firstBatchLimit);
+
     return res.status(200).json({
       success: true,
-      testMode: testMode || false,
-      results: results,
-      summary: {
-        total: recipientsToSend.length,
-        sent: results.sent.length,
-        failed: results.failed.length,
-      },
+      testMode: false,
+      queueId: queueEntry.id,
+      totalRecipients: recipients.length,
+      sentImmediately: sendResult.sent,
+      remainingToSend: recipients.length - sendResult.sent,
     });
+
   } catch (error) {
     console.error('Error in send-payment-email:', error);
     return res.status(500).json({
@@ -156,3 +182,117 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+// Send first batch right after queuing
+async function sendFirstBatch(db, queueEntry, limit) {
+  // Update status to sending
+  await db
+    .update(newsletterQueue)
+    .set({ status: 'sending', updatedAt: new Date() })
+    .where(eq(newsletterQueue.id, queueEntry.id));
+
+  // Get pending recipients
+  const pendingRecipients = await db
+    .select()
+    .from(newsletterRecipients)
+    .where(
+      and(
+        eq(newsletterRecipients.newsletterId, queueEntry.id),
+        eq(newsletterRecipients.status, 'pending')
+      )
+    )
+    .limit(limit);
+
+  if (pendingRecipients.length === 0) {
+    await db
+      .update(newsletterQueue)
+      .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
+      .where(eq(newsletterQueue.id, queueEntry.id));
+    return { sent: 0, failed: 0 };
+  }
+
+  // Batch-fetch user names for personalization
+  const userIds = [...new Set(pendingRecipients.map(r => r.userId).filter(id => id > 0))];
+  const userMap = {};
+  if (userIds.length > 0) {
+    const allUsers = await db.select().from(users);
+    for (const u of allUsers) {
+      userMap[u.id] = u.firstname ? `${u.firstname} ${u.lastname || ''}`.trim() : null;
+    }
+  }
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const recipient of pendingRecipients) {
+    try {
+      const recipientName = userMap[recipient.userId] || null;
+      const emailHtml = generatePaymentEmailTemplate(
+        queueEntry.title,
+        queueEntry.content,
+        recipient.email,
+        recipientName
+      );
+
+      await resend.emails.send({
+        from: process.env.RESEND_EMAIL || 'SRH <no-reply@srh-info.org>',
+        to: recipient.email,
+        subject: queueEntry.title,
+        html: emailHtml,
+      });
+
+      await db
+        .update(newsletterRecipients)
+        .set({ status: 'sent', sentAt: new Date() })
+        .where(eq(newsletterRecipients.id, recipient.id));
+
+      sent++;
+
+      if (sent < pendingRecipients.length) {
+        await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_MS));
+      }
+    } catch (error) {
+      console.error(`Failed to send admin email to ${recipient.email}:`, error);
+
+      await db
+        .update(newsletterRecipients)
+        .set({ status: 'failed', errorMessage: error.message })
+        .where(eq(newsletterRecipients.id, recipient.id));
+
+      failed++;
+    }
+  }
+
+  // Update queue counts
+  await db
+    .update(newsletterQueue)
+    .set({
+      sentCount: queueEntry.sentCount + sent,
+      failedCount: queueEntry.failedCount + failed,
+      updatedAt: new Date()
+    })
+    .where(eq(newsletterQueue.id, queueEntry.id));
+
+  // Check if all done
+  const remaining = await db
+    .select()
+    .from(newsletterRecipients)
+    .where(
+      and(
+        eq(newsletterRecipients.newsletterId, queueEntry.id),
+        eq(newsletterRecipients.status, 'pending')
+      )
+    );
+
+  if (remaining.length === 0) {
+    await db
+      .update(newsletterQueue)
+      .set({ status: 'completed', completedAt: new Date(), updatedAt: new Date() })
+      .where(eq(newsletterQueue.id, queueEntry.id));
+  }
+
+  return { sent, failed };
+}
+
+// Export template function for reuse in cron and newsletter-v2
+module.exports.generatePaymentEmailTemplate = generatePaymentEmailTemplate;

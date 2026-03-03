@@ -582,6 +582,7 @@ Vous pouvez également opter pour le paiement récurrent dans votre espace membr
     try {
       // Get recipients from filtered users
       const recipients = filteredUsers.map((user) => ({
+        id: user.id,
         email: user.email,
         name: user.firstname
           ? `${user.firstname} ${user.lastname || ""}`.trim()
@@ -613,16 +614,29 @@ Vous pouvez également opter pour le paiement récurrent dans votre espace membr
       const result = await response.json();
 
       if (result.success) {
-        setEmailResult({
-          success: true,
-          message: testMode
-            ? `Email de test envoyé avec succès à ${result.results.sent[0]?.email || "l'adresse de test"}.`
-            : `${result.summary.sent} email(s) envoyé(s) avec succès.`,
-          details: {
-            sent: result.summary.sent,
-            failed: result.summary.failed,
-          },
-        });
+        if (testMode) {
+          setEmailResult({
+            success: true,
+            message: `Email de test envoyé avec succès à ${result.results.sent[0]?.email || "l'adresse de test"}.`,
+            details: {
+              sent: result.summary.sent,
+              failed: result.summary.failed,
+            },
+          });
+        } else {
+          const remaining = result.remainingToSend || 0;
+          setEmailResult({
+            success: true,
+            message:
+              remaining > 0
+                ? `${result.totalRecipients} email(s) mis en file d'attente. ${result.sentImmediately} envoyé(s) immédiatement, ${remaining} restant(s) seront envoyés par le cron quotidien.`
+                : `${result.sentImmediately} email(s) envoyé(s) avec succès.`,
+            details: {
+              sent: result.sentImmediately || 0,
+              failed: 0,
+            },
+          });
+        }
       } else {
         setEmailResult({
           success: false,

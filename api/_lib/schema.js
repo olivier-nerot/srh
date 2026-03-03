@@ -90,6 +90,7 @@ const newsletterQueue = sqliteTable('newsletter_queue', {
   title: text('title').notNull(),
   content: text('content').notNull(),
   selectedPublicationIds: text('selected_publication_ids', { mode: 'json' }),
+  type: text('type').notNull().default('newsletter'),
   status: text('status').notNull().default('draft'),
   totalRecipients: integer('total_recipients').notNull(),
   sentCount: integer('sent_count').notNull().default(0),

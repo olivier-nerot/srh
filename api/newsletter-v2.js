@@ -35,6 +35,10 @@ function deltaToHtml(content) {
 
           return text.replace(/\n/g, '<br>');
         }
+        if (typeof op.insert === 'object' && op.insert.image) {
+          const src = op.insert.image;
+          return `<img src="${src}" alt="" style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 4px;" />`;
+        }
         return '';
       }).join('');
     }
@@ -52,6 +56,46 @@ function getTypeLabel(type) {
     rapport: 'Rapport'
   };
   return types[type] || type;
+}
+
+// Admin email template (duplicated for serverless isolation)
+function generatePaymentEmailTemplate(subject, body, recipientEmail, recipientName) {
+  const baseUrl = process.env.PRODUCTION_URL || 'https://srh-info.org';
+  const profileUrl = `${baseUrl}/login`;
+
+  return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); border-radius: 8px;">
+    <h1 style="color: white; margin: 0; font-size: 24px;">Syndicat des Radiologues Hospitaliers</h1>
+  </div>
+  <p style="font-size: 16px; margin-bottom: 20px;">
+    ${recipientName ? `Cher(e) ${recipientName},` : 'Cher(e) membre,'}
+  </p>
+  <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #1e40af;">
+    ${body.split('\n').map(line => `<p style="margin: 0 0 10px 0;">${line}</p>`).join('')}
+  </div>
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="${profileUrl}" style="display: inline-block; background: #1e40af; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+      Accéder à mon espace membre
+    </a>
+  </div>
+  <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 14px;">
+    <p style="margin: 0 0 10px 0;">Cordialement,<br><strong>L'équipe SRH</strong></p>
+    <p style="margin: 20px 0 0 0; font-size: 12px; color: #9ca3af;">
+      Syndicat des Radiologues Hospitaliers<br>
+      <a href="${baseUrl}" style="color: #1e40af;">srh-info.org</a>
+    </p>
+  </div>
+</body>
+</html>
+`;
 }
 
 function generateEmailTemplate(title, content, selectedPublications, userEmail, req) {
@@ -409,13 +453,23 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
       return { sent: 0, failed: 0 };
     }
 
-    // Get selected publications
+    // For newsletters: get selected publications
+    // For admin-emails: get user names for personalization
     let selectedPublications = [];
-    if (newsletter.selectedPublicationIds && newsletter.selectedPublicationIds.length > 0) {
-      const allPubs = await db.select().from(publications);
-      selectedPublications = allPubs.filter(pub =>
-        newsletter.selectedPublicationIds.includes(pub.id)
-      );
+    const userMap = {};
+
+    if (newsletter.type === 'admin-email') {
+      const allUsers = await db.select().from(users);
+      for (const u of allUsers) {
+        userMap[u.id] = u.firstname ? `${u.firstname} ${u.lastname || ''}`.trim() : null;
+      }
+    } else {
+      if (newsletter.selectedPublicationIds && newsletter.selectedPublicationIds.length > 0) {
+        const allPubs = await db.select().from(publications);
+        selectedPublications = allPubs.filter(pub =>
+          newsletter.selectedPublicationIds.includes(pub.id)
+        );
+      }
     }
 
     let sent = 0;
@@ -427,16 +481,27 @@ async function sendNewsletterBatch(newsletterId, limit = DAILY_EMAIL_LIMIT) {
         // In debug mode, override recipient email with debug email
         const targetEmail = DEBUG_MODE ? DEBUG_EMAIL : recipient.email;
 
-        const emailHtml = generateEmailTemplate(
-          newsletter.title,
-          newsletter.content,
-          selectedPublications,
-          recipient.email, // Keep original email in template
-          null // No req object in cron
-        );
+        let emailHtml;
+        if (newsletter.type === 'admin-email') {
+          const recipientName = userMap[recipient.userId] || null;
+          emailHtml = generatePaymentEmailTemplate(
+            newsletter.title,
+            newsletter.content,
+            recipient.email,
+            recipientName
+          );
+        } else {
+          emailHtml = generateEmailTemplate(
+            newsletter.title,
+            newsletter.content,
+            selectedPublications,
+            recipient.email,
+            null
+          );
+        }
 
         if (DEBUG_MODE) {
-          console.log(`🐛 DEBUG: Would send to ${recipient.email}, redirecting to ${DEBUG_EMAIL}`);
+          console.log(`DEBUG: Would send to ${recipient.email}, redirecting to ${DEBUG_EMAIL}`);
         }
 
         await resend.emails.send({
