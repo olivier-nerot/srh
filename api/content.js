@@ -106,14 +106,14 @@ async function createPublication(req, res) {
       title,
       content,
       tags: tags || [],
-      pubdate: new Date(pubdate).getTime(),
+      pubdate: new Date(pubdate),
       subscribersonly: subscribersonly || false,
       homepage: homepage !== undefined ? homepage : true,
       picture: picture || null,
       attachmentIds: attachmentIds || [],
       type: type || 'publication',
-      createdAt: new Date().getTime(),
-      updatedAt: new Date().getTime(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }).returning();
 
     return res.status(201).json({ success: true, publication: result[0] });
@@ -150,13 +150,13 @@ async function updatePublication(req, res) {
         title,
         content,
         tags: tags || [],
-        pubdate: new Date(pubdate).getTime(),
+        pubdate: new Date(pubdate),
         subscribersonly: subscribersonly || false,
         homepage: homepage !== undefined ? homepage : true,
         picture: picture || null,
         attachmentIds: attachmentIds || [],
         type: type || 'publication',
-        updatedAt: new Date().getTime(),
+        updatedAt: new Date(),
       })
       .where(eq(publications.id, id))
       .returning();
@@ -272,8 +272,8 @@ async function createJOText(req, res) {
       name,
       content,
       document: document || null,
-      createdAt: new Date().getTime(),
-      updatedAt: new Date().getTime(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }).returning();
 
     return res.status(201).json({ success: true, jotext: result[0] });
@@ -310,7 +310,7 @@ async function updateJOText(req, res) {
         name,
         content,
         document: document || null,
-        updatedAt: new Date().getTime(),
+        updatedAt: new Date(),
       })
       .where(eq(jotextes.id, id))
       .returning();
@@ -426,8 +426,8 @@ async function createFAQ(req, res) {
       question,
       answer,
       tags: tags || [],
-      createdAt: new Date().getTime(),
-      updatedAt: new Date().getTime(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }).returning();
 
     return res.status(201).json({ success: true, faq: result[0] });
@@ -464,7 +464,7 @@ async function updateFAQ(req, res) {
         question,
         answer,
         tags: tags || [],
-        updatedAt: new Date().getTime(),
+        updatedAt: new Date(),
       })
       .where(eq(faq.id, id))
       .returning();
@@ -580,8 +580,8 @@ async function createRapport(req, res) {
       name,
       content,
       document: document || null,
-      createdAt: new Date().getTime(),
-      updatedAt: new Date().getTime(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }).returning();
 
     return res.status(201).json({ success: true, rapport: result[0] });
@@ -618,7 +618,7 @@ async function updateRapport(req, res) {
         name,
         content,
         document: document || null,
-        updatedAt: new Date().getTime(),
+        updatedAt: new Date(),
       })
       .where(eq(rapports.id, id))
       .returning();
@@ -747,8 +747,8 @@ async function createLien(req, res) {
       url,
       logo: logo || null,
       picture: picture || null,
-      createdAt: new Date().getTime(),
-      updatedAt: new Date().getTime(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }).returning();
 
     return res.status(201).json({ success: true, lien: result[0] });
@@ -789,7 +789,7 @@ async function updateLien(req, res) {
         url,
         logo: logo || null,
         picture: picture || null,
-        updatedAt: new Date().getTime(),
+        updatedAt: new Date(),
       })
       .where(eq(liens.id, id))
       .returning();
