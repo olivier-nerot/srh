@@ -118,7 +118,7 @@ function generateEmailTemplate(title, content, selectedPublications, userEmail) 
   const fullBaseUrl = process.env.PRODUCTION_URL || 'https://srh-info.org';
 
   const publicationsHtml = selectedPublications.map(pub => {
-    const publicationUrl = `${fullBaseUrl}/publications/${pub.id}`;
+    const publicationUrl = `${fullBaseUrl}/item?id=${pub.id}&type=${pub.type || 'publication'}`;
     return `
     <div style="margin: 20px 0; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;">
       <h3 style="color: #1e40af; margin: 0 0 8px 0; font-size: 18px;">
