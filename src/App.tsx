@@ -21,7 +21,7 @@ import ProfileEdit from "./pages/ProfileEdit";
 import AdminRoute from "./components/auth/AdminRoute";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import FAQ from "./pages/FAQ";
-import Documents from "./pages/Documents";
+import Justificatifs from "./pages/Justificatifs";
 
 // Lazy-loaded admin pages (code splitting)
 const AdminMembers = lazy(() => import("./pages/admin/AdminMembers"));
@@ -57,7 +57,7 @@ function App() {
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/article" element={<Article />} />
           <Route path="/faq" element={<FAQ />} />
-          <Route path="/documents" element={<Documents />} />
+          <Route path="/justificatifs" element={<Justificatifs />} />
           {/* Protected User Profile Routes */}
           <Route
             path="/profile"

@@ -1,10 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, Menu, X, User, LogOut, FileText, HelpCircle, Users, File, Send, 
-         Building2, UserCheck, ScrollText, BookOpen, MessageCircle, Scale, FileBarChart, Mail } from 'lucide-react';
-import { siteContent } from '../../data/content';
-import { useAuthStore } from '../../stores/authStore';
-import logoSvg from '/icon.svg';
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ChevronDown,
+  Menu,
+  X,
+  User,
+  LogOut,
+  FileText,
+  HelpCircle,
+  Users,
+  File,
+  Send,
+  Building2,
+  UserCheck,
+  ScrollText,
+  BookOpen,
+  MessageCircle,
+  Scale,
+  FileBarChart,
+  Mail,
+} from "lucide-react";
+import { siteContent } from "../../data/content";
+import { useAuthStore } from "../../stores/authStore";
+import logoSvg from "/icon.svg";
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
@@ -29,55 +47,78 @@ const Header: React.FC = () => {
   const handleLogout = () => {
     logout();
     setIsUserMenuOpen(false);
-    navigate('/');
+    navigate("/");
   };
 
   const getUserMenuItems = () => [
-    { label: 'Mon profil', href: user ? `/profile?id=${user.id}` : '/profile', icon: User },
-    { label: 'Documents', href: '/documents', icon: FileText },
-    { label: 'FAQ', href: '/faq', icon: HelpCircle },
+    {
+      label: "Mon profil",
+      href: user ? `/profile?id=${user.id}` : "/profile",
+      icon: User,
+    },
+    { label: "Justificatifs", href: "/justificatifs", icon: FileText },
+    { label: "FAQ", href: "/faq", icon: HelpCircle },
   ];
 
   const adminMenuItems = [
-    { label: 'Membres', href: '/admin/members', icon: Users },
-    { label: 'Publications', href: '/admin/publications?type=publication', icon: File },
-    { label: 'Communiqués', href: '/admin/publications?type=communique', icon: Send },
-    { label: 'Journal Officiel', href: '/admin/publications?type=jo', icon: Scale },
-    { label: 'Rapports', href: '/admin/publications?type=rapport', icon: FileBarChart },
-    { label: 'Newsletter', href: '/admin/newsletter', icon: Mail },
+    { label: "Membres", href: "/admin/members", icon: Users },
+    {
+      label: "Publications",
+      href: "/admin/publications?type=publication",
+      icon: File,
+    },
+    {
+      label: "Communiqués",
+      href: "/admin/publications?type=communique",
+      icon: Send,
+    },
+    {
+      label: "Journal Officiel",
+      href: "/admin/publications?type=jo",
+      icon: Scale,
+    },
+    {
+      label: "Rapports",
+      href: "/admin/publications?type=rapport",
+      icon: FileBarChart,
+    },
+    { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
   ];
 
   // Icons mapping for navigation items
   const getNavigationIcon = (title: string) => {
-    const iconMap: { [key: string]: any } = {
+    const iconMap: { [key: string]: React.FC<{ className?: string }> } = {
       // Qui sommes-nous
-      'Présentation': Building2,
-      'Bureau': UserCheck,
-      'Les statuts': ScrollText,
-      
+      Présentation: Building2,
+      Bureau: UserCheck,
+      "Les statuts": ScrollText,
+
       // Nos informations
-      'Nos publications': BookOpen,
-      'Communiqués': MessageCircle,
-      
+      "Nos publications": BookOpen,
+      Communiqués: MessageCircle,
+
       // Textes officiels
-      'Textes du Journal Officiel': Scale,
-      'Rapports institutionnels': FileBarChart,
+      "Textes du Journal Officiel": Scale,
+      "Rapports institutionnels": FileBarChart,
     };
-    
+
     return iconMap[title] || FileText; // Default icon
   };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+      if (
+        headerRef.current &&
+        !headerRef.current.contains(event.target as Node)
+      ) {
         setActiveDropdown(null);
         setIsUserMenuOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -103,7 +144,9 @@ const Header: React.FC = () => {
                       className="flex items-center text-gray-700 hover:text-primary-600 px-3 py-2 text-sm font-medium transition-colors focus:outline-none"
                     >
                       {item.title}
-                      <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${activeDropdown === item.title ? 'rotate-180' : ''}`} />
+                      <ChevronDown
+                        className={`ml-1 h-4 w-4 transition-transform ${activeDropdown === item.title ? "rotate-180" : ""}`}
+                      />
                     </button>
 
                     {/* Dropdown Menu */}
@@ -111,7 +154,9 @@ const Header: React.FC = () => {
                       <div className="absolute top-full left-0 mt-1 w-56 bg-white/80 backdrop-blur-md rounded-md shadow-lg border z-50">
                         <div className="py-1">
                           {item.children.map((child) => {
-                            const IconComponent = getNavigationIcon(child.title);
+                            const IconComponent = getNavigationIcon(
+                              child.title,
+                            );
                             return (
                               <Link
                                 key={child.title}
@@ -149,8 +194,12 @@ const Header: React.FC = () => {
                   className="bg-srh-blue hover:bg-srh-blue-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2"
                 >
                   <User className="h-4 w-4" />
-                  <span>{user.firstname} {user.lastname}</span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                  <span>
+                    {user.firstname} {user.lastname}
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${isUserMenuOpen ? "rotate-180" : ""}`}
+                  />
                 </button>
 
                 {isUserMenuOpen && (
@@ -170,12 +219,14 @@ const Header: React.FC = () => {
                           </Link>
                         );
                       })}
-                      
+
                       {user.isadmin && (
                         <>
                           <div className="border-t border-red-200 my-1"></div>
                           <div className="px-4 py-1">
-                            <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">Zone Admin</span>
+                            <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">
+                              Zone Admin
+                            </span>
                           </div>
                           {adminMenuItems.map((item) => {
                             const Icon = item.icon;
@@ -193,7 +244,7 @@ const Header: React.FC = () => {
                           })}
                         </>
                       )}
-                      
+
                       <div className="border-t border-gray-200 my-1"></div>
                       <button
                         onClick={handleLogout}
@@ -253,13 +304,17 @@ const Header: React.FC = () => {
                         className="w-full text-left flex items-center justify-between px-3 py-2 text-base font-medium text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md"
                       >
                         {item.title}
-                        <ChevronDown className={`h-4 w-4 transition-transform ${activeDropdown === item.title ? 'rotate-180' : ''}`} />
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${activeDropdown === item.title ? "rotate-180" : ""}`}
+                        />
                       </button>
                       {activeDropdown === item.title && (
                         <div className="ml-4 mt-2 bg-white/80 backdrop-blur-md rounded-md border shadow-sm">
                           <div className="py-1 space-y-1">
                             {item.children.map((child) => {
-                              const IconComponent = getNavigationIcon(child.title);
+                              const IconComponent = getNavigationIcon(
+                                child.title,
+                              );
                               return (
                                 <Link
                                   key={child.title}
@@ -310,12 +365,14 @@ const Header: React.FC = () => {
                         </Link>
                       );
                     })}
-                    
+
                     {user.isadmin && (
                       <>
                         <div className="border-t border-red-200 my-2"></div>
                         <div className="px-3 py-1">
-                          <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">Zone Admin</span>
+                          <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">
+                            Zone Admin
+                          </span>
                         </div>
                         {adminMenuItems.map((item) => {
                           const Icon = item.icon;
@@ -333,7 +390,7 @@ const Header: React.FC = () => {
                         })}
                       </>
                     )}
-                    
+
                     <div className="border-t border-gray-200 my-2"></div>
                     <button
                       onClick={handleLogout}

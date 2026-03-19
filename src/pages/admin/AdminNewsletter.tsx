@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import QuillEditor from "quill-next-react";
 import "quill-next/dist/quill.snow.css";
 import {
@@ -78,6 +78,7 @@ const AdminNewsletter: React.FC = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [quillRef, setQuillRef] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const pendingContentRef = useRef<string | null>(null);
   const [publications, setPublications] = useState<Publication[]>([]);
   const [selectedPublications, setSelectedPublications] = useState<number[]>(
     [],
@@ -437,7 +438,7 @@ const AdminNewsletter: React.FC = () => {
     setCurrentDraftId(draft.id);
     setShowForm(true);
 
-    // Set content in Quill editor
+    // Set content in Quill editor (or defer if Quill not mounted yet)
     if (quillRef) {
       try {
         const delta = JSON.parse(draft.content);
@@ -445,6 +446,9 @@ const AdminNewsletter: React.FC = () => {
       } catch (error) {
         console.error("Error loading draft content:", error);
       }
+    } else {
+      // Quill not mounted yet — store content to load in onReady
+      pendingContentRef.current = draft.content;
     }
 
     setMessage({ type: "info", text: "Brouillon chargé" });
@@ -530,7 +534,12 @@ const AdminNewsletter: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => setShowForm(!showForm)}
+              onClick={() => {
+                if (showForm) {
+                  setQuillRef(null);
+                }
+                setShowForm(!showForm);
+              }}
               className="flex items-center px-4 py-2 bg-srh-blue text-white rounded-md hover:bg-srh-blue-dark transition-colors"
             >
               {showForm ? (
@@ -730,13 +739,108 @@ const AdminNewsletter: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Contenu de la newsletter *
                     </label>
-                    <div
-                      className="border border-gray-300 rounded-md"
-                      style={{ minHeight: "300px" }}
-                    >
+                    <div className="border border-gray-300 rounded-md [&_.ql-editor]:min-h-[250px] [&_.ql-editor]:max-h-[500px] [&_.ql-editor]:overflow-y-auto">
                       <QuillEditor
                         onReady={(quill) => {
                           setQuillRef(quill);
+
+                          // Load pending content if a draft was loaded before Quill mounted
+                          if (pendingContentRef.current) {
+                            try {
+                              const delta = JSON.parse(
+                                pendingContentRef.current,
+                              );
+                              quill.setContents(delta);
+                            } catch (error) {
+                              console.error(
+                                "Error loading pending draft content:",
+                                error,
+                              );
+                            }
+                            pendingContentRef.current = null;
+                          }
+
+                          // Custom image handler: upload to Vercel Blob then insert URL
+                          const toolbar = quill.getModule("toolbar") as {
+                            addHandler: (
+                              name: string,
+                              handler: () => void,
+                            ) => void;
+                          };
+                          toolbar.addHandler("image", () => {
+                            const input = document.createElement("input");
+                            input.type = "file";
+                            input.accept =
+                              "image/jpeg,image/png,image/webp,image/gif";
+                            input.onchange = async () => {
+                              const file = input.files?.[0];
+                              if (!file) return;
+                              if (file.size > 2 * 1024 * 1024) {
+                                setMessage({
+                                  type: "error",
+                                  text: "Image trop volumineuse (max 2 Mo)",
+                                });
+                                return;
+                              }
+                              try {
+                                setMessage({
+                                  type: "info",
+                                  text: "Upload de l'image en cours...",
+                                });
+                                const base64 = await new Promise<string>(
+                                  (resolve, reject) => {
+                                    const reader = new FileReader();
+                                    reader.onload = () =>
+                                      resolve(reader.result as string);
+                                    reader.onerror = reject;
+                                    reader.readAsDataURL(file);
+                                  },
+                                );
+                                const response = await fetch(
+                                  "/api/files?action=upload&type=image",
+                                  {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      file: base64,
+                                      fileName: file.name,
+                                      mimeType: file.type,
+                                      isAdmin: true,
+                                    }),
+                                  },
+                                );
+                                const data = await response.json();
+                                if (data.success && data.imageUrl) {
+                                  const range = quill.getSelection(true);
+                                  quill.insertEmbed(
+                                    range.index,
+                                    "image",
+                                    data.imageUrl,
+                                  );
+                                  quill.setSelection(range.index + 1);
+                                  setMessage({
+                                    type: "success",
+                                    text: "Image ajoutee",
+                                  });
+                                } else {
+                                  setMessage({
+                                    type: "error",
+                                    text:
+                                      data.error || "Erreur lors de l'upload",
+                                  });
+                                }
+                              } catch (error) {
+                                console.error("Image upload error:", error);
+                                setMessage({
+                                  type: "error",
+                                  text: "Erreur lors de l'upload de l'image",
+                                });
+                              }
+                            };
+                            input.click();
+                          });
 
                           // Set up text-change event listener
                           quill.on("text-change", () => {
@@ -752,7 +856,7 @@ const AdminNewsletter: React.FC = () => {
                               [{ header: [1, 2, 3, false] }],
                               ["bold", "italic", "underline"],
                               [{ list: "ordered" }, { list: "bullet" }],
-                              ["link"],
+                              ["link", "image"],
                               ["clean"],
                             ],
                           },
