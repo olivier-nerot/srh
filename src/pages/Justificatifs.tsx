@@ -19,7 +19,7 @@ function getYearFromPayment(payment: Payment): number {
 }
 
 function formatAmount(amount: number): string {
-  return (amount / 100).toFixed(2).replace(".", ",");
+  return amount.toFixed(2).replace(".", ",");
 }
 
 async function loadImageAsBase64(url: string): Promise<string> {
@@ -169,7 +169,7 @@ const Justificatifs: React.FC = () => {
         setPayments([
           {
             id: "fake-admin-preview",
-            amount: 15000,
+            amount: 150,
             currency: "eur",
             status: "succeeded",
             created: new Date(),
