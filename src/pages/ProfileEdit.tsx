@@ -945,8 +945,9 @@ const ProfileEdit: React.FC = () => {
   const PaymentHandler = () => {
     const stripe = useStripe();
     const elements = useElements();
+    const [showRenewalConfirm, setShowRenewalConfirm] = useState(false);
 
-    const handlePaymentClick = async () => {
+    const executePayment = async () => {
       setIsPaymentLoading(true);
 
       try {
@@ -956,8 +957,6 @@ const ProfileEdit: React.FC = () => {
           setIsPaymentLoading(false);
           return;
         }
-
-        // No blocking check - users can always pay for the next year even if they have an active subscription
 
         // Process payment if needed
         if (selectedTierData.price > 0) {
@@ -1005,26 +1004,95 @@ const ProfileEdit: React.FC = () => {
       }
     };
 
+    const handlePaymentClick = () => {
+      // Garde-fou : si adhesion deja valide et paiement non gratuit, demander confirmation
+      const tier = getSelectedTierData();
+      if (tier && tier.price > 0 && isValidRegistration()) {
+        setShowRenewalConfirm(true);
+        return;
+      }
+      executePayment();
+    };
+
+    const handleConfirmRenewal = () => {
+      setShowRenewalConfirm(false);
+      executePayment();
+    };
+
     return (
-      <button
-        onClick={handlePaymentClick}
-        disabled={
-          !formData.subscription ||
-          isPaymentLoading ||
-          (!stripe && (getSelectedTierData()?.price ?? 0) > 0)
-        }
-        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
-      >
-        {isPaymentLoading
-          ? "Traitement en cours..."
-          : getSelectedTierData()?.price === 0
-            ? "Mettre à jour l'adhésion"
-            : isValidRegistration()
-              ? "Payer pour l'année prochaine"
-              : isRecurring
-                ? "Souscrire l'abonnement annuel"
-                : "Effectuer le paiement"}
-      </button>
+      <>
+        <button
+          onClick={handlePaymentClick}
+          disabled={
+            !formData.subscription ||
+            isPaymentLoading ||
+            (!stripe && (getSelectedTierData()?.price ?? 0) > 0)
+          }
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          {isPaymentLoading
+            ? "Traitement en cours..."
+            : getSelectedTierData()?.price === 0
+              ? "Mettre à jour l'adhésion"
+              : isValidRegistration()
+                ? "Payer pour l'année prochaine"
+                : isRecurring
+                  ? "Souscrire l'abonnement annuel"
+                  : "Effectuer le paiement"}
+        </button>
+
+        {showRenewalConfirm && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowRenewalConfirm(false)}
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                Confirmer le paiement
+              </h3>
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
+                <p className="text-sm text-amber-900">
+                  Votre adhésion est{" "}
+                  <strong>
+                    déjà valide jusqu'au{" "}
+                    {getMembershipEndDate()
+                      ? formatDate(getMembershipEndDate()!)
+                      : "à la date prévue"}
+                  </strong>
+                  .
+                </p>
+                <p className="text-sm text-amber-900 mt-2">
+                  Ce paiement de{" "}
+                  <strong>{getSelectedTierData()?.price} €</strong> renouvellera
+                  votre adhésion pour l'année suivante.
+                </p>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Souhaitez-vous vraiment effectuer ce paiement maintenant ?
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRenewalConfirm(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmRenewal}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                >
+                  Confirmer et payer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   };
 

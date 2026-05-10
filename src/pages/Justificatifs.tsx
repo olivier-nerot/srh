@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 import { useMembershipStatus } from "../hooks/useMembershipStatus";
 import { getUserLastPayment, type Payment } from "../services/paymentService";
-import { FileText, Download, Loader2 } from "lucide-react";
+import { getUserById } from "../services/userService";
+import { FileText, Download, Loader2, ArrowLeft } from "lucide-react";
 import { jsPDF } from "jspdf";
+
+interface JustificatifsTargetUser {
+  firstname: string | null;
+  lastname: string | null;
+  email: string;
+}
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("fr-FR", {
@@ -123,17 +130,35 @@ async function generateAttestation(
 
 const Justificatifs: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const targetUserId = searchParams.get("id");
   const { user, isAuthenticated } = useAuthStore();
   const { isValidMember, isLoading: membershipLoading } = useMembershipStatus();
 
   const isAdmin = user?.isadmin === true;
-  const hasAdminBypass = isAdmin && !isValidMember;
+  const isAdminViewingOther = isAdmin && !!targetUserId;
+  const hasAdminBypass = isAdmin && !isValidMember && !isAdminViewingOther;
 
+  const [targetUser, setTargetUser] = useState<JustificatifsTargetUser | null>(
+    null,
+  );
+  const [targetUserLoading, setTargetUserLoading] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [signatureBase64, setSignatureBase64] = useState<string>("");
   const [logoBase64, setLogoBase64] = useState<string>("");
+
+  // Membre dont on affiche les justificatifs : cible si admin viewing, sinon utilisateur connecte
+  const effectiveUser: JustificatifsTargetUser | null = isAdminViewingOther
+    ? targetUser
+    : user
+      ? {
+          firstname: user.firstname,
+          lastname: user.lastname,
+          email: user.email,
+        }
+      : null;
 
   const loadAssets = useCallback(async () => {
     const [sig, logo] = await Promise.all([
@@ -148,20 +173,45 @@ const Justificatifs: React.FC = () => {
     loadAssets();
   }, [loadAssets]);
 
+  // Charge le membre cible quand un admin consulte /justificatifs?id=X
+  useEffect(() => {
+    if (!isAdminViewingOther || !targetUserId) {
+      setTargetUser(null);
+      return;
+    }
+    setTargetUserLoading(true);
+    getUserById(targetUserId)
+      .then((u) => {
+        if (u) {
+          setTargetUser({
+            firstname: u.firstname,
+            lastname: u.lastname,
+            email: u.email,
+          });
+        } else {
+          setTargetUser(null);
+        }
+      })
+      .finally(() => setTargetUserLoading(false));
+  }, [isAdminViewingOther, targetUserId]);
+
   useEffect(() => {
     async function fetchPayments() {
-      if (!user?.email) return;
+      if (!effectiveUser?.email) return;
       setPaymentsLoading(true);
-      const result = await getUserLastPayment(user.email);
+      const result = await getUserLastPayment(effectiveUser.email);
       if (result.success && result.paymentHistory) {
         const successful = result.paymentHistory.filter(
           (p) => p.status === "succeeded",
         );
         setPayments(successful);
+      } else {
+        setPayments([]);
       }
-      // Admin sans paiement : ajouter un justificatif fictif pour tester
+      // Apercu fictif uniquement quand un admin consulte sa propre page sans paiement
       if (
         isAdmin &&
+        !isAdminViewingOther &&
         (!result.paymentHistory ||
           result.paymentHistory.filter((p) => p.status === "succeeded")
             .length === 0)
@@ -180,21 +230,31 @@ const Justificatifs: React.FC = () => {
       setPaymentsLoading(false);
     }
 
-    if (isAuthenticated && (isValidMember || isAdmin)) {
+    if (isAdminViewingOther) {
+      // Mode admin viewing : on attend que targetUser soit charge
+      if (targetUser) fetchPayments();
+    } else if (isAuthenticated && (isValidMember || isAdmin)) {
       fetchPayments();
     }
-  }, [isAuthenticated, isValidMember, isAdmin, user?.email]);
+  }, [
+    isAuthenticated,
+    isValidMember,
+    isAdmin,
+    isAdminViewingOther,
+    targetUser,
+    effectiveUser?.email,
+  ]);
 
   const handleDownload = async (payment: Payment) => {
-    if (!user || !signatureBase64 || !logoBase64) return;
+    if (!effectiveUser || !signatureBase64 || !logoBase64) return;
     setGeneratingId(payment.id);
     try {
       await generateAttestation(
         payment,
         {
-          firstname: user.firstname,
-          lastname: user.lastname,
-          email: user.email,
+          firstname: effectiveUser.firstname || "",
+          lastname: effectiveUser.lastname || "",
+          email: effectiveUser.email,
         },
         signatureBase64,
         logoBase64,
@@ -297,8 +357,37 @@ const Justificatifs: React.FC = () => {
     );
   }
 
-  // Chargement membership
-  if (membershipLoading) {
+  // Chargement du membre cible (mode admin viewing)
+  if (isAdminViewingOther && targetUserLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-srh-blue mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement du profil membre...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Membre cible introuvable (mode admin viewing)
+  if (isAdminViewingOther && !targetUser && !targetUserLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Membre introuvable.</p>
+          <button
+            onClick={() => navigate("/admin/members")}
+            className="text-srh-blue hover:text-srh-blue-dark underline"
+          >
+            Retour a la liste des membres
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Chargement membership (uniquement en mode normal)
+  if (!isAdminViewingOther && membershipLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -309,7 +398,7 @@ const Justificatifs: React.FC = () => {
     );
   }
 
-  // Adhesion non valide
+  // Adhesion non valide (les admins contournent toujours)
   if (!isValidMember && !isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -412,6 +501,25 @@ const Justificatifs: React.FC = () => {
           style={{ clipPath: "ellipse(100% 100% at 50% 100%)" }}
         ></div>
       </section>
+
+      {/* Bandeau admin viewing : consultation des justificatifs d'un autre membre */}
+      {isAdminViewingOther && targetUser && (
+        <div className="bg-srh-blue/10 border-b border-srh-blue/20">
+          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+            <span className="text-sm text-srh-blue font-medium">
+              Mode admin : justificatifs de {targetUser.firstname || ""}{" "}
+              {targetUser.lastname || ""} ({targetUser.email})
+            </span>
+            <button
+              onClick={() => navigate(`/profile?id=${targetUserId}`)}
+              className="inline-flex items-center gap-1 text-sm text-srh-blue hover:text-srh-blue-dark font-medium"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Retour a la fiche membre
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Admin bypass warning */}
       {hasAdminBypass && (

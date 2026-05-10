@@ -24,7 +24,7 @@ export function useMembershipStatus(): MembershipStatus {
       try {
         // 1. Check subscribedUntil from database
         const profileRes = await fetch(
-          `/api/user-management?action=get-profile&email=${encodeURIComponent(user.email)}`,
+          `/api/user-management?action=profile&id=${encodeURIComponent(user.id)}`,
         );
         const profileData = await profileRes.json();
 
@@ -58,24 +58,23 @@ export function useMembershipStatus(): MembershipStatus {
           }
         }
 
-        // 3. Check last successful payment
+        // 3. Check last successful payment (one-time)
+        // Convention metier : adhesion valide jusqu'au 31 decembre de l'annee du paiement
         const payRes = await fetch(
           `/api/stripe?action=get-payments&email=${encodeURIComponent(user.email)}`,
         );
         const payData = await payRes.json();
 
-        if (payData.payments?.length > 0) {
-          const lastSuccessful = payData.payments.find(
-            (p: { status: string }) => p.status === "succeeded",
-          );
-          if (lastSuccessful?.metadata?.valid_until) {
-            const validUntil = new Date(lastSuccessful.metadata.valid_until);
-            if (validUntil > new Date()) {
-              setIsValidMember(true);
-              setMembershipEndDate(validUntil);
-              setIsLoading(false);
-              return;
-            }
+        if (payData.success && payData.lastPayment?.status === "succeeded") {
+          const paymentYear = new Date(
+            payData.lastPayment.created,
+          ).getFullYear();
+          const endOfYear = new Date(paymentYear, 11, 31, 23, 59, 59, 999);
+          if (endOfYear > new Date()) {
+            setIsValidMember(true);
+            setMembershipEndDate(endOfYear);
+            setIsLoading(false);
+            return;
           }
         }
 
@@ -89,7 +88,7 @@ export function useMembershipStatus(): MembershipStatus {
     };
 
     checkMembership();
-  }, [isAuthenticated, user?.email]);
+  }, [isAuthenticated, user?.id, user?.email]);
 
   return { isValidMember, isLoading, membershipEndDate };
 }

@@ -851,8 +851,16 @@ async function updateSubscriptionDate(req, res) {
       });
     }
 
-    // Subscription valid until December 31st of current year
-    const subscribedUntil = new Date(new Date().getFullYear(), 11, 31, 23, 59, 59, 999);
+    // Si l'adhesion est encore valide, on prolonge d'un an (renouvellement anticipe / 2e paiement).
+    // Sinon (nouvelle adhesion ou adhesion expiree) : 31 decembre de l'annee courante.
+    const now = new Date();
+    const currentEndDate = existingUser[0].subscribedUntil
+      ? new Date(existingUser[0].subscribedUntil)
+      : null;
+    const subscribedUntil =
+      currentEndDate && currentEndDate > now
+        ? new Date(currentEndDate.getFullYear() + 1, 11, 31, 23, 59, 59, 999)
+        : new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
 
     const result = await db
       .update(users)

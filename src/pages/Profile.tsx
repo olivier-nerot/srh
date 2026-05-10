@@ -14,6 +14,7 @@ import {
   Edit,
   CreditCard,
   Euro,
+  FileText,
 } from "lucide-react";
 import { getUserById } from "../services/userService";
 import {
@@ -500,7 +501,17 @@ const Profile: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
+              {currentUser?.isadmin === true && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/justificatifs?id=${userId}`)}
+                  className="bg-white border border-srh-blue text-srh-blue hover:bg-srh-blue/5 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Voir les justificatifs</span>
+                </button>
+              )}
               {canEdit && (
                 <button
                   type="button"
